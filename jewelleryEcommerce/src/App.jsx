@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { Button } from 'antd';
 import './App.css'
+import Navbar from './components/Basic/Navbar.jsx'
 
 function App() {
 
   return (
     <>
-      <div style={{ padding: '50px' }}>
-        <Button type="primary">Ant Design Button</Button>
-      </div>
+    <Navbar/>
     </>
   )
 }
