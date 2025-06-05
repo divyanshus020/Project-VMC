@@ -40,7 +40,7 @@ A modern, responsive jewellery e-commerce website where users can browse and inq
 
 ```bash
 git clone https://github.com/divyanshus020/Project-VMC
-cd jewellery-ecommerce
+cd jewelleryEcommerce
 npm install
 npm run dev
 ```
