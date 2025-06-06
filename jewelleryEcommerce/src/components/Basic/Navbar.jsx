@@ -12,46 +12,24 @@ import {
     HeartOutlined,
     ShoppingCartOutlined,
     UserOutlined,
-    MenuOutlined,
-    DownOutlined
+    MenuOutlined
 } from '@ant-design/icons';
 
 const { Search } = Input;
 
-// Dynamic nav links data
+// Simplified nav links data
 const navLinks = [
     { label: 'Home', href: '#' },
-    {
-        label: 'Rings',
-        dropdown: [
-            { label: 'Diamond Rings', key: 'diamond-rings' },
-            { label: 'Wedding Rings', key: 'wedding-rings' },
-            { label: 'Engagement Rings', key: 'engagement-rings' },
-            { divider: true },
-            { label: 'Gold Rings', key: 'gold-rings' },
-            { label: 'Silver Rings', key: 'silver-rings' }
-        ]
-    },
-    { label: 'Necklaces', href: '#' },
-    { label: 'Earrings', href: '#' },
-    { label: 'Bracelets', href: '#' },
-    { label: 'Collections', href: '#' }
+    { label: 'Product', href: '#' },
+    { label: 'About us', href: '#' },
+    { label: 'Contact us', href: '#' }
 ];
 
 const mobileMenuLinks = [
     { icon: '🏠', label: 'Home', key: 'home' },
-    {
-        icon: '💍', label: 'Rings', key: 'rings', submenu: [
-            { label: 'Diamond Rings', key: 'diamond-rings' },
-            { label: 'Wedding Rings', key: 'wedding-rings' },
-            { label: 'Engagement Rings', key: 'engagement-rings' },
-            { label: 'Gold Rings', key: 'gold-rings' }
-        ]
-    },
-    { icon: '📿', label: 'Necklaces', key: 'necklaces' },
-    { icon: '👂', label: 'Earrings', key: 'earrings' },
-    { icon: '⚜️', label: 'Bracelets', key: 'bracelets' },
-    { icon: '✨', label: 'Collections', key: 'collections' }
+    { icon: '💍', label: 'Product', key: 'product' },
+    { icon: 'ℹ️', label: 'About us', key: 'about' },
+    { icon: '📞', label: 'Contact us', key: 'contact' }
 ];
 
 const userMenuItems = [
@@ -75,16 +53,6 @@ const Navbar = () => {
         </Menu>
     );
 
-    // Categories dropdown for desktop
-    const categoriesMenu = (
-        <Menu>
-            {navLinks.find(l => l.label === 'Rings').dropdown.map((item, idx) =>
-                item.divider ? <Menu.Divider key={idx} /> :
-                    <Menu.Item key={item.key}>{item.label}</Menu.Item>
-            )}
-        </Menu>
-    );
-
     return (
         <>
             {/* Top Header Bar */}
@@ -92,7 +60,6 @@ const Navbar = () => {
                 <div className="max-w-full mx-auto px-4 flex justify-around items-center text-sm">
                     <div className="flex gap-6">
                         <span>📞 +91-9876543210</span>
-                        
                     </div>
                     <div className="flex gap-6">
                         <span>✉️ info@luxegems.com</span>
@@ -115,25 +82,20 @@ const Navbar = () => {
                         </div>
 
                         {/* Desktop Navigation Menu */}
-                        {/* update this  */}
-                        <div className="hidden lg:flex justify-center gap-3  flex-1 items-center">
-                            {navLinks.map(link =>
-                                link.dropdown ? (
-                                    <Dropdown overlay={categoriesMenu} trigger={['hover']} key={link.label}>
-                                        <a href="#" className="text-gray-700 hover:text-yellow-600 font-medium transition-colors flex items-center">
-                                            {link.label} <DownOutlined className="ml-1 text-xs" />
-                                        </a>
-                                    </Dropdown>
-                                ) : (
-                                    <a href={link.href} key={link.label} className="text-gray-700 hover:text-yellow-600 font-medium transition-colors">
-                                        {link.label}
-                                    </a>
-                                )
-                            )}
+                        <div className="hidden lg:flex justify-center gap-8 flex-1 items-center">
+                            {navLinks.map(link => (
+                                <a 
+                                    href={link.href} 
+                                    key={link.label} 
+                                    className="text-gray-700 hover:text-yellow-600 font-medium transition-colors"
+                                >
+                                    {link.label}
+                                </a>
+                            ))}
                         </div>
 
                         {/* Search Bar */}
-                        <div className="hidden md:flex flex-1 max-w-xs mx-8  relative right-40 justify-center">
+                        <div className="hidden md:flex flex-1 max-w-xs mx-8 relative right-40 justify-center">
                             <Search
                                 placeholder="Search diamonds, gold, silver..."
                                 allowClear
@@ -227,19 +189,11 @@ const Navbar = () => {
                 bodyStyle={{ padding: 0 }}
             >
                 <Menu mode="vertical" className="border-0">
-                    {mobileMenuLinks.map(link =>
-                        link.submenu ? (
-                            <Menu.SubMenu key={link.key} title={<span>{link.icon} {link.label}</span>} className="text-base">
-                                {link.submenu.map(sub => (
-                                    <Menu.Item key={sub.key}>{sub.label}</Menu.Item>
-                                ))}
-                            </Menu.SubMenu>
-                        ) : (
-                            <Menu.Item key={link.key} className="text-base py-3">
-                                {link.icon} {link.label}
-                            </Menu.Item>
-                        )
-                    )}
+                    {mobileMenuLinks.map(link => (
+                        <Menu.Item key={link.key} className="text-base py-3">
+                            {link.icon} {link.label}
+                        </Menu.Item>
+                    ))}
                     <Menu.Divider />
                     <Menu.Item key="account" className="text-base py-3">
                         <UserOutlined className="mr-2" />
