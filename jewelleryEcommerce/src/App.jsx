@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Button } from 'antd';
 import './App.css'
 import Navbar from './components/Basic/Navbar.jsx';
+import Footer from './components/Basic/Footer.jsx';
 import Home from './pages/Home.jsx';
 import ProductPage from './pages/ProductPage.jsx';
 import About from './pages/About.jsx';
@@ -20,6 +21,7 @@ function App() {
         <Route path="/contact" element={<Contact />} />
         {/* Add more routes as needed */}
       </Routes>
+      <Footer/> 
     </BrowserRouter>
   )
 }

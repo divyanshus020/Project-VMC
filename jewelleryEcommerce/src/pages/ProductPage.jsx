@@ -30,6 +30,20 @@ const sampleProducts = [
     image: 'https://via.placeholder.com/300x200',
     price: '$799',
   },
+  {
+    id: 5,
+    title: 'Google Pixel 8',
+    description: 'Tensor G3, AI Camera, Pure Android',
+    image: 'https://via.placeholder.com/300x200',
+    price: '$799',
+  },
+  {
+    id: 6,
+    title: 'Google Pixel 8',
+    description: 'Tensor G3, AI Camera, Pure Android',
+    image: 'https://via.placeholder.com/300x200',
+    price: '$799',
+  },
 ];
 
 const ProductsPage = () => {
