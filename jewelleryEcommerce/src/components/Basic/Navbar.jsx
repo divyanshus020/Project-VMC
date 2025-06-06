@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
     Input,
     Badge,
@@ -17,41 +18,54 @@ import {
 
 const { Search } = Input;
 
-// Simplified nav links data
+// Updated nav links data with proper routes
 const navLinks = [
-    { label: 'Home', href: '#' },
-    { label: 'Product', href: '#' },
-    { label: 'About us', href: '#' },
-    { label: 'Contact us', href: '#' }
+    { label: 'Home', href: '/' },
+    { label: 'Product', href: '/products' },
+    { label: 'About us', href: '/about' },
+    { label: 'Contact us', href: '/contact' }
 ];
 
 const mobileMenuLinks = [
-    { icon: '🏠', label: 'Home', key: 'home' },
-    { icon: '💍', label: 'Product', key: 'product' },
-    { icon: 'ℹ️', label: 'About us', key: 'about' },
-    { icon: '📞', label: 'Contact us', key: 'contact' }
+    { icon: '🏠', label: 'Home', key: 'home', href: '/' },
+    { icon: '💍', label: 'Product', key: 'product', href: '/products' },
+    { icon: 'ℹ️', label: 'About us', key: 'about', href: '/about' },
+    { icon: '📞', label: 'Contact us', key: 'contact', href: '/contact' }
 ];
 
 const userMenuItems = [
-    { icon: <UserOutlined className="mr-2" />, label: 'My Profile', key: 'profile' },
-    { label: 'My Orders', key: 'orders' },
-    { label: 'Wishlist', key: 'wishlist' },
+    { icon: <UserOutlined className="mr-2" />, label: 'My Profile', key: 'profile', href: '/profile' },
+    { label: 'My Orders', key: 'orders', href: '/orders' },
+    { label: 'Wishlist', key: 'wishlist', href: '/wishlist' },
     { divider: true },
-    { label: 'Login / Register', key: 'login' }
+    { label: 'Login / Register', key: 'login', href: '/login' }
 ];
 
 const Navbar = () => {
     const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
+    const location = useLocation();
 
-    // User dropdown menu
+    // User dropdown menu with navigation
     const userMenu = (
         <Menu>
             {userMenuItems.map((item, idx) =>
                 item.divider ? <Menu.Divider key={idx} /> :
-                    <Menu.Item key={item.key}>{item.icon}{item.label}</Menu.Item>
+                    <Menu.Item key={item.key}>
+                        <Link to={item.href} className="flex items-center">
+                            {item.icon}{item.label}
+                        </Link>
+                    </Menu.Item>
             )}
         </Menu>
     );
+
+    // Handle mobile menu item click
+    const handleMobileMenuClick = (e) => {
+        const clickedItem = mobileMenuLinks.find(link => link.key === e.key);
+        if (clickedItem) {
+            setMobileMenuVisible(false);
+        }
+    };
 
     return (
         <>
@@ -74,23 +88,27 @@ const Navbar = () => {
 
                         {/* Logo */}
                         <div className="absolute left-0 flex items-center h-full">
-                            <div className="text-2xl font-bold text-yellow-600 flex items-center">
+                            <Link to="/" className="text-2xl font-bold text-yellow-600 flex items-center hover:text-yellow-700 transition-colors">
                                 <span className="text-3xl mr-2">💎</span>
                                 <span className="hidden sm:block">LUXE GEMS</span>
                                 <span className="sm:hidden">LG</span>
-                            </div>
+                            </Link>
                         </div>
 
                         {/* Desktop Navigation Menu */}
                         <div className="hidden lg:flex justify-center gap-8 flex-1 items-center">
                             {navLinks.map(link => (
-                                <a 
-                                    href={link.href} 
+                                <Link 
+                                    to={link.href} 
                                     key={link.label} 
-                                    className="text-gray-700 hover:text-yellow-600 font-medium transition-colors"
+                                    className={`font-medium transition-colors ${
+                                        location.pathname === link.href 
+                                            ? 'text-yellow-600 border-b-2 border-yellow-600 pb-1' 
+                                            : 'text-gray-700 hover:text-yellow-600'
+                                    }`}
                                 >
                                     {link.label}
-                                </a>
+                                </Link>
                             ))}
                         </div>
 
@@ -125,26 +143,30 @@ const Navbar = () => {
                             </Dropdown>
 
                             {/* Wishlist */}
-                            <Badge count={3} size="small" className="hover:scale-105 transition-transform">
-                                <Button
-                                    type="text"
-                                    icon={<HeartOutlined />}
-                                    className="text-gray-600 hover:text-red-500 transition-colors"
-                                >
-                                    <span className="ml-1 hidden lg:inline">Wishlist</span>
-                                </Button>
-                            </Badge>
+                            <Link to="/wishlist">
+                                <Badge count={3} size="small" className="hover:scale-105 transition-transform">
+                                    <Button
+                                        type="text"
+                                        icon={<HeartOutlined />}
+                                        className="text-gray-600 hover:text-red-500 transition-colors"
+                                    >
+                                        <span className="ml-1 hidden lg:inline">Wishlist</span>
+                                    </Button>
+                                </Badge>
+                            </Link>
 
                             {/* Shopping Cart */}
-                            <Badge count={2} size="small" className="hover:scale-105 transition-transform">
-                                <Button
-                                    type="text"
-                                    icon={<ShoppingCartOutlined />}
-                                    className="text-gray-600 hover:text-yellow-600 transition-colors"
-                                >
-                                    <span className="ml-1 hidden lg:inline">Cart</span>
-                                </Button>
-                            </Badge>
+                            <Link to="/cart">
+                                <Badge count={2} size="small" className="hover:scale-105 transition-transform">
+                                    <Button
+                                        type="text"
+                                        icon={<ShoppingCartOutlined />}
+                                        className="text-gray-600 hover:text-yellow-600 transition-colors"
+                                    >
+                                        <span className="ml-1 hidden lg:inline">Cart</span>
+                                    </Button>
+                                </Badge>
+                            </Link>
 
                             {/* Mobile Menu Button */}
                             <Button
@@ -188,25 +210,35 @@ const Navbar = () => {
                 width={300}
                 bodyStyle={{ padding: 0 }}
             >
-                <Menu mode="vertical" className="border-0">
+                <Menu mode="vertical" className="border-0" onClick={handleMobileMenuClick}>
                     {mobileMenuLinks.map(link => (
                         <Menu.Item key={link.key} className="text-base py-3">
-                            {link.icon} {link.label}
+                            <Link to={link.href} className="flex items-center">
+                                {link.icon} {link.label}
+                            </Link>
                         </Menu.Item>
                     ))}
                     <Menu.Divider />
                     <Menu.Item key="account" className="text-base py-3">
-                        <UserOutlined className="mr-2" />
-                        My Account
+                        <Link to="/profile" className="flex items-center">
+                            <UserOutlined className="mr-2" />
+                            My Account
+                        </Link>
                     </Menu.Item>
                     <Menu.Item key="orders" className="text-base py-3">
-                        📦 My Orders
+                        <Link to="/orders" className="flex items-center">
+                            📦 My Orders
+                        </Link>
                     </Menu.Item>
                     <Menu.Item key="track" className="text-base py-3">
-                        🚚 Track Order
+                        <Link to="/track-order" className="flex items-center">
+                            🚚 Track Order
+                        </Link>
                     </Menu.Item>
                     <Menu.Item key="support" className="text-base py-3">
-                        💬 Customer Support
+                        <Link to="/support" className="flex items-center">
+                            💬 Customer Support
+                        </Link>
                     </Menu.Item>
                 </Menu>
             </Drawer>
