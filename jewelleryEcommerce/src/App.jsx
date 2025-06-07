@@ -8,6 +8,7 @@ import Home from './pages/Home.jsx';
 import ProductPage from './pages/ProductPage.jsx';
 import About from './pages/About.jsx';
 import Contact from './pages/Contact.jsx';
+import AuthPage from './pages/Authpage.jsx';
 
 function App() {
 
@@ -19,6 +20,7 @@ function App() {
         <Route path="/products" element={<ProductPage />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/Login" element={<AuthPage />} />
         {/* Add more routes as needed */}
       </Routes>
       <Footer/> 

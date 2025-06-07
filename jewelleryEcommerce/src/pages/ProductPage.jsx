@@ -49,9 +49,7 @@ const sampleProducts = [
 const ProductsPage = () => {
   return (
     <div style={{ backgroundColor: '#F5F5F5', minHeight: '100vh', width: '100%' }}>
-  
         <ProductLayout products={sampleProducts} />
-  
     </div>
   );
 };
