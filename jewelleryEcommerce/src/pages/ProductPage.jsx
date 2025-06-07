@@ -49,21 +49,9 @@ const sampleProducts = [
 const ProductsPage = () => {
   return (
     <div style={{ backgroundColor: '#F5F5F5', minHeight: '100vh', width: '100%' }}>
-      <h1
-        style={{
-          textAlign: 'center',
-          padding: '24px 0',
-          color: '#333333',
-          fontSize: '32px',
-          fontWeight: 'bold',
-          margin: 0,
-        }}
-      >
-        Explore Our Products
-      </h1>
-      <div style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+  
         <ProductLayout products={sampleProducts} />
-      </div>
+  
     </div>
   );
 };

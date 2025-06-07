@@ -1,249 +1,532 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-    Input,
-    Badge,
-    Button,
-    Drawer,
-    Menu,
-    Dropdown
-} from 'antd';
+  AppBar,
+  Toolbar,
+  Box,
+  Button,
+  IconButton,
+  Badge,
+  TextField,
+  InputAdornment,
+  Menu,
+  MenuItem,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Typography,
+  Container,
+  useTheme,
+  useMediaQuery,
+  Paper
+} from '@mui/material';
 import {
-    SearchOutlined,
-    HeartOutlined,
-    ShoppingCartOutlined,
-    UserOutlined,
-    MenuOutlined
-} from '@ant-design/icons';
+  Search,
+  FavoriteBorder,
+  ShoppingCartOutlined,
+  PersonOutline,
+  Menu as MenuIcon,
+  Home,
+  Diamond,
+  Info,
+  Phone,
+  AccountCircle,
+  ListAlt,
+  LocalShipping,
+  Support
+} from '@mui/icons-material';
 
-const { Search } = Input;
-
-// Updated nav links data with proper routes
+// Navigation links data
 const navLinks = [
-    { label: 'Home', href: '/' },
-    { label: 'Product', href: '/products' },
-    { label: 'About us', href: '/about' },
-    { label: 'Contact us', href: '/contact' }
+  { label: 'Home', href: '/' },
+  { label: 'Product', href: '/products' },
+  { label: 'About us', href: '/about' },
+  { label: 'Contact us', href: '/contact' }
 ];
 
 const mobileMenuLinks = [
-    { icon: '🏠', label: 'Home', key: 'home', href: '/' },
-    { icon: '💍', label: 'Product', key: 'product', href: '/products' },
-    { icon: 'ℹ️', label: 'About us', key: 'about', href: '/about' },
-    { icon: '📞', label: 'Contact us', key: 'contact', href: '/contact' }
+  { icon: <Home />, label: 'Home', key: 'home', href: '/' },
+  { icon: <Diamond />, label: 'Product', key: 'product', href: '/products' },
+  { icon: <Info />, label: 'About us', key: 'about', href: '/about' },
+  { icon: <Phone />, label: 'Contact us', key: 'contact', href: '/contact' }
 ];
 
 const userMenuItems = [
-    { icon: <UserOutlined className="mr-2" />, label: 'My Profile', key: 'profile', href: '/profile' },
-    { label: 'My Orders', key: 'orders', href: '/orders' },
-    { label: 'Wishlist', key: 'wishlist', href: '/wishlist' },
-    { divider: true },
-    { label: 'Login / Register', key: 'login', href: '/login' }
+  { icon: <PersonOutline />, label: 'My Profile', key: 'profile', href: '/profile' },
+  { icon: <ListAlt />, label: 'My Orders', key: 'orders', href: '/orders' },
+  { icon: <FavoriteBorder />, label: 'Wishlist', key: 'wishlist', href: '/wishlist' },
+  { divider: true },
+  { icon: <AccountCircle />, label: 'Login / Register', key: 'login', href: '/login' }
 ];
 
 const Navbar = () => {
-    const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
-    const location = useLocation();
+  const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
+  const [userMenuAnchor, setUserMenuAnchor] = useState(null);
+  const [searchValue, setSearchValue] = useState('');
+  const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
-    // User dropdown menu with navigation
-    const userMenu = (
-        <Menu>
-            {userMenuItems.map((item, idx) =>
-                item.divider ? <Menu.Divider key={idx} /> :
-                    <Menu.Item key={item.key}>
-                        <Link to={item.href} className="flex items-center">
-                            {item.icon}{item.label}
-                        </Link>
-                    </Menu.Item>
-            )}
-        </Menu>
-    );
+  const handleUserMenuOpen = (event) => {
+    setUserMenuAnchor(event.currentTarget);
+  };
 
-    // Handle mobile menu item click
-    const handleMobileMenuClick = (e) => {
-        const clickedItem = mobileMenuLinks.find(link => link.key === e.key);
-        if (clickedItem) {
-            setMobileMenuVisible(false);
-        }
-    };
+  const handleUserMenuClose = () => {
+    setUserMenuAnchor(null);
+  };
 
-    return (
-        <>
-            {/* Top Header Bar */}
-            <div className="bg-gray-900 text-white py-2 hidden md:block">
-                <div className="max-w-full mx-auto px-4 flex justify-around items-center text-sm">
-                    <div className="flex gap-6">
-                        <span>📞 +91-9876543210</span>
-                    </div>
-                    <div className="flex gap-6">
-                        <span>✉️ info@luxegems.com</span>
-                    </div>
-                </div>
-            </div>
+  const handleMobileMenuToggle = () => {
+    setMobileMenuVisible(!mobileMenuVisible);
+  };
 
-            {/* Main Navbar */}
-            <nav className="bg-white shadow-md sticky top-0 z-50 border-b border-gray-200">
-                <div className="max-w-7xl mx-auto px-4">
-                    <div className="flex items-center h-16 w-full justify-center ">
+  const handleSearchChange = (event) => {
+    setSearchValue(event.target.value);
+  };
 
-                        {/* Logo */}
-                        <div className="absolute left-0 flex items-center h-full">
-                            <Link to="/" className="text-2xl font-bold text-yellow-600 flex items-center hover:text-yellow-700 transition-colors">
-                                <span className="text-3xl mr-2">💎</span>
-                                <span className="hidden sm:block">LUXE GEMS</span>
-                                <span className="sm:hidden">LG</span>
-                            </Link>
-                        </div>
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    // Handle search logic here
+    console.log('Search:', searchValue);
+  };
 
-                        {/* Desktop Navigation Menu */}
-                        <div className="hidden lg:flex justify-center gap-8 flex-1 items-center">
-                            {navLinks.map(link => (
-                                <Link 
-                                    to={link.href} 
-                                    key={link.label} 
-                                    className={`font-medium transition-colors ${
-                                        location.pathname === link.href 
-                                            ? 'text-yellow-600 border-b-2 border-yellow-600 pb-1' 
-                                            : 'text-gray-700 hover:text-yellow-600'
-                                    }`}
-                                >
-                                    {link.label}
-                                </Link>
-                            ))}
-                        </div>
+  return (
+    <>
+      {/* Top Header Bar */}
+      <Box
+        sx={{
+          backgroundColor: '#1a1a1a',
+          color: 'white',
+          py: 1,
+          display: { xs: 'none', md: 'block' }
+        }}
+      >
+        <Container maxWidth="xl">
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-around',
+              alignItems: 'center',
+              fontSize: '0.875rem'
+            }}
+          >
+            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              📞 +91-9876543210
+            </Typography>
+            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              ✉️ info@luxegems.com
+            </Typography>
+          </Box>
+        </Container>
+      </Box>
 
-                        {/* Search Bar */}
-                        <div className="hidden md:flex flex-1 max-w-xs mx-8 relative right-40 justify-center">
-                            <Search
-                                placeholder="Search diamonds, gold, silver..."
-                                allowClear
-                                enterButton={
-                                    <Button
-                                        type="primary"
-                                        icon={<SearchOutlined />}
-                                        className="bg-yellow-600 border-yellow-600 hover:bg-yellow-700 hover:border-yellow-700"
-                                    />
-                                }
-                                size="middle"
-                                className="w-full"
-                            />
-                        </div>
+      {/* Main Navbar */}
+      <AppBar
+        position="sticky"
+        sx={{
+          backgroundColor: 'white',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          borderBottom: '1px solid #e0e0e0'
+        }}
+        elevation={0}
+      >
+        <Container maxWidth="xl">
+          <Toolbar sx={{ px: { xs: 1, sm: 2 }, minHeight: '64px !important' }}>
+            {/* Logo */}
+            <Box sx={{ display: 'flex', alignItems: 'center', mr: 'auto' }}>
+              <Button
+                component={Link}
+                to="/"
+                sx={{
+                  textDecoration: 'none',
+                  color: '#D4AF37',
+                  fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                  fontWeight: 'bold',
+                  textTransform: 'none',
+                  '&:hover': {
+                    backgroundColor: 'transparent',
+                    color: '#B8941F'
+                  },
+                  p: 0,
+                  minWidth: 'auto'
+                }}
+              >
+                <Typography sx={{ fontSize: '1.5rem', mr: 1 }}>💎</Typography>
+                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                  LUXE GEMS
+                </Box>
+                <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+                  LG
+                </Box>
+              </Button>
+            </Box>
 
-                        {/* Action Buttons */}
-                        <div className="absolute right-0 flex items-center space-x-3 h-full">
-                            {/* User Account */}
-                            <Dropdown overlay={userMenu} trigger={['click']} placement="bottomRight">
-                                <Button
-                                    type="text"
-                                    icon={<UserOutlined />}
-                                    className="text-gray-600 hover:text-yellow-600 hidden sm:flex items-center"
-                                >
-                                    <span className="ml-1 hidden lg:inline">Account</span>
-                                </Button>
-                            </Dropdown>
-
-                            {/* Wishlist */}
-                            <Link to="/wishlist">
-                                <Badge count={3} size="small" className="hover:scale-105 transition-transform">
-                                    <Button
-                                        type="text"
-                                        icon={<HeartOutlined />}
-                                        className="text-gray-600 hover:text-red-500 transition-colors"
-                                    >
-                                        <span className="ml-1 hidden lg:inline">Wishlist</span>
-                                    </Button>
-                                </Badge>
-                            </Link>
-
-                            {/* Shopping Cart */}
-                            <Link to="/cart">
-                                <Badge count={2} size="small" className="hover:scale-105 transition-transform">
-                                    <Button
-                                        type="text"
-                                        icon={<ShoppingCartOutlined />}
-                                        className="text-gray-600 hover:text-yellow-600 transition-colors"
-                                    >
-                                        <span className="ml-1 hidden lg:inline">Cart</span>
-                                    </Button>
-                                </Badge>
-                            </Link>
-
-                            {/* Mobile Menu Button */}
-                            <Button
-                                type="text"
-                                icon={<MenuOutlined />}
-                                onClick={() => setMobileMenuVisible(true)}
-                                className="lg:hidden text-gray-600 hover:text-yellow-600"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Mobile Search Bar */}
-                    <div className="md:hidden pb-4">
-                        <Search
-                            placeholder="Search jewelry..."
-                            allowClear
-                            enterButton={
-                                <Button
-                                    type="primary"
-                                    icon={<SearchOutlined />}
-                                    className="bg-yellow-600 border-yellow-600"
-                                />
-                            }
-                            size="middle"
-                        />
-                    </div>
-                </div>
-            </nav>
-
-            {/* Mobile Drawer Menu */}
-            <Drawer
-                title={
-                    <div className="flex items-center">
-                        <span className="text-2xl mr-2">💎</span>
-                        <span className="font-bold text-yellow-600">LUXE GEMS</span>
-                    </div>
-                }
-                placement="right"
-                onClose={() => setMobileMenuVisible(false)}
-                open={mobileMenuVisible}
-                width={300}
-                bodyStyle={{ padding: 0 }}
+            {/* Desktop Navigation Menu */}
+            <Box
+              sx={{
+                display: { xs: 'none', lg: 'flex' },
+                gap: 4,
+                mx: 'auto',
+                alignItems: 'center'
+              }}
             >
-                <Menu mode="vertical" className="border-0" onClick={handleMobileMenuClick}>
-                    {mobileMenuLinks.map(link => (
-                        <Menu.Item key={link.key} className="text-base py-3">
-                            <Link to={link.href} className="flex items-center">
-                                {link.icon} {link.label}
-                            </Link>
-                        </Menu.Item>
-                    ))}
-                    <Menu.Divider />
-                    <Menu.Item key="account" className="text-base py-3">
-                        <Link to="/profile" className="flex items-center">
-                            <UserOutlined className="mr-2" />
-                            My Account
-                        </Link>
-                    </Menu.Item>
-                    <Menu.Item key="orders" className="text-base py-3">
-                        <Link to="/orders" className="flex items-center">
-                            📦 My Orders
-                        </Link>
-                    </Menu.Item>
-                    <Menu.Item key="track" className="text-base py-3">
-                        <Link to="/track-order" className="flex items-center">
-                            🚚 Track Order
-                        </Link>
-                    </Menu.Item>
-                    <Menu.Item key="support" className="text-base py-3">
-                        <Link to="/support" className="flex items-center">
-                            💬 Customer Support
-                        </Link>
-                    </Menu.Item>
-                </Menu>
-            </Drawer>
-        </>
-    );
+              {navLinks.map((link) => (
+                <Button
+                  key={link.label}
+                  component={Link}
+                  to={link.href}
+                  sx={{
+                    color: location.pathname === link.href ? '#D4AF37' : '#666666',
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    position: 'relative',
+                    '&:hover': {
+                      backgroundColor: 'transparent',
+                      color: '#D4AF37'
+                    },
+                    '&::after': location.pathname === link.href ? {
+                      content: '""',
+                      position: 'absolute',
+                      bottom: 0,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: '100%',
+                      height: '2px',
+                      backgroundColor: '#D4AF37'
+                    } : {}
+                  }}
+                >
+                  {link.label}
+                </Button>
+              ))}
+            </Box>
+
+            {/* Search Bar - Desktop */}
+            <Box
+              sx={{
+                display: { xs: 'none', md: 'flex' },
+                maxWidth: '320px',
+                mx: 2,
+                flexGrow: 1,
+                justifyContent: 'center'
+              }}
+            >
+              <Paper
+                component="form"
+                onSubmit={handleSearchSubmit}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  width: '100%',
+                  maxWidth: '300px',
+                  borderRadius: '6px',
+                  border: '1px solid #e0e0e0',
+                  boxShadow: 'none',
+                  '&:hover': {
+                    borderColor: '#D4AF37'
+                  }
+                }}
+              >
+                <TextField
+                  placeholder="Search diamonds, gold, silver..."
+                  variant="outlined"
+                  size="small"
+                  value={searchValue}
+                  onChange={handleSearchChange}
+                  sx={{
+                    flex: 1,
+                    '& .MuiOutlinedInput-root': {
+                      border: 'none',
+                      '& fieldset': {
+                        border: 'none'
+                      }
+                    }
+                  }}
+                />
+                <IconButton
+                  type="submit"
+                  sx={{
+                    backgroundColor: '#D4AF37',
+                    color: 'white',
+                    borderRadius: '0 4px 4px 0',
+                    '&:hover': {
+                      backgroundColor: '#B8941F'
+                    },
+                    mx: 0.5
+                  }}
+                >
+                  <Search />
+                </IconButton>
+              </Paper>
+            </Box>
+
+            {/* Action Buttons */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
+              {/* User Account */}
+              <IconButton
+                onClick={handleUserMenuOpen}
+                sx={{
+                  color: '#666666',
+                  '&:hover': { color: '#D4AF37' },
+                  display: { xs: 'none', sm: 'flex' }
+                }}
+              >
+                <PersonOutline />
+                <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
+                  Account
+                </Typography>
+              </IconButton>
+
+              {/* Wishlist */}
+              <IconButton
+                component={Link}
+                to="/wishlist"
+                sx={{
+                  color: '#666666',
+                  '&:hover': { color: '#e91e63', transform: 'scale(1.05)' },
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Badge badgeContent={3} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.7rem' } }}>
+                  <FavoriteBorder />
+                </Badge>
+                <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
+                  Wishlist
+                </Typography>
+              </IconButton>
+
+              {/* Shopping Cart */}
+              <IconButton
+                component={Link}
+                to="/cart"
+                sx={{
+                  color: '#666666',
+                  '&:hover': { color: '#D4AF37', transform: 'scale(1.05)' },
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Badge badgeContent={2} color="primary" sx={{ '& .MuiBadge-badge': { fontSize: '0.7rem', backgroundColor: '#D4AF37' } }}>
+                  <ShoppingCartOutlined />
+                </Badge>
+                <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
+                  Cart
+                </Typography>
+              </IconButton>
+
+              {/* Mobile Menu Button */}
+              <IconButton
+                onClick={handleMobileMenuToggle}
+                sx={{
+                  color: '#666666',
+                  '&:hover': { color: '#D4AF37' },
+                  display: { xs: 'flex', lg: 'none' }
+                }}
+              >
+                <MenuIcon />
+              </IconButton>
+            </Box>
+          </Toolbar>
+
+          {/* Mobile Search Bar */}
+          <Box sx={{ display: { xs: 'block', md: 'none' }, pb: 2, px: 2 }}>
+            <Paper
+              component="form"
+              onSubmit={handleSearchSubmit}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                borderRadius: '6px',
+                border: '1px solid #e0e0e0',
+                boxShadow: 'none'
+              }}
+            >
+              <TextField
+                placeholder="Search jewelry..."
+                variant="outlined"
+                size="small"
+                value={searchValue}
+                onChange={handleSearchChange}
+                sx={{
+                  flex: 1,
+                  '& .MuiOutlinedInput-root': {
+                    border: 'none',
+                    '& fieldset': {
+                      border: 'none'
+                    }
+                  }
+                }}
+              />
+              <IconButton
+                type="submit"
+                sx={{
+                  backgroundColor: '#D4AF37',
+                  color: 'white',
+                  borderRadius: '0 4px 4px 0',
+                  '&:hover': {
+                    backgroundColor: '#B8941F'
+                  },
+                  mx: 0.5
+                }}
+              >
+                <Search />
+              </IconButton>
+            </Paper>
+          </Box>
+        </Container>
+      </AppBar>
+
+      {/* User Menu Dropdown */}
+      <Menu
+        anchorEl={userMenuAnchor}
+        open={Boolean(userMenuAnchor)}
+        onClose={handleUserMenuClose}
+        PaperProps={{
+          sx: {
+            mt: 1.5,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+            borderRadius: '8px',
+            minWidth: '200px'
+          }
+        }}
+      >
+        {userMenuItems.map((item, index) =>
+          item.divider ? (
+            <Divider key={index} />
+          ) : (
+            <MenuItem
+              key={item.key}
+              component={Link}
+              to={item.href}
+              onClick={handleUserMenuClose}
+              sx={{
+                py: 1.5,
+                '&:hover': {
+                  backgroundColor: 'rgba(212, 175, 55, 0.08)'
+                }
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: '36px', color: '#666666' }}>
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText primary={item.label} />
+            </MenuItem>
+          )
+        )}
+      </Menu>
+
+      {/* Mobile Drawer Menu */}
+      <Drawer
+        anchor="right"
+        open={mobileMenuVisible}
+        onClose={() => setMobileMenuVisible(false)}
+        PaperProps={{
+          sx: {
+            width: 300,
+            backgroundColor: '#fafafa'
+          }
+        }}
+      >
+        {/* Drawer Header */}
+        <Box sx={{ p: 2, backgroundColor: 'white', borderBottom: '1px solid #e0e0e0' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography sx={{ fontSize: '1.5rem', mr: 1 }}>💎</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#D4AF37' }}>
+              LUXE GEMS
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Navigation Links */}
+        <List sx={{ pt: 0 }}>
+          {mobileMenuLinks.map((link) => (
+            <ListItem
+              key={link.key}
+              button
+              component={Link}
+              to={link.href}
+              onClick={() => setMobileMenuVisible(false)}
+              sx={{
+                py: 2,
+                '&:hover': {
+                  backgroundColor: 'rgba(212, 175, 55, 0.08)'
+                }
+              }}
+            >
+              <ListItemIcon sx={{ color: '#D4AF37', minWidth: '40px' }}>
+                {link.icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={link.label}
+                primaryTypographyProps={{
+                  fontSize: '1rem',
+                  fontWeight: 500
+                }}
+              />
+            </ListItem>
+          ))}
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* Account Links */}
+          <ListItem
+            button
+            component={Link}
+            to="/profile"
+            onClick={() => setMobileMenuVisible(false)}
+            sx={{ py: 2 }}
+          >
+            <ListItemIcon sx={{ color: '#666666', minWidth: '40px' }}>
+              <PersonOutline />
+            </ListItemIcon>
+            <ListItemText primary="My Account" />
+          </ListItem>
+
+          <ListItem
+            button
+            component={Link}
+            to="/orders"
+            onClick={() => setMobileMenuVisible(false)}
+            sx={{ py: 2 }}
+          >
+            <ListItemIcon sx={{ color: '#666666', minWidth: '40px' }}>
+              <ListAlt />
+            </ListItemIcon>
+            <ListItemText primary="My Orders" />
+          </ListItem>
+
+          <ListItem
+            button
+            component={Link}
+            to="/track-order"
+            onClick={() => setMobileMenuVisible(false)}
+            sx={{ py: 2 }}
+          >
+            <ListItemIcon sx={{ color: '#666666', minWidth: '40px' }}>
+              <LocalShipping />
+            </ListItemIcon>
+            <ListItemText primary="Track Order" />
+          </ListItem>
+
+          <ListItem
+            button
+            component={Link}
+            to="/support"
+            onClick={() => setMobileMenuVisible(false)}
+            sx={{ py: 2 }}
+          >
+            <ListItemIcon sx={{ color: '#666666', minWidth: '40px' }}>
+              <Support />
+            </ListItemIcon>
+            <ListItemText primary="Customer Support" />
+          </ListItem>
+        </List>
+      </Drawer>
+    </>
+  );
 };
 
 export default Navbar;

@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useState } from 'react'
-import { Button } from 'antd';
-import './App.css'
+// import { Button } from 'antd'; 
+// import './App.css'
 import Navbar from './components/Basic/Navbar.jsx';
 import Footer from './components/Basic/Footer.jsx';
 import Home from './pages/Home.jsx';
