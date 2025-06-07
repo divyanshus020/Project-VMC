@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import Logo from '../../assets/catalogue/vmc.png'
 import {
   AppBar,
   Toolbar,
@@ -151,16 +152,27 @@ const Navbar = () => {
                     color: '#B8941F'
                   },
                   p: 0,
-                  minWidth: 'auto'
+                  minWidth: 'auto',
+                  flexDirection: 'column', // Stack logo and text vertically on small screens
+                  alignItems: 'flex-start'
                 }}
               >
-                <Typography sx={{ fontSize: '1.5rem', mr: 1 }}>💎</Typography>
-                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                  LUXE GEMS
-                </Box>
-                <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
-                  LG
-                </Box>
+                {/* Logo Image - hide on xs, show on sm+ */}
+                <img
+                  src={Logo}
+                  alt="VMC Logo"
+                  style={{
+                    width: '100%',
+                    maxWidth: 130,
+                    height: 'auto',
+                    marginRight: 8,
+                    objectFit: 'contain',
+                    display: 'block'
+                  }}
+                  className="hidden sm:block"
+                  // Responsive width: 120px on small screens, 200px on md+
+                  sizes="(max-width: 100px) 120px, 200px"
+                />
               </Button>
             </Box>
 
