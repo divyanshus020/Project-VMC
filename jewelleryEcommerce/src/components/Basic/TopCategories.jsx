@@ -43,7 +43,7 @@ const TopCategoriesGrid = () => {
         {categories.map((cat, idx) => (
           <div
             key={idx}
-            className="flex flex-col items-center min-w-[180px] max-w-[240px] sm:max-w-[260px] md:max-w-[300px] bg-white rounded-2xl shadow hover:shadow-xl transition-transform duration-200 hover:scale-105"
+            className=" flex flex-col items-center min-w-[180px] max-w-[240px] sm:max-w-[260px] md:max-w-[200px] bg-white rounded-2xl shadow hover:shadow-xl transition-transform duration-200 hover:scale-105"
           >
             <img
               src={cat.image}

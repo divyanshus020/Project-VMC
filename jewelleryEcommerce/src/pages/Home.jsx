@@ -7,9 +7,12 @@ const Home = () => {
         <div>
             <HeroTitle />
             <CarouselLayout />
-            <TopCategories />
+            <div className="bg-[#fdfdfd] py-8">
+
+                <TopCategories />
+            </div>
         </div>
-    );  
+    );
 }
 
 export default Home;

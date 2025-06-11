@@ -1,0 +1,32 @@
+backend/
+├── .env
+├── .gitignore
+├── config/
+│   ├── db.js
+│   └── config.js
+├── controllers/
+│   ├── authController.js
+│   ├── cartController.js
+│   ├── productController.js
+│   └── userController.js
+├── middleware/
+│   ├── authMiddleware.js
+│   └── otpMiddleware.js
+├── models/
+│   ├── Cart.js
+│   ├── OTP.js
+│   ├── Product.js
+│   └── User.js
+├── routes/
+│   ├── authRoutes.js
+│   ├── cartRoutes.js
+│   ├── productRoutes.js
+│   └── userRoutes.js
+├── services/
+│   ├── emailService.js
+│   └── otpService.js
+├── utils/
+│   ├── generateOTP.js
+│   └── validators.js
+├── app.js
+└── package.json

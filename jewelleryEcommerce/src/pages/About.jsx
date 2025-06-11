@@ -1,10 +1,11 @@
 import React from 'react';
-
-const About = () => {
+import Bento from '../components/About/Bento.jsx';
+function About() {
     return (
         <div>
-            
-            <h1 className="text-3xl font-bold text-center my-10">About Us</h1>
+
+            {/* <h1 className="text-3xl font-bold text-center my-10">About Us</h1> */}
+             <Bento /> 
         </div>
     );
 }
