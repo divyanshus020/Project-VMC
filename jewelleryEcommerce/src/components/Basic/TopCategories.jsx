@@ -1,39 +1,55 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
+import AsthaPahlu from "../../assets/For Web/Asth-Pahlu/Asthapashu1.png";
+import Capsule from "../../assets/For Web/Capsule/Capsule1.png";
+import Dholki from "../../assets/For Web/Dholki/Dholki1.png";
+import Cone from "../../assets/For Web/Cone/Cone1.png"
+import Cap from "../../assets/For Web/Double V-Cut Cap/Cap1.png"
+import Mani from "../../assets/For Web/MANI.png";
 
 const categories = [
   {
     title: "Asht Pahlu",
-    image:
-      "https://aadyaa.com/cdn/shop/products/DSC09462_1b7d9d06-9ecd-4669-8d21-c53028db6ddf.jpg?v=1701175570&width=1200",
+    image: AsthaPahlu,
+    slug: "asht-pahlu"
   },
   {
     title: "Cap",
-    image:
-      "https://rudrakshartjewellery.in/cdn/shop/files/89CB90E2-E2C8-4AE1-843C-50EA334FE48F_2048x2048.jpg?v=1698693660",
+    image: Cap,
+    slug: "cap"
   },
   {
     title: "Capsule",
-    image:
-      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTIMza89weJodF2_yzios4Zogs8UGvRmEUZGA&s",
+    image: Capsule,
+    slug: "capsule"
   },
   {
     title: "Cone",
-    image:
-      "https://www.zahana.in/cdn/shop/files/IMG_2375_0113af75-dbb5-43f7-aee0-8bc2c925da20_1024x1024.jpg?v=1709030176",
+    image: Cone,
+    slug: "cone"
   },
   {
     title: "Dholki",
-    image:
-      "https://aadyaa.com/cdn/shop/files/RGL0660_a9bf58dc-ed83-4e81-8c3e-b14da79cd37b.jpg?v=1745047769&width=1200",
+    image: Dholki,
+    slug: "dholki"
   },
   {
     title: "Mani",
-    image:
-      "https://m.media-amazon.com/images/I/916fnwuR8fL._AC_UY300_.jpg",
+    image: Mani,
+    slug: "mani"
   },
 ];
 
 const TopCategoriesGrid = () => {
+  const navigate = useNavigate();
+
+  const handleCategoryClick = (category) => {
+    // Navigate to products page with category filter
+    navigate(`/products?category=${category.slug}`, { 
+      state: { categoryName: category.title } 
+    });
+  };
+
   return (
     <div className="py-8 px-2 bg-[#fdfdfd] w-full">
       <h2 className="text-3xl md:text-5xl font-bold font-serif text-center mb-6">
@@ -43,7 +59,8 @@ const TopCategoriesGrid = () => {
         {categories.map((cat, idx) => (
           <div
             key={idx}
-            className=" flex flex-col items-center min-w-[180px] max-w-[240px] sm:max-w-[260px] md:max-w-[200px] bg-white rounded-2xl shadow hover:shadow-xl transition-transform duration-200 hover:scale-105"
+            onClick={() => handleCategoryClick(cat)}
+            className="flex flex-col items-center min-w-[180px] max-w-[240px] sm:max-w-[260px] md:max-w-[200px] bg-white rounded-2xl shadow hover:shadow-xl transition-transform duration-200 hover:scale-105 cursor-pointer"
           >
             <img
               src={cat.image}
