@@ -113,8 +113,8 @@ const ProductCard = ({ product }) => {
           {/* Image */}
           <CardMedia
             component="img"
-            image={product.image}
-            alt={product.title}
+            image={product.imageUrl}
+            alt={product.name}
             onLoad={() => setImageLoaded(true)}
             className="product-image"
             sx={{
@@ -282,7 +282,7 @@ const ProductCard = ({ product }) => {
               color: colors.darkGray,
             }}
           >
-            {product.title}
+            {product.name}
           </Typography>
 
           {/* Description */}

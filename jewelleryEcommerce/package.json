@@ -21,6 +21,7 @@
     "@mui/styled-engine-sc": "^7.1.1",
     "@tabler/icons-react": "^3.34.0",
     "antd": "^5.25.4",
+    "axios": "^1.10.0",
     "clsx": "^2.1.1",
     "cobe": "^0.6.4",
     "framer-motion": "^12.16.0",
