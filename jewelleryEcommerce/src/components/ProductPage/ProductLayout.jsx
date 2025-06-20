@@ -262,91 +262,107 @@ const ProductLayout = ({ products, loading = false }) => {
           </Box>
         </motion.div>
 
-        {/* Products Grid - Fixed to 4 columns with equal width */}
-        <AnimatePresence mode="wait">
-          {loading ? (
-            <Grid 
-              container 
-              spacing={{ xs: 2, md: 3 }} 
-              sx={{ 
-                alignItems: 'stretch',
-                '& .MuiGrid-item': {
-                  display: 'flex'
-                }
-              }}
-            >
-              {Array.from({ length: 8 }).map((_, index) => (
-                <ProductSkeleton key={index} />
-              ))}
-            </Grid>
-          ) : (
-            <motion.div
-              key={selectedCategory + sortOption}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Grid 
-                container 
-                spacing={{ xs: 2, md: 3 }} 
-                sx={{ 
-                  alignItems: 'stretch',
-                  '& .MuiGrid-item': {
-                    display: 'flex'
-                  }
-                }}
-              >
-                {sortedProducts.map((product, index) => (
-                  <Grid
-                    item
-                    key={product.id}
-                    xs={12}    // 1 per row on extra small screens
-                    sm={6}     // 2 per row on small screens
-                    md={3}     // 4 per row on medium screens and up
-                    lg={3}     // 4 per row on large screens
-                    xl={3}     // 4 per row on extra large screens
-                    sx={{ 
+        {/* Products Grid - Centered cards with improved layout */}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            width: '100%'
+          }}
+        >
+          <Box sx={{ width: '100%', maxWidth: '1400px' }}>
+            <AnimatePresence mode="wait">
+              {loading ? (
+                <Grid 
+                  container 
+                  spacing={{ xs: 2, md: 3 }} 
+                  sx={{ 
+                    justifyContent: 'center',
+                    alignItems: 'stretch',
+                    '& .MuiGrid-item': {
                       display: 'flex',
-                      '& > div': {
-                        width: '100%'
+                      justifyContent: 'center'
+                    }
+                  }}
+                >
+                  {Array.from({ length: 8 }).map((_, index) => (
+                    <ProductSkeleton key={index} />
+                  ))}
+                </Grid>
+              ) : (
+                <motion.div
+                  key={selectedCategory + sortOption}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <Grid 
+                    container 
+                    spacing={{ xs: 2, md: 3 }} 
+                    sx={{ 
+                      justifyContent: 'center',
+                      alignItems: 'stretch',
+                      '& .MuiGrid-item': {
+                        display: 'flex',
+                        justifyContent: 'center'
                       }
                     }}
                   >
-                    <motion.div
-                      initial={{ opacity: 0, y: 30 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: 0.5,
-                        delay: index * 0.1,
-                        ease: [0.25, 0.46, 0.45, 0.94]
-                      }}
-                      style={{ 
-                        width: '100%',
-                        display: 'flex'
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          width: '100%',
+                    {sortedProducts.map((product, index) => (
+                      <Grid
+                        item
+                        key={product.id}
+                        xs={12}    // 1 per row on extra small screens
+                        sm={6}     // 2 per row on small screens
+                        md={3}     // 4 per row on medium screens and up
+                        lg={3}     // 4 per row on large screens
+                        xl={3}     // 4 per row on extra large screens
+                        sx={{ 
                           display: 'flex',
-                          '& > *': {
-                            width: '100%',
-                            minHeight: 400,
-                            display: 'flex',
-                            flexDirection: 'column'
-                          }
+                          justifyContent: 'center',
+                          alignItems: 'stretch'
                         }}
                       >
-                        <ProductCard product={product} />
-                      </Box>
-                    </motion.div>
+                        <motion.div
+                          initial={{ opacity: 0, y: 30 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.5,
+                            delay: index * 0.1,
+                            ease: [0.25, 0.46, 0.45, 0.94]
+                          }}
+                          style={{ 
+                            width: '100%',
+                            maxWidth: '320px', // Consistent max width for cards
+                            display: 'flex',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: '100%',
+                              display: 'flex',
+                              justifyContent: 'center',
+                              '& > *': {
+                                width: '100%',
+                                minHeight: 400,
+                                display: 'flex',
+                                flexDirection: 'column'
+                              }
+                            }}
+                          >
+                            <ProductCard product={product} />
+                          </Box>
+                        </motion.div>
+                      </Grid>
+                    ))}
                   </Grid>
-                ))}
-              </Grid>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Box>
+        </Box>
 
         {/* Empty State */}
         {!loading && sortedProducts.length === 0 && (

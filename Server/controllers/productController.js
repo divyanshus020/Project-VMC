@@ -5,7 +5,7 @@ const fs = require('fs');
 // ✅ Create Product
 exports.createProduct = async (req, res) => {
   try {
-    const { name, description, price, imageUrl } = req.body;
+    const { name, imageUrl, category } = req.body;
     let finalImageUrl;
 
     if (req.file) {
@@ -16,7 +16,7 @@ exports.createProduct = async (req, res) => {
       fs.unlinkSync(req.file.path);
       finalImageUrl = result.secure_url;
     } else if (imageUrl) {
-      // If testing with URL
+      // For testing with a direct URL
       finalImageUrl = imageUrl;
     } else {
       return res.status(400).json({ message: 'Either an image file or imageUrl is required' });
@@ -24,8 +24,7 @@ exports.createProduct = async (req, res) => {
 
     const product = new Product({
       name,
-      description,
-      price,
+      category, // ✅ keep category
       imageUrl: finalImageUrl,
     });
 
@@ -62,7 +61,7 @@ exports.getProductById = async (req, res) => {
 // ✅ UPDATE Product
 exports.updateProduct = async (req, res) => {
   try {
-    const { name, description, price, imageUrl } = req.body;
+    const { name, imageUrl, category } = req.body;
     const file = req.file;
 
     const product = await Product.findById(req.params.id);
@@ -77,14 +76,13 @@ exports.updateProduct = async (req, res) => {
       fs.unlinkSync(file.path);
       product.imageUrl = result.secure_url;
     } else if (imageUrl) {
-      // If no file, but new imageUrl provided, use it
+      // If no file but a new imageUrl provided
       product.imageUrl = imageUrl;
     }
 
     // Update other fields if provided
     if (name) product.name = name;
-    if (description) product.description = description;
-    if (price) product.price = price;
+    if (category) product.category = category;
 
     await product.save();
     res.json(product);

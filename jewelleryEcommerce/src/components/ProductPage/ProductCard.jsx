@@ -13,29 +13,39 @@ import {
   useTheme,
   alpha,
   Zoom,
-  Fade
+  Fade,
+  Rating,
+  Divider
 } from '@mui/material';
 import {
   FavoriteOutlined,
   Favorite,
   ShoppingCartOutlined,
   VisibilityOutlined,
-  StarRounded
+  StarRounded,
+  DiamondOutlined,
+  LocalOfferOutlined,
+  ShareOutlined
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 
 const ProductCard = ({ product }) => {
   const [isFavorited, setIsFavorited] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const theme = useTheme();
 
-  // Jewellery Color Scheme
+  // Enhanced Luxury Color Scheme
   const colors = {
     primary: '#D4AF37', // Gold
-    darkGray: '#333333', // Dark text
-    mediumGray: '#666666', // Secondary text
-    lightGray: '#F5F5F5', // Backgrounds
-    white: '#FFFFFF', // Card backgrounds
+    secondary: '#C9A96E', // Light Gold
+    accent: '#8B7355', // Bronze
+    darkGray: '#1A1A1A', // Rich Black
+    mediumGray: '#4A4A4A', // Charcoal
+    lightGray: '#F8F8F8', // Pearl White
+    white: '#FFFFFF',
+    cream: '#FEFCF7', // Warm White
+    shadow: 'rgba(0, 0, 0, 0.08)',
   };
 
   const handleFavoriteClick = (e) => {
@@ -45,72 +55,90 @@ const ProductCard = ({ product }) => {
 
   const handleEnquiryClick = (e) => {
     e.stopPropagation();
-    // Add your enquiry logic here
-    console.log('Enquiry for:', product.title);
+    console.log('Enquiry for:', product.name);
   };
 
   const handleQuickView = (e) => {
     e.stopPropagation();
-    // Add your quick view logic here
-    console.log('Quick view for:', product.title);
+    console.log('Quick view for:', product.name);
+  };
+
+  const handleShare = (e) => {
+    e.stopPropagation();
+    console.log('Share:', product.name);
   };
 
   return (
     <motion.div
-      whileHover={{ y: -8, scale: 1.02 }}
+      whileHover={{ y: -12 }}
       transition={{ 
         type: "spring", 
-        stiffness: 300, 
-        damping: 20,
-        duration: 0.3
+        stiffness: 400, 
+        damping: 25,
+        duration: 0.4
       }}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
       style={{ height: '100%' }}
     >
       <Card
         sx={{
-          borderRadius: 4,
-          height: 440,
+          borderRadius: '24px',
+          height: 520,
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
           overflow: 'hidden',
           bgcolor: colors.white,
-          backdropFilter: 'blur(20px)',
-          border: `1px solid ${alpha(colors.lightGray, 0.8)}`,
+          border: `2px solid ${colors.lightGray}`,
           boxShadow: `
-            0 4px 20px ${alpha(colors.darkGray, 0.08)},
-            0 1px 3px ${alpha(colors.darkGray, 0.05)}
+            0 8px 32px ${alpha(colors.darkGray, 0.06)},
+            0 2px 8px ${alpha(colors.darkGray, 0.04)}
           `,
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           '&:hover': {
+            borderColor: alpha(colors.primary, 0.3),
             boxShadow: `
-              0 20px 40px ${alpha(colors.darkGray, 0.15)},
-              0 8px 16px ${alpha(colors.darkGray, 0.1)}
+              0 24px 64px ${alpha(colors.darkGray, 0.12)},
+              0 12px 24px ${alpha(colors.primary, 0.08)}
             `,
             '& .product-overlay': {
               opacity: 1,
               transform: 'translateY(0)',
             },
             '& .product-image': {
-              transform: 'scale(1.1)',
+              transform: 'scale(1.08)',
             },
-            '& .favorite-btn': {
+            '& .action-buttons': {
               opacity: 1,
-              transform: 'translateY(0)',
+              transform: 'translateX(0)',
+            },
+            '& .product-details': {
+              transform: 'translateY(-4px)',
             }
           },
         }}
       >
-        {/* Image Container */}
+        {/* Premium Image Container */}
         <Box
           sx={{
             position: 'relative',
-            height: 220,
+            height: 280,
             overflow: 'hidden',
-            bgcolor: colors.lightGray,
+            bgcolor: `linear-gradient(135deg, ${colors.cream} 0%, ${colors.lightGray} 100%)`,
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: `linear-gradient(45deg, ${alpha(colors.primary, 0.02)} 0%, transparent 50%)`,
+              zIndex: 1,
+            }
           }}
         >
-          {/* Image */}
+          {/* Main Product Image */}
           <CardMedia
             component="img"
             image={product.imageUrl}
@@ -121,12 +149,14 @@ const ProductCard = ({ product }) => {
               height: '100%',
               width: '100%',
               objectFit: 'cover',
-              transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-              filter: imageLoaded ? 'none' : 'blur(10px)',
+              transition: 'all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              filter: imageLoaded ? 'none' : 'blur(8px)',
+              zIndex: 2,
+              position: 'relative',
             }}
           />
 
-          {/* Image Overlay */}
+          {/* Elegant Overlay */}
           <Box
             className="product-overlay"
             sx={{
@@ -138,15 +168,17 @@ const ProductCard = ({ product }) => {
               background: `linear-gradient(
                 180deg,
                 ${alpha(colors.darkGray, 0)} 0%,
-                ${alpha(colors.darkGray, 0.4)} 100%
+                ${alpha(colors.darkGray, 0.1)} 50%,
+                ${alpha(colors.darkGray, 0.6)} 100%
               )`,
               opacity: 0,
-              transform: 'translateY(10px)',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              transform: 'translateY(20px)',
+              transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
               display: 'flex',
               alignItems: 'flex-end',
               justifyContent: 'center',
-              p: 2,
+              p: 3,
+              zIndex: 3,
             }}
           >
             <Button
@@ -156,17 +188,21 @@ const ProductCard = ({ product }) => {
               sx={{
                 bgcolor: alpha(colors.white, 0.95),
                 color: colors.darkGray,
-                backdropFilter: 'blur(10px)',
-                borderRadius: 3,
+                backdropFilter: 'blur(20px)',
+                borderRadius: '16px',
                 textTransform: 'none',
                 fontWeight: 600,
-                px: 3,
-                border: `1px solid ${alpha(colors.primary, 0.3)}`,
+                fontSize: '0.9rem',
+                px: 4,
+                py: 1.5,
+                border: `1px solid ${alpha(colors.primary, 0.2)}`,
+                boxShadow: `0 8px 24px ${alpha(colors.darkGray, 0.15)}`,
                 '&:hover': {
                   bgcolor: colors.white,
-                  transform: 'translateY(-2px)',
+                  transform: 'translateY(-4px)',
                   borderColor: colors.primary,
                   color: colors.primary,
+                  boxShadow: `0 12px 32px ${alpha(colors.primary, 0.25)}`,
                 },
               }}
             >
@@ -174,88 +210,116 @@ const ProductCard = ({ product }) => {
             </Button>
           </Box>
 
-          {/* Favorite Button */}
-          <IconButton
-            className="favorite-btn"
-            onClick={handleFavoriteClick}
+          {/* Action Buttons Stack */}
+          <Stack
+            className="action-buttons"
+            spacing={1}
             sx={{
               position: 'absolute',
-              top: 12,
-              right: 12,
-              bgcolor: alpha(colors.white, 0.95),
-              backdropFilter: 'blur(10px)',
-              width: 40,
-              height: 40,
+              top: 16,
+              right: 16,
               opacity: 0,
-              transform: 'translateY(-10px)',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              border: `1px solid ${alpha(colors.lightGray, 0.5)}`,
-              '&:hover': {
-                bgcolor: colors.white,
-                transform: 'translateY(-10px) scale(1.1)',
-                borderColor: colors.primary,
-              },
+              transform: 'translateX(20px)',
+              transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              zIndex: 4,
             }}
           >
-            {isFavorited ? (
-              <Favorite sx={{ color: '#E53E3E', fontSize: 20 }} />
-            ) : (
-              <FavoriteOutlined sx={{ fontSize: 20, color: colors.mediumGray }} />
-            )}
-          </IconButton>
+            {/* Favorite Button */}
+            <Tooltip title={isFavorited ? "Remove from favorites" : "Add to favorites"} placement="left">
+              <IconButton
+                onClick={handleFavoriteClick}
+                sx={{
+                  bgcolor: alpha(colors.white, 0.95),
+                  backdropFilter: 'blur(20px)',
+                  width: 44,
+                  height: 44,
+                  border: `1px solid ${alpha(colors.lightGray, 0.5)}`,
+                  boxShadow: `0 4px 16px ${alpha(colors.darkGray, 0.1)}`,
+                  '&:hover': {
+                    bgcolor: colors.white,
+                    transform: 'scale(1.1)',
+                    borderColor: isFavorited ? '#E53E3E' : colors.primary,
+                    boxShadow: `0 8px 24px ${alpha(colors.darkGray, 0.15)}`,
+                  },
+                }}
+              >
+                {isFavorited ? (
+                  <Favorite sx={{ color: '#E53E3E', fontSize: 20 }} />
+                ) : (
+                  <FavoriteOutlined sx={{ fontSize: 20, color: colors.mediumGray }} />
+                )}
+              </IconButton>
+            </Tooltip>
 
-          {/* Category Badge */}
+            {/* Share Button */}
+            <Tooltip title="Share product" placement="left">
+              <IconButton
+                onClick={handleShare}
+                sx={{
+                  bgcolor: alpha(colors.white, 0.95),
+                  backdropFilter: 'blur(20px)',
+                  width: 44,
+                  height: 44,
+                  border: `1px solid ${alpha(colors.lightGray, 0.5)}`,
+                  boxShadow: `0 4px 16px ${alpha(colors.darkGray, 0.1)}`,
+                  '&:hover': {
+                    bgcolor: colors.white,
+                    transform: 'scale(1.1)',
+                    borderColor: colors.primary,
+                    boxShadow: `0 8px 24px ${alpha(colors.darkGray, 0.15)}`,
+                  },
+                }}
+              >
+                <ShareOutlined sx={{ fontSize: 18, color: colors.mediumGray }} />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+
+          {/* Premium Category Badge */}
           {product.category && (
             <Chip
+              icon={<DiamondOutlined sx={{ fontSize: 16 }} />}
               label={product.category}
               size="small"
               sx={{
                 position: 'absolute',
-                top: 12,
-                left: 12,
-                bgcolor: alpha(colors.primary, 0.15),
-                color: colors.primary,
-                fontWeight: 600,
+                top: 16,
+                left: 16,
+                bgcolor: alpha(colors.primary, 0.12),
+                color: colors.accent,
+                fontWeight: 700,
                 fontSize: '0.75rem',
-                borderRadius: 2,
-                backdropFilter: 'blur(10px)',
-                border: `1px solid ${alpha(colors.primary, 0.3)}`,
+                borderRadius: '12px',
+                backdropFilter: 'blur(20px)',
+                border: `1px solid ${alpha(colors.primary, 0.25)}`,
+                px: 1,
+                zIndex: 4,
+                '& .MuiChip-icon': {
+                  color: colors.primary,
+                },
               }}
             />
           )}
 
-          {/* Rating Badge */}
-          {product.rating && (
-            <Box
-              sx={{
-                position: 'absolute',
-                bottom: 12,
-                left: 12,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-                bgcolor: alpha(colors.white, 0.95),
-                backdropFilter: 'blur(10px)',
-                px: 1.5,
-                py: 0.5,
-                borderRadius: 2,
-                border: `1px solid ${alpha(colors.lightGray, 0.5)}`,
-              }}
-            >
-              <StarRounded sx={{ color: colors.primary, fontSize: 16 }} />
-              <Typography 
-                variant="caption" 
-                fontWeight={600}
-                sx={{ color: colors.darkGray }}
-              >
-                {product.rating}
-              </Typography>
-            </Box>
-          )}
+          {/* Decorative Corner Element */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -30,
+              right: -30,
+              width: 80,
+              height: 80,
+              borderRadius: '50%',
+              background: `radial-gradient(circle, ${alpha(colors.primary, 0.1)} 0%, transparent 70%)`,
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          />
         </Box>
 
-        {/* Content */}
+        {/* Enhanced Content Section */}
         <CardContent
+          className="product-details"
           sx={{
             p: 3,
             flexGrow: 1,
@@ -263,122 +327,240 @@ const ProductCard = ({ product }) => {
             flexDirection: 'column',
             position: 'relative',
             bgcolor: colors.white,
+            transition: 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           }}
         >
-          {/* Title */}
+          {/* Product Title */}
           <Typography
             variant="h6"
             component="h3"
             sx={{
               fontWeight: 700,
-              fontSize: '1.1rem',
-              mb: 1,
-              lineHeight: 1.3,
+              fontSize: '1.2rem',
+              mb: 1.5,
+              lineHeight: 1.4,
               overflow: 'hidden',
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
-              minHeight: '2.6em',
+              minHeight: '2.8em',
               color: colors.darkGray,
+              fontFamily: '"Playfair Display", serif',
             }}
           >
             {product.name}
           </Typography>
 
-          {/* Description */}
-          <Typography
-            variant="body2"
-            sx={{
-              color: colors.mediumGray,
-              fontSize: '0.875rem',
-              mb: 2,
-              flexGrow: 1,
-              lineHeight: 1.5,
-              overflow: 'hidden',
-              display: '-webkit-box',
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: 'vertical',
-            }}
-          >
-            {product.description}
-          </Typography>
-
-          {/* Price and Action */}
-          <Box sx={{ mt: 'auto' }}>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-              spacing={2}
+          {/* Rating and Reviews */}
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <Rating
+              value={product.rating || 4.5}
+              precision={0.5}
+              size="small"
+              readOnly
+              sx={{
+                '& .MuiRating-iconFilled': {
+                  color: colors.primary,
+                },
+              }}
+            />
+            <Typography
+              variant="body2"
+              sx={{
+                color: colors.mediumGray,
+                fontSize: '0.85rem',
+                fontWeight: 500,
+              }}
             >
-              <Box>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: colors.mediumGray,
-                    fontSize: '0.75rem',
-                    fontWeight: 500,
-                    mb: 0.5,
-                  }}
-                >
-                  Starting from
-                </Typography>
-                <Typography
-                  variant="h6"
-                  sx={{
-                    background: `linear-gradient(135deg, ${colors.primary}, #B8941F)`,
-                    backgroundClip: 'text',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    fontWeight: 800,
-                    fontSize: '1.1rem',
-                  }}
-                >
-                  {product.price}
-                </Typography>
-              </Box>
+              ({product.reviews || 24} reviews)
+            </Typography>
+          </Stack>
 
-              <Button
-                variant="contained"
-                startIcon={<ShoppingCartOutlined />}
-                onClick={handleEnquiryClick}
+          {/* Elegant Divider */}
+          <Divider 
+            sx={{ 
+              mb: 2, 
+              borderColor: alpha(colors.primary, 0.1),
+              '&::before, &::after': {
+                borderColor: alpha(colors.primary, 0.1),
+              }
+            }} 
+          />
+
+          {/* Price Section (if available) */}
+          {product.price && (
+            <Box sx={{ mb: 2 }}>
+              <Typography
+                variant="h6"
                 sx={{
-                  background: `linear-gradient(135deg, ${colors.primary}, #B8941F)`,
-                  borderRadius: 3,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: 2.5,
-                  py: 1,
-                  minWidth: 120,
-                  color: colors.white,
-                  boxShadow: `0 4px 12px ${alpha(colors.primary, 0.3)}`,
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: `0 8px 20px ${alpha(colors.primary, 0.4)}`,
-                    background: `linear-gradient(135deg, #B8941F, ${colors.primary})`,
-                  },
+                  color: colors.primary,
+                  fontWeight: 700,
+                  fontSize: '1.1rem',
                 }}
               >
-                Enquire
-              </Button>
-            </Stack>
+                ₹{product.price.toLocaleString()}
+              </Typography>
+            </Box>
+          )}
+
+          {/* Action Button */}
+          <Box sx={{ mt: 'auto' }}>
+            <Button
+              variant="contained"
+              startIcon={<LocalOfferOutlined />}
+              onClick={handleEnquiryClick}
+              fullWidth
+              sx={{
+                background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
+                borderRadius: '16px',
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: '1rem',
+                px: 3,
+                py: 1.5,
+                color: colors.white,
+                boxShadow: `0 8px 24px ${alpha(colors.primary, 0.25)}`,
+                transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: `0 12px 32px ${alpha(colors.primary, 0.35)}`,
+                  background: `linear-gradient(135deg, ${colors.secondary} 0%, ${colors.primary} 100%)`,
+                },
+                '&:active': {
+                  transform: 'translateY(0)',
+                },
+              }}
+               >
+              Get Quote
+            </Button>
           </Box>
         </CardContent>
 
-        {/* Decorative Elements */}
+        {/* Premium Decorative Elements */}
         <Box
           sx={{
             position: 'absolute',
-            top: -50,
-            right: -50,
+            bottom: -40,
+            left: -40,
             width: 100,
             height: 100,
             borderRadius: '50%',
-            background: `radial-gradient(circle, ${alpha(colors.primary, 0.08)} 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${alpha(colors.secondary, 0.06)} 0%, transparent 70%)`,
             pointerEvents: 'none',
+            zIndex: 0,
           }}
         />
+
+        {/* Subtle Border Accent */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 4,
+            background: `linear-gradient(90deg, 
+              ${colors.primary} 0%, 
+              ${colors.secondary} 50%, 
+              ${colors.accent} 100%
+            )`,
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.3s ease',
+            zIndex: 5,
+          }}
+        />
+
+        {/* Loading Shimmer Effect */}
+        {!imageLoaded && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 280,
+              background: `linear-gradient(
+                90deg,
+                ${colors.lightGray} 0%,
+                ${alpha(colors.primary, 0.1)} 50%,
+                ${colors.lightGray} 100%
+              )`,
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 2s infinite',
+              zIndex: 1,
+              '@keyframes shimmer': {
+                '0%': {
+                  backgroundPosition: '-200% 0',
+                },
+                '100%': {
+                  backgroundPosition: '200% 0',
+                },
+              },
+            }}
+          />
+        )}
+
+        {/* Premium Badge for Special Items */}
+        {product.isPremium && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -8,
+              left: 20,
+              bgcolor: colors.darkGray,
+              color: colors.primary,
+              px: 2,
+              py: 0.5,
+              borderRadius: '0 0 12px 12px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+              zIndex: 5,
+              boxShadow: `0 4px 12px ${alpha(colors.darkGray, 0.3)}`,
+            }}
+          >
+            Premium
+          </Box>
+        )}
+
+        {/* Availability Indicator */}
+        {product.inStock !== undefined && (
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: 16,
+              right: 16,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              bgcolor: alpha(
+                product.inStock ? '#10B981' : '#EF4444', 
+                0.1
+              ),
+              color: product.inStock ? '#10B981' : '#EF4444',
+              px: 1.5,
+              py: 0.5,
+              borderRadius: '8px',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              border: `1px solid ${alpha(
+                product.inStock ? '#10B981' : '#EF4444', 
+                0.2
+              )}`,
+            }}
+          >
+            <Box
+              sx={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                bgcolor: product.inStock ? '#10B981' : '#EF4444',
+              }}
+            />
+            {product.inStock ? 'In Stock' : 'Out of Stock'}
+          </Box>
+        )}
       </Card>
     </motion.div>
   );
