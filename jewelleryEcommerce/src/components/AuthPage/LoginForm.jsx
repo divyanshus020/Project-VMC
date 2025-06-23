@@ -30,6 +30,7 @@ const LoginForm = () => {
 
       // ✅ Redirect to account page
       navigate('/profile');
+      window.location.reload(); // 🔄 Reload the website after redirect
 
     } catch (err) {
       console.error(err);

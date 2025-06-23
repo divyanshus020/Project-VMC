@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Logo from '../../assets/catalogue/vmc.png';
 import LogoutConfirmation from '../AuthPage/ConfirmLogoutDialog'; // Import the confirmation component
 import {
@@ -40,22 +40,47 @@ const navLinks = [
   { label: 'Contact us', href: '/contact' }
 ];
 
-const MainNavbar = ({ onMobileMenuToggle, isLoggedIn = false, onLogout }) => {
+const MainNavbar = ({ onMobileMenuToggle, onLogout }) => {
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const [searchValue, setSearchValue] = useState('');
   const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Dynamic user menu items based on login status
+  // Check for token in localStorage on component mount and when localStorage changes
+  useEffect(() => {
+    const checkAuthStatus = () => {
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+      setIsLoggedIn(!!token);
+    };
+
+    // Check initial auth status
+    checkAuthStatus();
+
+    // Listen for storage changes (useful for multiple tabs)
+    const handleStorageChange = (e) => {
+      if (e.key === 'token' || e.key === 'authToken' || e.key === 'accessToken') {
+        checkAuthStatus();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // Dynamic user menu items based on login status (removed logout from dropdown)
   const userMenuItems = isLoggedIn ? [
     { icon: <PersonOutline />, label: 'My Profile', key: 'profile', href: '/profile' },
     { icon: <ListAlt />, label: 'My Orders', key: 'orders', href: '/orders' },
-    { icon: <FavoriteBorder />, label: 'Wishlist', key: 'wishlist', href: '/wishlist' },
-    { divider: true },
-    { icon: <Logout />, label: 'Logout', key: 'logout', action: 'logout' }
+    { icon: <FavoriteBorder />, label: 'Wishlist', key: 'wishlist', href: '/wishlist' }
   ] : [
     { icon: <AccountCircle />, label: 'Login / Register', key: 'login', href: '/login' }
   ];
@@ -79,19 +104,37 @@ const MainNavbar = ({ onMobileMenuToggle, isLoggedIn = false, onLogout }) => {
   };
 
   const handleMenuItemClick = (item) => {
-    if (item.action === 'logout') {
-      setShowLogoutConfirmation(true);
-      handleUserMenuClose();
-    } else {
-      handleUserMenuClose();
-    }
+    handleUserMenuClose();
+  };
+
+  const handleLogoutClick = () => {
+    setShowLogoutConfirmation(true);
   };
 
   const handleLogoutConfirm = () => {
     setShowLogoutConfirmation(false);
+    
+    // Clear all possible token keys from localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('userData');
+    
+    // Update local state
+    setIsLoggedIn(false);
+    
+    // Call parent logout handler if provided
     if (onLogout) {
       onLogout();
     }
+    
+    // Redirect to home or login page
+    navigate('/');
+    
+    // Optional: Show success message
+    console.log('User logged out successfully');
   };
 
   const handleLogoutCancel = () => {
@@ -251,56 +294,100 @@ const MainNavbar = ({ onMobileMenuToggle, isLoggedIn = false, onLogout }) => {
 
             {/* Action Buttons */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
-              {/* User Account */}
-              <IconButton
-                onClick={handleUserMenuOpen}
-                sx={{
-                  color: '#666666',
-                  '&:hover': { color: '#D4AF37' },
-                  display: { xs: 'none', sm: 'flex' }
-                }}
-              >
-                <PersonOutline />
-                <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
-                  {isLoggedIn ? 'Account' : 'Login'}
-                </Typography>
-              </IconButton>
+              {/* Conditional rendering based on login status */}
+              {isLoggedIn ? (
+                <>
+                  {/* User Account - Only show when logged in */}
+                  <IconButton
+                    onClick={handleUserMenuOpen}
+                    sx={{
+                      color: '#666666',
+                      '&:hover': { color: '#D4AF37' },
+                      display: { xs: 'none', sm: 'flex' }
+                    }}
+                  >
+                    <PersonOutline />
+                    <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
+                      Account
+                    </Typography>
+                  </IconButton>
 
-              {/* Wishlist */}
-              <IconButton
-                component={Link}
-                to="/wishlist"
-                sx={{
-                  color: '#666666',
-                  '&:hover': { color: '#e91e63', transform: 'scale(1.05)' },
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Badge badgeContent={3} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.7rem' } }}>
-                  <FavoriteBorder />
-                </Badge>
-                <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
-                  Wishlist
-                </Typography>
-              </IconButton>
+                  {/* Wishlist */}
+                  <IconButton
+                    component={Link}
+                    to="/wishlist"
+                    sx={{
+                      color: '#666666',
+                      '&:hover': { color: '#e91e63', transform: 'scale(1.05)' },
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Badge badgeContent={3} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.7rem' } }}>
+                      <FavoriteBorder />
+                    </Badge>
+                    <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
+                      Wishlist
+                    </Typography>
+                  </IconButton>
 
-              {/* Shopping Cart */}
-              <IconButton
-                component={Link}
-                to="/cart"
-                sx={{
-                  color: '#666666',
-                  '&:hover': { color: '#D4AF37', transform: 'scale(1.05)' },
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Badge badgeContent={2} color="primary" sx={{ '& .MuiBadge-badge': { fontSize: '0.7rem', backgroundColor: '#D4AF37' } }}>
-                  <ShoppingCartOutlined />
-                </Badge>
-                <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
-                  Cart
-                </Typography>
-              </IconButton>
+                  {/* Shopping Cart */}
+                  <IconButton
+                    component={Link}
+                    to="/cart"
+                    sx={{
+                      color: '#666666',
+                      '&:hover': { color: '#D4AF37', transform: 'scale(1.05)' },
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Badge badgeContent={2} color="primary" sx={{ '& .MuiBadge-badge': { fontSize: '0.7rem', backgroundColor: '#D4AF37' } }}>
+                      <ShoppingCartOutlined />
+                    </Badge>
+                    <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
+                      Cart
+                    </Typography>
+                  </IconButton>
+
+                  {/* Logout Button - Only show when logged in */}
+                  <IconButton
+                    onClick={handleLogoutClick}
+                    sx={{
+                      color: '#666666',
+                      '&:hover': { color: '#f44336', transform: 'scale(1.05)' },
+                      transition: 'all 0.2s',
+                      display: { xs: 'none', sm: 'flex' }
+                    }}
+                  >
+                    <Logout />
+                    <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
+                      Logout
+                    </Typography>
+                  </IconButton>
+                </>
+              ) : (
+                <>
+                  {/* Login/Register Button - Only show when not logged in */}
+                  <Button
+                    component={Link}
+                    to="/login"
+                    variant="outlined"
+                    sx={{
+                      color: '#D4AF37',
+                      borderColor: '#D4AF37',
+                      textTransform: 'none',
+                      '&:hover': {
+                        backgroundColor: '#D4AF37',
+                        color: 'white',
+                        borderColor: '#D4AF37'
+                      },
+                      display: { xs: 'none', sm: 'flex' },
+                      fontSize: '0.875rem'
+                    }}
+                  >
+                    Login / Register
+                  </Button>
+                </>
+              )}
 
               {/* Mobile Menu Button */}
               <IconButton
@@ -364,24 +451,22 @@ const MainNavbar = ({ onMobileMenuToggle, isLoggedIn = false, onLogout }) => {
         </Container>
       </AppBar>
 
-      {/* User Menu Dropdown */}
-      <Menu
-        anchorEl={userMenuAnchor}
-        open={Boolean(userMenuAnchor)}
-        onClose={handleUserMenuClose}
-        PaperProps={{
-          sx: {
-            mt: 1.5,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-            borderRadius: '8px',
-            minWidth: '200px'
-          }
-        }}
-      >
-        {userMenuItems.map((item, index) =>
-          item.divider ? (
-            <Divider key={index} />
-          ) : (
+ {/* User Menu Dropdown - Only show when logged in */}
+      {isLoggedIn && (
+        <Menu
+          anchorEl={userMenuAnchor}
+          open={Boolean(userMenuAnchor)}
+          onClose={handleUserMenuClose}
+          PaperProps={{
+            sx: {
+              mt: 1.5,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+              borderRadius: '8px',
+              minWidth: '200px'
+            }
+          }}
+        >
+          {userMenuItems.map((item, index) => (
             <MenuItem
               key={item.key}
               component={item.href ? Link : 'div'}
@@ -399,9 +484,9 @@ const MainNavbar = ({ onMobileMenuToggle, isLoggedIn = false, onLogout }) => {
               </ListItemIcon>
               <ListItemText primary={item.label} />
             </MenuItem>
-          )
-        )}
-      </Menu>
+          ))}
+        </Menu>
+      )}
 
       {/* Logout Confirmation Dialog */}
       <LogoutConfirmation
