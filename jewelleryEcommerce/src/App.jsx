@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useState } from 'react'
 // import { Button } from 'antd'; 
 // import './App.css'
-import Navbar from './components/Basic/Navbar.jsx';
+import Navbar from './components/Navbar/Navbar.jsx';
 import Footer from './components/Basic/Footer.jsx';
 import Home from './pages/Home.jsx';
 import ProductPage from './pages/ProductPage.jsx';
@@ -10,6 +10,7 @@ import About from './pages/About.jsx';
 import Contact from './pages/Contact.jsx';
 import AuthPage from './pages/Authpage.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
+import Account from './pages/Account.jsx';
 function App() {
 
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/Login" element={<AuthPage />} />
         <Route path="/Admin" element={<AdminDashboard />} />
+        <Route path="/profile" element={<Account />} />
       </Routes>
       <Footer/> 
     </BrowserRouter>

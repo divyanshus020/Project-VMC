@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import Logo from '../../assets/catalogue/vmc.png'
+import Logo from '../../assets/catalogue/vmc.png';
+import LogoutConfirmation from '../AuthPage/ConfirmLogoutDialog'; // Import the confirmation component
 import {
   AppBar,
   Toolbar,
@@ -9,20 +10,16 @@ import {
   IconButton,
   Badge,
   TextField,
-  InputAdornment,
   Menu,
   MenuItem,
-  Drawer,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Divider,
-  Typography,
   Container,
   useTheme,
   useMediaQuery,
-  Paper
+  Paper,
+  Typography,
+  ListItemIcon,
+  ListItemText,
+  Divider
 } from '@mui/material';
 import {
   Search,
@@ -30,14 +27,9 @@ import {
   ShoppingCartOutlined,
   PersonOutline,
   Menu as MenuIcon,
-  Home,
-  Diamond,
-  Info,
-  Phone,
   AccountCircle,
   ListAlt,
-  LocalShipping,
-  Support
+  Logout
 } from '@mui/icons-material';
 
 // Navigation links data
@@ -48,29 +40,25 @@ const navLinks = [
   { label: 'Contact us', href: '/contact' }
 ];
 
-const mobileMenuLinks = [
-  { icon: <Home />, label: 'Home', key: 'home', href: '/' },
-  { icon: <Diamond />, label: 'Product', key: 'product', href: '/products' },
-  { icon: <Info />, label: 'About us', key: 'about', href: '/about' },
-  { icon: <Phone />, label: 'Contact us', key: 'contact', href: '/contact' }
-];
-
-const userMenuItems = [
-  { icon: <PersonOutline />, label: 'My Profile', key: 'profile', href: '/profile' },
-  { icon: <ListAlt />, label: 'My Orders', key: 'orders', href: '/orders' },
-  { icon: <FavoriteBorder />, label: 'Wishlist', key: 'wishlist', href: '/wishlist' },
-  { divider: true },
-  { icon: <AccountCircle />, label: 'Login / Register', key: 'login', href: '/login' }
-];
-
-const Navbar = () => {
-  const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
+const MainNavbar = ({ onMobileMenuToggle, isLoggedIn = false, onLogout }) => {
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const [searchValue, setSearchValue] = useState('');
+  const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+
+  // Dynamic user menu items based on login status
+  const userMenuItems = isLoggedIn ? [
+    { icon: <PersonOutline />, label: 'My Profile', key: 'profile', href: '/profile' },
+    { icon: <ListAlt />, label: 'My Orders', key: 'orders', href: '/orders' },
+    { icon: <FavoriteBorder />, label: 'Wishlist', key: 'wishlist', href: '/wishlist' },
+    { divider: true },
+    { icon: <Logout />, label: 'Logout', key: 'logout', action: 'logout' }
+  ] : [
+    { icon: <AccountCircle />, label: 'Login / Register', key: 'login', href: '/login' }
+  ];
 
   const handleUserMenuOpen = (event) => {
     setUserMenuAnchor(event.currentTarget);
@@ -78,10 +66,6 @@ const Navbar = () => {
 
   const handleUserMenuClose = () => {
     setUserMenuAnchor(null);
-  };
-
-  const handleMobileMenuToggle = () => {
-    setMobileMenuVisible(!mobileMenuVisible);
   };
 
   const handleSearchChange = (event) => {
@@ -94,37 +78,28 @@ const Navbar = () => {
     console.log('Search:', searchValue);
   };
 
+  const handleMenuItemClick = (item) => {
+    if (item.action === 'logout') {
+      setShowLogoutConfirmation(true);
+      handleUserMenuClose();
+    } else {
+      handleUserMenuClose();
+    }
+  };
+
+  const handleLogoutConfirm = () => {
+    setShowLogoutConfirmation(false);
+    if (onLogout) {
+      onLogout();
+    }
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutConfirmation(false);
+  };
+
   return (
     <>
-      {/* Top Header Bar */}
-      <Box
-        sx={{
-          backgroundColor: '#1a1a1a',
-          color: 'white',
-          py: 1,
-          display: { xs: 'none', md: 'block' }
-        }}
-      >
-        <Container maxWidth="xl">
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-around',
-              alignItems: 'center',
-              fontSize: '0.875rem'
-            }}
-          >
-            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              📞 +91-9876543210
-            </Typography>
-            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              ✉️ info@luxegems.com
-            </Typography>
-          </Box>
-        </Container>
-      </Box>
-
-      {/* Main Navbar */}
       <AppBar
         position="sticky"
         sx={{
@@ -153,11 +128,10 @@ const Navbar = () => {
                   },
                   p: 0,
                   minWidth: 'auto',
-                  flexDirection: 'column', // Stack logo and text vertically on small screens
+                  flexDirection: 'column',
                   alignItems: 'flex-start'
                 }}
               >
-                {/* Logo Image - hide on xs, show on sm+ */}
                 <img
                   src={Logo}
                   alt="VMC Logo"
@@ -170,7 +144,6 @@ const Navbar = () => {
                     display: 'block'
                   }}
                   className="hidden sm:block"
-                  // Responsive width: 120px on small screens, 200px on md+
                   sizes="(max-width: 100px) 120px, 200px"
                 />
               </Button>
@@ -289,7 +262,7 @@ const Navbar = () => {
               >
                 <PersonOutline />
                 <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
-                  Account
+                  {isLoggedIn ? 'Account' : 'Login'}
                 </Typography>
               </IconButton>
 
@@ -331,7 +304,7 @@ const Navbar = () => {
 
               {/* Mobile Menu Button */}
               <IconButton
-                onClick={handleMobileMenuToggle}
+                onClick={onMobileMenuToggle}
                 sx={{
                   color: '#666666',
                   '&:hover': { color: '#D4AF37' },
@@ -411,9 +384,9 @@ const Navbar = () => {
           ) : (
             <MenuItem
               key={item.key}
-              component={Link}
+              component={item.href ? Link : 'div'}
               to={item.href}
-              onClick={handleUserMenuClose}
+              onClick={() => handleMenuItemClick(item)}
               sx={{
                 py: 1.5,
                 '&:hover': {
@@ -430,115 +403,14 @@ const Navbar = () => {
         )}
       </Menu>
 
-      {/* Mobile Drawer Menu */}
-      <Drawer
-        anchor="right"
-        open={mobileMenuVisible}
-        onClose={() => setMobileMenuVisible(false)}
-        PaperProps={{
-          sx: {
-            width: 300,
-            backgroundColor: '#fafafa'
-          }
-        }}
-      >
-        {/* Drawer Header */}
-        <Box sx={{ p: 2, backgroundColor: 'white', borderBottom: '1px solid #e0e0e0' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography sx={{ fontSize: '1.5rem', mr: 1 }}>💎</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#D4AF37' }}>
-              LUXE GEMS
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* Navigation Links */}
-        <List sx={{ pt: 0 }}>
-          {mobileMenuLinks.map((link) => (
-            <ListItem
-              key={link.key}
-              button
-              component={Link}
-              to={link.href}
-              onClick={() => setMobileMenuVisible(false)}
-              sx={{
-                py: 2,
-                '&:hover': {
-                  backgroundColor: 'rgba(212, 175, 55, 0.08)'
-                }
-              }}
-            >
-              <ListItemIcon sx={{ color: '#D4AF37', minWidth: '40px' }}>
-                {link.icon}
-              </ListItemIcon>
-              <ListItemText
-                primary={link.label}
-                primaryTypographyProps={{
-                  fontSize: '1rem',
-                  fontWeight: 500
-                }}
-              />
-            </ListItem>
-          ))}
-
-          <Divider sx={{ my: 1 }} />
-
-          {/* Account Links */}
-          <ListItem
-            button
-            component={Link}
-            to="/profile"
-            onClick={() => setMobileMenuVisible(false)}
-            sx={{ py: 2 }}
-          >
-            <ListItemIcon sx={{ color: '#666666', minWidth: '40px' }}>
-              <PersonOutline />
-            </ListItemIcon>
-            <ListItemText primary="My Account" />
-          </ListItem>
-
-          <ListItem
-            button
-            component={Link}
-            to="/orders"
-            onClick={() => setMobileMenuVisible(false)}
-            sx={{ py: 2 }}
-          >
-            <ListItemIcon sx={{ color: '#666666', minWidth: '40px' }}>
-              <ListAlt />
-            </ListItemIcon>
-            <ListItemText primary="My Orders" />
-          </ListItem>
-
-          <ListItem
-            button
-            component={Link}
-            to="/track-order"
-            onClick={() => setMobileMenuVisible(false)}
-            sx={{ py: 2 }}
-          >
-            <ListItemIcon sx={{ color: '#666666', minWidth: '40px' }}>
-              <LocalShipping />
-            </ListItemIcon>
-            <ListItemText primary="Track Order" />
-          </ListItem>
-
-          <ListItem
-            button
-            component={Link}
-            to="/support"
-            onClick={() => setMobileMenuVisible(false)}
-            sx={{ py: 2 }}
-          >
-            <ListItemIcon sx={{ color: '#666666', minWidth: '40px' }}>
-              <Support />
-            </ListItemIcon>
-            <ListItemText primary="Customer Support" />
-          </ListItem>
-        </List>
-      </Drawer>
+      {/* Logout Confirmation Dialog */}
+      <LogoutConfirmation
+        open={showLogoutConfirmation}
+        onConfirm={handleLogoutConfirm}
+        onCancel={handleLogoutCancel}
+      />
     </>
   );
 };
 
-export default Navbar;
+export default MainNavbar;

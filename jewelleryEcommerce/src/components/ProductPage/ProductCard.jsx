@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardMedia,
@@ -14,7 +15,6 @@ import {
   alpha,
   Zoom,
   Fade,
-  Rating,
   Divider
 } from '@mui/material';
 import {
@@ -34,6 +34,7 @@ const ProductCard = ({ product }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const theme = useTheme();
+  const navigate = useNavigate();
 
   // Enhanced Luxury Color Scheme
   const colors = {
@@ -48,19 +49,38 @@ const ProductCard = ({ product }) => {
     shadow: 'rgba(0, 0, 0, 0.08)',
   };
 
+  // Check if user is logged in
+  const isUserLoggedIn = () => {
+    // Option 1: Check localStorage/sessionStorage for token
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    
+    // Option 2: If you're using a different storage key, replace 'authToken' with your key
+    // const user = localStorage.getItem('user');
+    // const isLoggedIn = localStorage.getItem('isLoggedIn');
+    
+    return !!token; // Returns true if token exists, false otherwise
+  };
+
   const handleFavoriteClick = (e) => {
     e.stopPropagation();
     setIsFavorited(!isFavorited);
   };
 
-  const handleEnquiryClick = (e) => {
+  const handleViewProduct = (e) => {
     e.stopPropagation();
-    console.log('Enquiry for:', product.name);
-  };
-
-  const handleQuickView = (e) => {
-    e.stopPropagation();
-    console.log('Quick view for:', product.name);
+    
+    // Check if user is logged in
+    if (isUserLoggedIn()) {
+      // User is logged in - navigate to product detail page
+      console.log('User is logged in, navigating to product:', product.name);
+      navigate(`/product/${product.id}`);
+    } else {
+      // User is NOT logged in - redirect to login page
+      console.log('User not logged in, redirecting to login');
+      // Store the intended destination to redirect back after login
+      localStorage.setItem('redirectAfterLogin', `/product/${product.id}`);
+      navigate('/login');
+    }
   };
 
   const handleShare = (e) => {
@@ -84,7 +104,7 @@ const ProductCard = ({ product }) => {
       <Card
         sx={{
           borderRadius: '24px',
-          height: 520,
+          height: 460,
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
@@ -102,10 +122,6 @@ const ProductCard = ({ product }) => {
               0 24px 64px ${alpha(colors.darkGray, 0.12)},
               0 12px 24px ${alpha(colors.primary, 0.08)}
             `,
-            '& .product-overlay': {
-              opacity: 1,
-              transform: 'translateY(0)',
-            },
             '& .product-image': {
               transform: 'scale(1.08)',
             },
@@ -155,60 +171,6 @@ const ProductCard = ({ product }) => {
               position: 'relative',
             }}
           />
-
-          {/* Elegant Overlay */}
-          <Box
-            className="product-overlay"
-            sx={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: `linear-gradient(
-                180deg,
-                ${alpha(colors.darkGray, 0)} 0%,
-                ${alpha(colors.darkGray, 0.1)} 50%,
-                ${alpha(colors.darkGray, 0.6)} 100%
-              )`,
-              opacity: 0,
-              transform: 'translateY(20px)',
-              transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'center',
-              p: 3,
-              zIndex: 3,
-            }}
-          >
-            <Button
-              variant="contained"
-              startIcon={<VisibilityOutlined />}
-              onClick={handleQuickView}
-              sx={{
-                bgcolor: alpha(colors.white, 0.95),
-                color: colors.darkGray,
-                backdropFilter: 'blur(20px)',
-                borderRadius: '16px',
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                px: 4,
-                py: 1.5,
-                border: `1px solid ${alpha(colors.primary, 0.2)}`,
-                boxShadow: `0 8px 24px ${alpha(colors.darkGray, 0.15)}`,
-                '&:hover': {
-                  bgcolor: colors.white,
-                  transform: 'translateY(-4px)',
-                  borderColor: colors.primary,
-                  color: colors.primary,
-                  boxShadow: `0 12px 32px ${alpha(colors.primary, 0.25)}`,
-                },
-              }}
-            >
-              Quick View
-            </Button>
-          </Box>
 
           {/* Action Buttons Stack */}
           <Stack
@@ -337,7 +299,7 @@ const ProductCard = ({ product }) => {
             sx={{
               fontWeight: 700,
               fontSize: '1.2rem',
-              mb: 1.5,
+              mb: 2,
               lineHeight: 1.4,
               overflow: 'hidden',
               display: '-webkit-box',
@@ -350,31 +312,6 @@ const ProductCard = ({ product }) => {
           >
             {product.name}
           </Typography>
-
-          {/* Rating and Reviews */}
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-            <Rating
-              value={product.rating || 4.5}
-              precision={0.5}
-              size="small"
-              readOnly
-              sx={{
-                '& .MuiRating-iconFilled': {
-                  color: colors.primary,
-                },
-              }}
-            />
-            <Typography
-              variant="body2"
-              sx={{
-                color: colors.mediumGray,
-                fontSize: '0.85rem',
-                fontWeight: 500,
-              }}
-            >
-              ({product.reviews || 24} reviews)
-            </Typography>
-          </Stack>
 
           {/* Elegant Divider */}
           <Divider 
@@ -407,8 +344,8 @@ const ProductCard = ({ product }) => {
           <Box sx={{ mt: 'auto' }}>
             <Button
               variant="contained"
-              startIcon={<LocalOfferOutlined />}
-              onClick={handleEnquiryClick}
+              startIcon={<VisibilityOutlined />}
+              onClick={handleViewProduct}
               fullWidth
               sx={{
                 background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
@@ -430,8 +367,8 @@ const ProductCard = ({ product }) => {
                   transform: 'translateY(0)',
                 },
               }}
-               >
-              Get Quote
+            >
+              View Details
             </Button>
           </Box>
         </CardContent>
@@ -490,7 +427,7 @@ const ProductCard = ({ product }) => {
               zIndex: 1,
               '@keyframes shimmer': {
                 '0%': {
-                  backgroundPosition: '-200% 0',
+                                    backgroundPosition: '-200% 0',
                 },
                 '100%': {
                   backgroundPosition: '200% 0',
@@ -567,3 +504,4 @@ const ProductCard = ({ product }) => {
 };
 
 export default ProductCard;
+
