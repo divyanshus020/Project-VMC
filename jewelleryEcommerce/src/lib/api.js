@@ -59,13 +59,8 @@ export const verifyOtpForLogin = (phoneNumber, otp) =>
   API.post('/users/verify-otp-login', { phoneNumber, otp });
 
 // ✅ 5️⃣ Verify OTP & register
-export const verifyOtpForRegister = (phoneNumber, otp, fullName, address) =>
-  API.post('/users/verify-otp-register', {
-    phoneNumber,
-    otp,
-    fullName,
-    address,
-  });
+export const verifyOtpForRegister = (data) =>
+  API.post('/users/verify-otp-register', data);
 
 // ✅ 6️⃣ Get profile
 export const getProfile = (token) =>

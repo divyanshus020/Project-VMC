@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -23,6 +23,16 @@ const RegisterForm = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [timer, setTimer] = useState(0);
+
+  useEffect(() => {
+    let interval;
+    if (otpSent && timer > 0) {
+      interval = setInterval(() => setTimer((t) => t - 1), 1000);
+    }
+    if (timer === 0 && interval) clearInterval(interval);
+    return () => clearInterval(interval);
+  }, [otpSent, timer]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
@@ -41,10 +51,29 @@ const RegisterForm = () => {
       const response = await sendOtpForRegister(formData.phoneNumber.trim());
       console.log('OTP sent:', response.data);
       setOtpSent(true);
+      setTimer(15); // Start 15s timer
       alert('OTP sent to your phone number.');
     } catch (err) {
       console.error('Error sending OTP:', err);
       alert(err?.response?.data?.message || 'Failed to send OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!formData.phoneNumber.trim()) {
+      return alert('Please enter a phone number.');
+    }
+    try {
+      setLoading(true);
+      const response = await sendOtpForRegister(formData.phoneNumber.trim());
+      console.log('OTP resent:', response.data);
+      setTimer(15); // Restart 15s timer
+      alert('OTP resent to your phone number.');
+    } catch (err) {
+      console.error('Error resending OTP:', err);
+      alert(err?.response?.data?.message || 'Failed to resend OTP.');
     } finally {
       setLoading(false);
     }
@@ -58,12 +87,13 @@ const RegisterForm = () => {
     try {
       setLoading(true);
 
-      const res = await verifyOtpForRegister(
-        formData.phoneNumber.trim(),
-        otp.trim(),
-        formData.fullName.trim(),
-        formData.address.trim()
-      );
+      const res = await verifyOtpForRegister({
+        phoneNumber: formData.phoneNumber.trim(),
+        otp: otp.trim(),
+        fullName: formData.fullName.trim(),
+        address: formData.address.trim(),
+        email: formData.email.trim(),
+      });
 
       if (res?.data?.token) {
         setOtpVerified(true);
@@ -152,15 +182,33 @@ const RegisterForm = () => {
           />
 
           {!otpVerified ? (
-            <Button
-              onClick={handleVerifyOtp}
-              fullWidth
-              variant="contained"
-              sx={{ mt: 1, bgcolor: '#2e7d32' }}
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Verify OTP & Register'}
-            </Button>
+            <>
+              <Button
+                onClick={handleVerifyOtp}
+                fullWidth
+                variant="contained"
+                sx={{ mt: 1, bgcolor: '#2e7d32' }}
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={24} /> : 'Verify OTP & Register'}
+              </Button>
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                {timer > 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Resend OTP in {timer} second{timer !== 1 ? 's' : ''}
+                  </Typography>
+                ) : (
+                  <Button
+                    onClick={handleResendOtp}
+                    variant="text"
+                    color="primary"
+                    disabled={loading}
+                  >
+                    Resend OTP
+                  </Button>
+                )}
+              </Box>
+            </>
           ) : (
             <Typography color="success.main" mt={2}>
               ✅ Phone verified. You are now registered!

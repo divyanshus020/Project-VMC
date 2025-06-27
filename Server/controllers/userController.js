@@ -117,6 +117,7 @@ exports.verifyOTPForLogin = async (req, res) => {
         fullName: user.fullName,
         phoneNumber: user.phoneNumber,
         address: user.address,
+        email: user.email,
       },
     });
   } catch (err) {
@@ -128,10 +129,13 @@ exports.verifyOTPForLogin = async (req, res) => {
 // 5️⃣ Verify OTP - Register
 // ===============================
 exports.verifyOTPForRegister = async (req, res) => {
-  const { phoneNumber, fullName, address, otp } = req.body;
+  const { phoneNumber, fullName, address, email, otp } = req.body;
 
   if (!phoneNumber || !otp)
     return res.status(400).json({ message: 'Phone number and OTP are required' });
+
+  if (!fullName || !address || !email)
+    return res.status(400).json({ message: 'Full name, address, and email are required' });
 
   const record = otpStore.get(phoneNumber);
   if (!record || record.otp != otp || record.expiresAt < Date.now()) {
@@ -143,10 +147,11 @@ exports.verifyOTPForRegister = async (req, res) => {
 
     if (user) return res.status(400).json({ message: 'User already exists' });
 
-    if (!fullName || !address)
-      return res.status(400).json({ message: 'Full name and address are required' });
+    // Check for duplicate email
+    const emailExists = await User.findOne({ email });
+    if (emailExists) return res.status(400).json({ message: 'Email already in use' });
 
-    user = new User({ fullName, address, phoneNumber });
+    user = new User({ fullName, address, phoneNumber, email });
     await user.save();
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -160,6 +165,7 @@ exports.verifyOTPForRegister = async (req, res) => {
         fullName: user.fullName,
         phoneNumber: user.phoneNumber,
         address: user.address,
+        email: user.email,
       },
     });
   } catch (err) {
@@ -180,6 +186,7 @@ exports.getProfile = async (req, res) => {
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
       address: user.address,
+      email: user.email,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -194,9 +201,10 @@ exports.updateProfile = async (req, res) => {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const { address, fullName } = req.body;
+    const { address, fullName, email } = req.body;
     if (fullName) user.fullName = fullName;
     if (address) user.address = address;
+    if (email) user.email = email;
 
     await user.save();
     res.json({ message: 'Profile updated successfully' });

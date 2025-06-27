@@ -2,8 +2,11 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const sendSMS = require('../utils/sendSMS');
 
-// In-memory store for OTPs (for demo purposes — use Redis or DB for production)
+// Temporary OTP store (For production: use Redis or DB with expiry)
 const otpStore = new Map();
+
+// Generate 6-digit OTP
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000);
 
 // Send OTP
 exports.sendOTP = async (req, res) => {
@@ -13,59 +16,69 @@ exports.sendOTP = async (req, res) => {
     return res.status(400).json({ message: 'Phone number is required' });
   }
 
-  // Generate 6-digit OTP
-  const otp = Math.floor(100000 + Math.random() * 900000);
-
   try {
-    // Store OTP (for 5 minutes)
+    const otp = generateOTP();
+
+    // Store OTP with 5-minute expiration
     otpStore.set(phoneNumber, { otp, expiresAt: Date.now() + 5 * 60 * 1000 });
 
-    // Send SMS via SMSGuru API
     const smsText = `Dear User, ${otp} is the verification code for your interaction with Vimla Jewellers, Jodhpur.`;
     await sendSMS(phoneNumber, smsText);
 
-    res.status(200).json({ message: 'OTP sent successfully' });
+    return res.status(200).json({ message: 'OTP sent successfully' });
   } catch (error) {
-    console.error('SMS sending failed:', error);
-    res.status(500).json({ message: 'Failed to send OTP' });
+    console.error('Error sending OTP:', error);
+    return res.status(500).json({ message: 'Failed to send OTP. Please try again.' });
   }
 };
 
-// Verify OTP & register/login user
+// Verify OTP and register/login user
 exports.verifyOTP = async (req, res) => {
-  const { phoneNumber, fullName, address, otp } = req.body;
+  const { phoneNumber, fullName = '', address = '', otp } = req.body;
 
   if (!phoneNumber || !otp) {
     return res.status(400).json({ message: 'Phone number and OTP are required' });
   }
 
   const record = otpStore.get(phoneNumber);
-  if (!record || record.otp != otp || record.expiresAt < Date.now()) {
+
+  if (
+    !record ||
+    String(record.otp) !== String(otp) || // strict comparison
+    Date.now() > record.expiresAt
+  ) {
     return res.status(400).json({ message: 'Invalid or expired OTP' });
   }
 
   try {
-    // Check if user exists
     let user = await User.findOne({ phoneNumber });
 
+    // Register new user if not found
     if (!user) {
-      if (!fullName || !address) {
-        return res.status(400).json({ message: 'Name and address are required for registration' });
+      if (!fullName.trim() || !address.trim()) {
+        return res.status(400).json({
+          message: 'Full name and address are required for registration',
+        });
       }
 
-      user = new User({ phoneNumber, fullName, address });
+      user = new User({
+        phoneNumber,
+        fullName: fullName.trim(),
+        address: address.trim(),
+      });
+
       await user.save();
     }
 
-    // Create JWT token
+    // Generate JWT token
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: '7d',
     });
 
-    // Clear OTP
+    // Clear OTP from memory
     otpStore.delete(phoneNumber);
 
-    res.json({
+    return res.json({
       message: 'OTP verified successfully',
       token,
       user: {
@@ -76,7 +89,7 @@ exports.verifyOTP = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('OTP verification error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error verifying OTP:', error);
+    return res.status(500).json({ message: 'Server error during OTP verification' });
   }
 };
