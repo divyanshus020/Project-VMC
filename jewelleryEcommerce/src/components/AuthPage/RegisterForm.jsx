@@ -6,7 +6,10 @@ import {
   Typography,
   CircularProgress,
 } from '@mui/material';
-import { registerUser, sendOtp, verifyOtp } from '../../lib/api.js';
+import {
+  sendOtpForRegister,
+  verifyOtpForRegister,
+} from '../../lib/api.js';
 
 const RegisterForm = () => {
   const [formData, setFormData] = useState({
@@ -30,17 +33,18 @@ const RegisterForm = () => {
 
   const handleSendOtp = async () => {
     if (!formData.phoneNumber.trim()) {
-      return alert('Please enter a phone number first.');
+      return alert('Please enter a phone number.');
     }
 
     try {
       setLoading(true);
-      await sendOtp(formData.phoneNumber);
+      const response = await sendOtpForRegister(formData.phoneNumber.trim());
+      console.log('OTP sent:', response.data);
       setOtpSent(true);
-      alert('OTP sent successfully!');
+      alert('OTP sent to your phone number.');
     } catch (err) {
-      console.error(err);
-      alert('Failed to send OTP.');
+      console.error('Error sending OTP:', err);
+      alert(err?.response?.data?.message || 'Failed to send OTP.');
     } finally {
       setLoading(false);
     }
@@ -53,40 +57,32 @@ const RegisterForm = () => {
 
     try {
       setLoading(true);
-      await verifyOtp(formData.phoneNumber, otp);
-      setOtpVerified(true);
-      alert('OTP verified successfully!');
+
+      const res = await verifyOtpForRegister(
+        formData.phoneNumber.trim(),
+        otp.trim(),
+        formData.fullName.trim(),
+        formData.address.trim()
+      );
+
+      if (res?.data?.token) {
+        setOtpVerified(true);
+        alert('OTP verified. Registration successful!');
+        localStorage.setItem('token', res.data.token);
+        // optionally redirect here
+      } else {
+        alert('Unexpected response from server.');
+      }
     } catch (err) {
-      console.error(err);
-      alert('Invalid OTP.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!otpVerified) {
-      return alert('Please verify your OTP before registering.');
-    }
-
-    try {
-      setLoading(true);
-      const res = await registerUser(formData);
-      alert('Registered successfully!');
-      console.log(res.data);
-      // Optionally redirect or clear form here
-    } catch (err) {
-      console.error(err);
-      alert('Registration failed.');
+      console.error('Error verifying OTP:', err);
+      alert(err?.response?.data?.message || 'Invalid OTP or registration failed.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Box component="form" noValidate onSubmit={handleSubmit}>
+    <Box component="form" noValidate>
       <Typography variant="h6" fontWeight="bold" color="#333333" mb={2}>
         Create an Account
       </Typography>
@@ -131,6 +127,7 @@ const RegisterForm = () => {
         variant="outlined"
         margin="normal"
         type="tel"
+        disabled={otpSent}
       />
 
       {!otpSent ? (
@@ -143,7 +140,7 @@ const RegisterForm = () => {
         >
           {loading ? <CircularProgress size={24} /> : 'Send OTP'}
         </Button>
-      ) : !otpVerified ? (
+      ) : (
         <>
           <TextField
             fullWidth
@@ -153,31 +150,24 @@ const RegisterForm = () => {
             variant="outlined"
             margin="normal"
           />
-          <Button
-            onClick={handleVerifyOtp}
-            fullWidth
-            variant="contained"
-            sx={{ mt: 1, bgcolor: '#2e7d32' }}
-            disabled={loading}
-          >
-            {loading ? <CircularProgress size={24} /> : 'Verify OTP'}
-          </Button>
-        </>
-      ) : (
-        <Typography color="success.main" mt={2}>
-          ✅ Phone number verified!
-        </Typography>
-      )}
 
-      <Button
-        type="submit"
-        fullWidth
-        variant="contained"
-        sx={{ mt: 3, bgcolor: '#D4AF37', '&:hover': { bgcolor: '#c49c2d' } }}
-        disabled={!otpVerified || loading}
-      >
-        {loading ? <CircularProgress size={24} /> : 'Register'}
-      </Button>
+          {!otpVerified ? (
+            <Button
+              onClick={handleVerifyOtp}
+              fullWidth
+              variant="contained"
+              sx={{ mt: 1, bgcolor: '#2e7d32' }}
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Verify OTP & Register'}
+            </Button>
+          ) : (
+            <Typography color="success.main" mt={2}>
+              ✅ Phone verified. You are now registered!
+            </Typography>
+          )}
+        </>
+      )}
     </Box>
   );
 };

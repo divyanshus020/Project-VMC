@@ -2,27 +2,26 @@ import axios from 'axios';
 
 // ✅ 1️⃣ Create reusable Axios instance
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api', // ⚠️ Update for production
+  baseURL: 'http://localhost:5000/api', // ⚠️ Change to production URL in production
 });
 
 // =======================
 // 📦 PRODUCT APIs
 // =======================
 
-// Create product (with image file)
+// Create product (with file upload)
 export const createProduct = (formData) =>
   API.post('/products', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
-// Create product (with image URL only)
-export const createProductWithUrl = (data) =>
-  API.post('/products', data);
+// Create product (with image URL)
+export const createProductWithUrl = (data) => API.post('/products', data);
 
 // Get all products
 export const getProducts = () => API.get('/products');
 
-// Get single product by ID
+// Get product by ID
 export const getProductById = (id) => API.get(`/products/${id}`);
 
 // Update product (with image file)
@@ -40,26 +39,35 @@ export const deleteProduct = (id) => API.delete(`/products/${id}`);
 
 
 // =======================
-// 👤 USER APIs (OTP-based)
+// 👤 USER APIs (OTP-based auth)
 // =======================
 
-// ✅ Check if a user exists (by phone number)
+// ✅ 1️⃣ Check if user exists
 export const checkUserExists = (phoneNumber) =>
   API.post('/users/check-exists', { phoneNumber });
 
-// Send OTP to user phone
-export const sendOtp = (phoneNumber) =>
-  API.post('/users/send-otp', { phoneNumber });
+// ✅ 2️⃣ Send OTP for login
+export const sendOtpForLogin = (phoneNumber) =>
+  API.post('/users/send-otp-login', { phoneNumber });
 
-// Verify OTP for login or registration
-export const verifyOtp = (phoneNumber, otp) =>
+// ✅ 3️⃣ Send OTP for register
+export const sendOtpForRegister = (phoneNumber) =>
+  API.post('/users/send-otp-register', { phoneNumber });
+
+// ✅ 4️⃣ Verify OTP for login
+export const verifyOtpForLogin = (phoneNumber, otp) =>
   API.post('/users/verify-otp-login', { phoneNumber, otp });
 
-// Register new user after OTP verification
-export const registerUser = (data) =>
-  API.post('/users/register', data);
+// ✅ 5️⃣ Verify OTP & register
+export const verifyOtpForRegister = (phoneNumber, otp, fullName, address) =>
+  API.post('/users/verify-otp-register', {
+    phoneNumber,
+    otp,
+    fullName,
+    address,
+  });
 
-// Get user profile (token required)
+// ✅ 6️⃣ Get profile
 export const getProfile = (token) =>
   API.get('/users/profile', {
     headers: {
@@ -67,7 +75,7 @@ export const getProfile = (token) =>
     },
   });
 
-// Update user profile (token required)
+// ✅ 7️⃣ Update profile
 export const updateProfile = (data, token) =>
   API.put('/users/profile', data, {
     headers: {
@@ -80,10 +88,10 @@ export const updateProfile = (data, token) =>
 // 🛡️ ADMIN APIs
 // =======================
 
-// Admin login
+// ✅ Admin login
 export const loginAdmin = (data) => API.post('/admin/login', data);
 
-// Example for future use:
+// Future use:
 // export const getAdminDashboard = (token) =>
 //   API.get('/admin/dashboard', {
 //     headers: { Authorization: `Bearer ${token}` },

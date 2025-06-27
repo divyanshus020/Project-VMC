@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -6,7 +6,11 @@ import {
   Typography,
   CircularProgress,
 } from '@mui/material';
-import { sendOtp, verifyOtp, checkUserExists } from '../../lib/api'; // ⬅️ make sure this function is exported
+import {
+  verifyOtpForLogin,
+  checkUserExists,
+  sendOtpForLogin, // ✅ New sendOtp API for login
+} from '../../lib/api';
 import { useNavigate } from 'react-router-dom';
 
 const LoginForm = () => {
@@ -14,8 +18,17 @@ const LoginForm = () => {
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [timer, setTimer] = useState(0);
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let interval;
+    if (timer > 0) {
+      interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
 
   const handleSendOtp = async () => {
     const trimmedPhone = phoneNumber.trim();
@@ -24,19 +37,18 @@ const LoginForm = () => {
     try {
       setLoading(true);
 
-      // ✅ Check if user exists before sending OTP
       const res = await checkUserExists(trimmedPhone);
       if (!res.data.exists) {
         return alert('User not found. Please register first.');
       }
 
-      // ✅ If user exists, send OTP
-      await sendOtp(trimmedPhone);
+      await sendOtpForLogin(trimmedPhone); // ✅ Send the actual OTP
       setOtpSent(true);
-      alert('OTP has been sent to your phone.');
+      setTimer(15); // ⏳ Start 15s countdown
+      alert('OTP sent to your phone.');
     } catch (err) {
-      console.error('Error during OTP send:', err);
-      alert('Failed to send OTP. Please try again.');
+      console.error('Error sending OTP:', err);
+      alert(err.response?.data?.message || 'Failed to send OTP.');
     } finally {
       setLoading(false);
     }
@@ -47,11 +59,11 @@ const LoginForm = () => {
 
     try {
       setLoading(true);
-      const res = await verifyOtp(phoneNumber.trim(), otp.trim());
+      const res = await verifyOtpForLogin(phoneNumber.trim(), otp.trim());
       localStorage.setItem('token', res.data.token);
       alert('Login successful!');
       navigate('/profile');
-      window.location.reload(); // optional
+      window.location.reload();
     } catch (err) {
       console.error('OTP verification error:', err);
       alert(
@@ -101,6 +113,7 @@ const LoginForm = () => {
             margin="normal"
             autoFocus
           />
+
           <Button
             onClick={handleVerifyOtp}
             fullWidth
@@ -110,6 +123,22 @@ const LoginForm = () => {
           >
             {loading ? <CircularProgress size={24} /> : 'Verify & Login'}
           </Button>
+
+          {timer > 0 ? (
+            <Typography mt={2} color="text.secondary">
+              ⏳ Resend OTP in {timer}s
+            </Typography>
+          ) : (
+            <Button
+              onClick={handleSendOtp}
+              fullWidth
+              variant="outlined"
+              sx={{ mt: 2 }}
+              disabled={loading}
+            >
+              Resend OTP
+            </Button>
+          )}
         </>
       )}
     </Box>
