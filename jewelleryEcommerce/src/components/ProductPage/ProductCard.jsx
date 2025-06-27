@@ -2,38 +2,23 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
-  CardMedia,
-  CardContent,
-  Typography,
   Button,
   Box,
-  Stack,
-  Chip,
-  IconButton,
-  Tooltip,
-  useTheme,
   alpha,
-  Zoom,
-  Fade,
-  Divider
+  CircularProgress,
 } from '@mui/material';
 import {
-  FavoriteOutlined,
-  Favorite,
-  ShoppingCartOutlined,
   VisibilityOutlined,
-  StarRounded,
-  DiamondOutlined,
-  LocalOfferOutlined,
-  ShareOutlined
+  ShoppingCartOutlined,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
+import ProductImageSection from './ProductImageSection';
+import ProductDetailsSection from './ProductDetailsSection';
 
 const ProductCard = ({ product }) => {
   const [isFavorited, setIsFavorited] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const theme = useTheme();
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   // Enhanced Luxury Color Scheme
@@ -49,43 +34,146 @@ const ProductCard = ({ product }) => {
     shadow: 'rgba(0, 0, 0, 0.08)',
   };
 
-  // Check if user is logged in
+  // Enhanced authentication check
   const isUserLoggedIn = () => {
-    // Option 1: Check localStorage/sessionStorage for token
-    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-    
-    // Option 2: If you're using a different storage key, replace 'authToken' with your key
-    // const user = localStorage.getItem('user');
-    // const isLoggedIn = localStorage.getItem('isLoggedIn');
-    
-    return !!token; // Returns true if token exists, false otherwise
+    try {
+      // Check multiple possible token storage locations
+      const token = localStorage.getItem('authToken') || 
+                    localStorage.getItem('token') || 
+                    sessionStorage.getItem('authToken') ||
+                    sessionStorage.getItem('token') ||
+                    localStorage.getItem('userToken') ||
+                    sessionStorage.getItem('userToken');
+      
+      // Optional: Check if token is expired (if you store expiry info)
+      const tokenExpiry = localStorage.getItem('tokenExpiry');
+      if (tokenExpiry && new Date().getTime() > parseInt(tokenExpiry)) {
+        // Token is expired, clean up
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('tokenExpiry');
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('userToken');
+        return false;
+      }
+      
+      // Check if token is valid (not null, undefined, or empty string)
+      return !!(token && token !== 'undefined' && token !== 'null' && token.trim() !== '');
+    } catch (error) {
+      console.error('Error checking authentication status:', error);
+      return false;
+    }
   };
 
   const handleFavoriteClick = (e) => {
     e.stopPropagation();
+    
+    // Check if user is logged in for favorites functionality
+    if (!isUserLoggedIn()) {
+      // Store the current page for redirect after login
+      localStorage.setItem('redirectAfterLogin', window.location.pathname);
+      navigate('/login', { 
+        state: { 
+          message: 'Please login to add items to favorites',
+          from: 'favorites'
+        }
+      });
+      return;
+    }
+    
     setIsFavorited(!isFavorited);
+    // Here you would typically make an API call to update favorites
+    console.log(`${isFavorited ? 'Removed from' : 'Added to'} favorites:`, product.name);
   };
 
-  const handleViewProduct = (e) => {
+  const handleViewProduct = async (e) => {
     e.stopPropagation();
+    setIsLoading(true);
     
-    // Check if user is logged in
-    if (isUserLoggedIn()) {
-      // User is logged in - navigate to product detail page
-      console.log('User is logged in, navigating to product:', product.name);
-      navigate(`/product/${product.id}`);
-    } else {
-      // User is NOT logged in - redirect to login page
-      console.log('User not logged in, redirecting to login');
-      // Store the intended destination to redirect back after login
-      localStorage.setItem('redirectAfterLogin', `/product/${product.id}`);
-      navigate('/login');
+    try {
+      // Add a small delay for better UX (optional)
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Check if user is logged in
+      if (isUserLoggedIn()) {
+        // User is logged in - navigate to product detail page
+        console.log('User is logged in, navigating to product:', product.name);
+        navigate(`/product/${product.id}`);
+      } else {
+        // User is NOT logged in - redirect to login page
+        console.log('User not logged in, redirecting to login');
+        
+        // Store the intended destination to redirect back after login
+        const intendedDestination = `/product/${product.id}`;
+        localStorage.setItem('redirectAfterLogin', intendedDestination);
+        
+        // Navigate to login with additional state information
+        navigate('/login', { 
+          state: { 
+            message: 'Please login to view product details',
+            redirectTo: intendedDestination,
+            productName: product.name,
+            from: 'productCard'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error handling product view:', error);
+      // Handle error appropriately - maybe show a toast notification
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleShare = (e) => {
     e.stopPropagation();
-    console.log('Share:', product.name);
+    
+    // Enhanced share functionality
+    const shareData = {
+      title: product.name,
+      text: `Check out this beautiful jewelry: ${product.name}`,
+      url: `${window.location.origin}/product/${product.id}`
+    };
+
+    // Check if Web Share API is supported
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      navigator.share(shareData)
+        .then(() => console.log('Product shared successfully'))
+        .catch((error) => console.log('Error sharing product:', error));
+    } else {
+      // Fallback: Copy to clipboard
+      const shareUrl = `${window.location.origin}/product/${product.id}`;
+      navigator.clipboard.writeText(shareUrl)
+        .then(() => {
+          console.log('Product URL copied to clipboard');
+          // You could show a toast notification here
+        })
+        .catch((error) => {
+          console.error('Error copying to clipboard:', error);
+        });
+    }
+  };
+
+  const handleAddToCart = (e) => {
+    e.stopPropagation();
+    
+    // Check if user is logged in for cart functionality
+    if (!isUserLoggedIn()) {
+      localStorage.setItem('redirectAfterLogin', window.location.pathname);
+      navigate('/login', { 
+        state: { 
+          message: 'Please login to add items to cart',
+          from: 'cart'
+        }
+      });
+      return;
+    }
+    
+    // Add to cart logic here
+    console.log('Added to cart:', product.name);
+    // You would typically make an API call here
   };
 
   return (
@@ -104,7 +192,7 @@ const ProductCard = ({ product }) => {
       <Card
         sx={{
           borderRadius: '24px',
-          height: 460,
+          height: 480,
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
@@ -135,243 +223,110 @@ const ProductCard = ({ product }) => {
           },
         }}
       >
-        {/* Premium Image Container */}
-        <Box
-          sx={{
-            position: 'relative',
-            height: 280,
-            overflow: 'hidden',
-            bgcolor: `linear-gradient(135deg, ${colors.cream} 0%, ${colors.lightGray} 100%)`,
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: `linear-gradient(45deg, ${alpha(colors.primary, 0.02)} 0%, transparent 50%)`,
-              zIndex: 1,
-            }
-          }}
-        >
-          {/* Main Product Image */}
-          <CardMedia
-            component="img"
-            image={product.imageUrl}
-            alt={product.name}
-            onLoad={() => setImageLoaded(true)}
-            className="product-image"
-            sx={{
-              height: '100%',
-              width: '100%',
-              objectFit: 'cover',
-              transition: 'all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-              filter: imageLoaded ? 'none' : 'blur(8px)',
-              zIndex: 2,
-              position: 'relative',
-            }}
-          />
+        {/* Product Image Section */}
+        <ProductImageSection
+          product={product}
+          colors={colors}
+          isHovered={isHovered}
+          onFavoriteClick={handleFavoriteClick}
+          onShare={handleShare}
+          isFavorited={isFavorited}
+        />
 
-          {/* Action Buttons Stack */}
-          <Stack
-            className="action-buttons"
-            spacing={1}
-            sx={{
-              position: 'absolute',
-              top: 16,
-              right: 16,
-              opacity: 0,
-              transform: 'translateX(20px)',
-              transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-              zIndex: 4,
-            }}
-          >
-            {/* Favorite Button */}
-            <Tooltip title={isFavorited ? "Remove from favorites" : "Add to favorites"} placement="left">
-              <IconButton
-                onClick={handleFavoriteClick}
-                sx={{
-                  bgcolor: alpha(colors.white, 0.95),
-                  backdropFilter: 'blur(20px)',
-                  width: 44,
-                  height: 44,
-                  border: `1px solid ${alpha(colors.lightGray, 0.5)}`,
-                  boxShadow: `0 4px 16px ${alpha(colors.darkGray, 0.1)}`,
-                  '&:hover': {
-                    bgcolor: colors.white,
-                    transform: 'scale(1.1)',
-                    borderColor: isFavorited ? '#E53E3E' : colors.primary,
-                    boxShadow: `0 8px 24px ${alpha(colors.darkGray, 0.15)}`,
-                  },
-                }}
-              >
-                {isFavorited ? (
-                  <Favorite sx={{ color: '#E53E3E', fontSize: 20 }} />
-                ) : (
-                  <FavoriteOutlined sx={{ fontSize: 20, color: colors.mediumGray }} />
-                )}
-              </IconButton>
-            </Tooltip>
+        {/* Product Details Section */}
+        <ProductDetailsSection
+          product={product}
+          colors={colors}
+        />
 
-            {/* Share Button */}
-            <Tooltip title="Share product" placement="left">
-              <IconButton
-                onClick={handleShare}
-                sx={{
-                  bgcolor: alpha(colors.white, 0.95),
-                  backdropFilter: 'blur(20px)',
-                  width: 44,
-                  height: 44,
-                  border: `1px solid ${alpha(colors.lightGray, 0.5)}`,
-                  boxShadow: `0 4px 16px ${alpha(colors.darkGray, 0.1)}`,
-                  '&:hover': {
-                    bgcolor: colors.white,
-                    transform: 'scale(1.1)',
-                    borderColor: colors.primary,
-                    boxShadow: `0 8px 24px ${alpha(colors.darkGray, 0.15)}`,
-                  },
-                }}
-              >
-                <ShareOutlined sx={{ fontSize: 18, color: colors.mediumGray }} />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-
-          {/* Premium Category Badge */}
-          {product.category && (
-            <Chip
-              icon={<DiamondOutlined sx={{ fontSize: 16 }} />}
-              label={product.category}
-              size="small"
-              sx={{
-                position: 'absolute',
-                top: 16,
-                left: 16,
-                bgcolor: alpha(colors.primary, 0.12),
-                color: colors.accent,
-                fontWeight: 700,
-                fontSize: '0.75rem',
-                borderRadius: '12px',
-                backdropFilter: 'blur(20px)',
-                border: `1px solid ${alpha(colors.primary, 0.25)}`,
-                px: 1,
-                zIndex: 4,
-                '& .MuiChip-icon': {
-                  color: colors.primary,
-                },
-              }}
-            />
-          )}
-
-          {/* Decorative Corner Element */}
-          <Box
-            sx={{
-              position: 'absolute',
-              top: -30,
-              right: -30,
-              width: 80,
-              height: 80,
-              borderRadius: '50%',
-              background: `radial-gradient(circle, ${alpha(colors.primary, 0.1)} 0%, transparent 70%)`,
-              pointerEvents: 'none',
-              zIndex: 1,
-            }}
-          />
-        </Box>
-
-        {/* Enhanced Content Section */}
-        <CardContent
-          className="product-details"
-          sx={{
-            p: 3,
-            flexGrow: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'relative',
-            bgcolor: colors.white,
-            transition: 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          }}
-        >
-          {/* Product Title */}
-          <Typography
-            variant="h6"
-            component="h3"
-            sx={{
-              fontWeight: 700,
-              fontSize: '1.2rem',
-              mb: 2,
-              lineHeight: 1.4,
-              overflow: 'hidden',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              minHeight: '2.8em',
-              color: colors.darkGray,
-              fontFamily: '"Playfair Display", serif',
-            }}
-          >
-            {product.name}
-          </Typography>
-
-          {/* Elegant Divider */}
-          <Divider 
+        {/* Action Buttons Section */}
+        <Box sx={{ p: 2.5, pt: 0 }}>
+          <Box 
             sx={{ 
-              mb: 2, 
-              borderColor: alpha(colors.primary, 0.1),
-              '&::before, &::after': {
-                borderColor: alpha(colors.primary, 0.1),
-              }
-            }} 
-          />
-
-          {/* Price Section (if available) */}
-          {product.price && (
-            <Box sx={{ mb: 2 }}>
-              <Typography
-                variant="h6"
-                sx={{
-                  color: colors.primary,
-                  fontWeight: 700,
-                  fontSize: '1.1rem',
-                }}
-              >
-                ₹{product.price.toLocaleString()}
-              </Typography>
-            </Box>
-          )}
-
-          {/* Action Button */}
-          <Box sx={{ mt: 'auto' }}>
+              display: 'flex', 
+              gap: 1.5,
+              alignItems: 'center',
+            }}
+          >
+            {/* View Details Button */}
             <Button
               variant="contained"
-              startIcon={<VisibilityOutlined />}
+              startIcon={
+                isLoading ? (
+                  <CircularProgress size={14} color="inherit" />
+                ) : (
+                  <VisibilityOutlined sx={{ fontSize: 16 }} />
+                )
+              }
               onClick={handleViewProduct}
-              fullWidth
+              disabled={isLoading}
               sx={{
-                background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
-                borderRadius: '16px',
+                flex: 1,
+                background: isLoading 
+                  ? colors.mediumGray 
+                  : `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
+                borderRadius: '12px',
                 textTransform: 'none',
-                fontWeight: 700,
-                fontSize: '1rem',
-                px: 3,
-                py: 1.5,
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                px: 2,
+                py: 1,
                 color: colors.white,
-                boxShadow: `0 8px 24px ${alpha(colors.primary, 0.25)}`,
+                boxShadow: isLoading 
+                  ? 'none' 
+                  : `0 6px 20px ${alpha(colors.primary, 0.25)}`,
                 transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
                 '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: `0 12px 32px ${alpha(colors.primary, 0.35)}`,
-                  background: `linear-gradient(135deg, ${colors.secondary} 0%, ${colors.primary} 100%)`,
+                  transform: isLoading ? 'none' : 'translateY(-1px)',
+                  boxShadow: isLoading 
+                    ? 'none' 
+                    : `0 8px 24px ${alpha(colors.primary, 0.35)}`,
+                  background: isLoading 
+                    ? colors.mediumGray 
+                    : `linear-gradient(135deg, ${colors.secondary} 0%, ${colors.primary} 100%)`,
                 },
                 '&:active': {
-                  transform: 'translateY(0)',
+                  transform: isLoading ? 'none' : 'translateY(0)',
+                },
+                '&:disabled': {
+                  background: colors.mediumGray,
+                  color: colors.white,
+                  opacity: 0.7,
                 },
               }}
             >
-              View Details
+              {isLoading ? 'Loading...' : 'View Details'}
             </Button>
+
+            {/* Add to Cart Button */}
+            {product.inStock !== false && (
+              <Button
+                variant="outlined"
+                startIcon={<ShoppingCartOutlined sx={{ fontSize: 16 }} />}
+                onClick={handleAddToCart}
+                sx={{
+                  minWidth: 'auto',
+                  borderColor: colors.primary,
+                  color: colors.primary,
+                  borderRadius: '12px',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
+                  px: 2,
+                  py: 1,
+                  transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                  '&:hover': {
+                    borderColor: colors.primary,
+                    backgroundColor: alpha(colors.primary, 0.1),
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                Cart
+              </Button>
+            )}
           </Box>
-        </CardContent>
+        </Box>
 
         {/* Premium Decorative Elements */}
         <Box
@@ -407,95 +362,32 @@ const ProductCard = ({ product }) => {
           }}
         />
 
-        {/* Loading Shimmer Effect */}
-        {!imageLoaded && (
+        {/* Loading Overlay */}
+        {isLoading && (
           <Box
             sx={{
               position: 'absolute',
               top: 0,
               left: 0,
               right: 0,
-              height: 280,
-              background: `linear-gradient(
-                90deg,
-                ${colors.lightGray} 0%,
-                ${alpha(colors.primary, 0.1)} 50%,
-                ${colors.lightGray} 100%
-              )`,
-              backgroundSize: '200% 100%',
-              animation: 'shimmer 2s infinite',
-              zIndex: 1,
-              '@keyframes shimmer': {
-                '0%': {
-                                    backgroundPosition: '-200% 0',
-                },
-                '100%': {
-                  backgroundPosition: '200% 0',
-                },
-              },
-            }}
-          />
-        )}
-
-        {/* Premium Badge for Special Items */}
-        {product.isPremium && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: -8,
-              left: 20,
-              bgcolor: colors.darkGray,
-              color: colors.primary,
-              px: 2,
-              py: 0.5,
-              borderRadius: '0 0 12px 12px',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: 1,
-              zIndex: 5,
-              boxShadow: `0 4px 12px ${alpha(colors.darkGray, 0.3)}`,
-            }}
-          >
-            Premium
-          </Box>
-        )}
-
-        {/* Availability Indicator */}
-        {product.inStock !== undefined && (
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: 16,
-              right: 16,
+              bottom: 0,
+              bgcolor: alpha(colors.white, 0.8),
               display: 'flex',
               alignItems: 'center',
-              gap: 0.5,
-              bgcolor: alpha(
-                product.inStock ? '#10B981' : '#EF4444', 
-                0.1
-              ),
-              color: product.inStock ? '#10B981' : '#EF4444',
-              px: 1.5,
-              py: 0.5,
-              borderRadius: '8px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              border: `1px solid ${alpha(
-                product.inStock ? '#10B981' : '#EF4444', 
-                0.2
-              )}`,
+              justifyContent: 'center',
+              zIndex: 10,
+              backdropFilter: 'blur(2px)',
             }}
           >
-            <Box
-              sx={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                bgcolor: product.inStock ? '#10B981' : '#EF4444',
-              }}
+            <CircularProgress 
+              size={40} 
+              sx={{ 
+                color: colors.primary,
+                '& .MuiCircularProgress-circle': {
+                  strokeLinecap: 'round',
+                },
+              }} 
             />
-            {product.inStock ? 'In Stock' : 'Out of Stock'}
           </Box>
         )}
       </Card>
@@ -504,4 +396,3 @@ const ProductCard = ({ product }) => {
 };
 
 export default ProductCard;
-

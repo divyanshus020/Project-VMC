@@ -11,6 +11,7 @@ import Contact from './pages/Contact.jsx';
 import AuthPage from './pages/Authpage.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import Account from './pages/Account.jsx';
+import AdminLogin from './pages/AdminLogin.jsx';
 function App() {
 
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/Login" element={<AuthPage />} />
         <Route path="/Admin" element={<AdminDashboard />} />
         <Route path="/profile" element={<Account />} />
+        <Route path="/AdminLogin" element={<AdminLogin />} />
       </Routes>
       <Footer/> 
     </BrowserRouter>

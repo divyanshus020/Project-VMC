@@ -1,108 +1,157 @@
 const User = require('../models/User');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 
-// Register User
-exports.registerUser = async (req, res) => {
+// In-memory OTP store (use Redis or DB in production)
+const otpStore = new Map();
+
+// ===============================
+// 📌 Check if user exists (for login screen)
+// ===============================
+exports.checkUserExists = async (req, res) => {
+  const { phoneNumber } = req.body;
+
+  if (!phoneNumber) {
+    return res.status(400).json({ message: 'Phone number is required' });
+  }
+
   try {
-    const { fullName, email, address, phoneNumber, password } = req.body;
-
-    // Check if email or phone exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { phoneNumber }]
-    });
-    if (existingUser) {
-      return res.status(400).json({ message: 'Email or phone number already exists' });
+    const user = await User.findOne({ phoneNumber });
+    if (user) {
+      return res.status(200).json({ exists: true });
+    } else {
+      return res.status(200).json({ exists: false });
     }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = new User({
-      fullName,
-      email,
-      address,
-      phoneNumber,
-      password: hashedPassword,
-    });
-
-    await newUser.save();
-    res.status(201).json({ message: 'User registered successfully' });
-
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Internal server error', error: err.message });
   }
 };
 
-// Login User
-exports.loginUser = async (req, res) => {
+// ===============================
+// 📤 Send OTP to existing user's phone
+// ===============================
+exports.sendOTP = async (req, res) => {
+  const { phoneNumber } = req.body;
+
+  if (!phoneNumber) {
+    return res.status(400).json({ message: 'Phone number is required' });
+  }
+
   try {
-    const { email, password } = req.body;
+    const user = await User.findOne({ phoneNumber });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found. Please register first.' });
+    }
 
-    // Find user by email
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Invalid email or password' });
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    otpStore.set(phoneNumber, { otp, expiresAt: Date.now() + 5 * 60 * 1000 });
 
-    // Compare password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid email or password' });
+    const smsText = `Dear User, ${otp} is the verification code for your interaction with Vimla Jewellers, Jodhpur.`;
 
-    // Create JWT token
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '7d'
+    await axios.get('https://msg.smsguruonline.com/fe/api/v1/send', {
+      params: {
+        username: 'vimlajewellers.trans',
+        password: '0RvS8',
+        unicode: false,
+        from: 'VIMLAJ',
+        to: phoneNumber,
+        dltprincipalEntityId: '1201159680625344081',
+        dltContentId: '1707175093772914727',
+        text: smsText,
+      },
     });
 
+    res.status(200).json({ message: 'OTP sent successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to send OTP', error: err.message });
+  }
+};
+
+// ===============================
+// ✅ Verify OTP & Register or Login
+// ===============================
+exports.verifyOTP = async (req, res) => {
+  const { phoneNumber, fullName, address, otp } = req.body;
+
+  if (!phoneNumber || !otp) {
+    return res.status(400).json({ message: 'Phone number and OTP are required' });
+  }
+
+  const record = otpStore.get(phoneNumber);
+
+  if (!record || record.otp != otp || record.expiresAt < Date.now()) {
+    return res.status(400).json({ message: 'Invalid or expired OTP' });
+  }
+
+  try {
+    let user = await User.findOne({ phoneNumber });
+
+    // Register if user doesn't exist
+    if (!user) {
+      if (!fullName || !address) {
+        return res.status(400).json({ message: 'Full name and address are required for registration' });
+      }
+
+      user = new User({ fullName, address, phoneNumber });
+      await user.save();
+    }
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
+    otpStore.delete(phoneNumber); // Cleanup OTP
+
     res.json({
-      message: 'Login successful',
+      message: 'OTP verified successfully',
       token,
       user: {
         id: user._id,
         fullName: user.fullName,
-        email: user.email,
         phoneNumber: user.phoneNumber,
-        address: user.address
-      }
+        address: user.address,
+      },
     });
-
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Get Profile (Protected)
+// ===============================
+// 👤 Get user profile (requires auth middleware)
+// ===============================
 exports.getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password');
+    const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    res.json(user);
+    res.json({
+      id: user._id,
+      fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
+      address: user.address,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Update Profile (Protected)
+// ===============================
+// ✏️ Update profile (requires auth middleware)
+// ===============================
 exports.updateProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Allow update only for address & password
-    const { address, password } = req.body;
+    const { address, fullName } = req.body;
 
-    if (address) {
-      user.address = address;
-    }
-
-    if (password) {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      user.password = hashedPassword;
-    }
+    if (fullName) user.fullName = fullName;
+    if (address) user.address = address;
 
     await user.save();
 
     res.json({ message: 'Profile updated successfully' });
-
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

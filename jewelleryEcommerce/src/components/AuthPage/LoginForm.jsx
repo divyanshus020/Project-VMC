@@ -1,80 +1,117 @@
 import React, { useState } from 'react';
-import { Box, TextField, Button, Typography } from '@mui/material';
-import { loginUser } from '../../lib/api';
-import { useNavigate } from 'react-router-dom'; // ✅ Add this
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  CircularProgress,
+} from '@mui/material';
+import { sendOtp, verifyOtp, checkUserExists } from '../../lib/api'; // ⬅️ make sure this function is exported
+import { useNavigate } from 'react-router-dom';
 
 const LoginForm = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate(); // ✅ Initialize router
+  const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+  const handleSendOtp = async () => {
+    const trimmedPhone = phoneNumber.trim();
+    if (!trimmedPhone) return alert('Please enter your phone number.');
+
+    try {
+      setLoading(true);
+
+      // ✅ Check if user exists before sending OTP
+      const res = await checkUserExists(trimmedPhone);
+      if (!res.data.exists) {
+        return alert('User not found. Please register first.');
+      }
+
+      // ✅ If user exists, send OTP
+      await sendOtp(trimmedPhone);
+      setOtpSent(true);
+      alert('OTP has been sent to your phone.');
+    } catch (err) {
+      console.error('Error during OTP send:', err);
+      alert('Failed to send OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleVerifyOtp = async () => {
+    if (!otp.trim()) return alert('Please enter the OTP.');
+
     try {
-      const res = await loginUser(formData);
-      console.log(res.data);
-      alert('Login successful!');
-
-      // ✅ Store the token
+      setLoading(true);
+      const res = await verifyOtp(phoneNumber.trim(), otp.trim());
       localStorage.setItem('token', res.data.token);
-
-      // ✅ Redirect to account page
+      alert('Login successful!');
       navigate('/profile');
-      window.location.reload(); // 🔄 Reload the website after redirect
-
+      window.location.reload(); // optional
     } catch (err) {
-      console.error(err);
-      alert('Login failed. Please check your credentials.');
+      console.error('OTP verification error:', err);
+      alert(
+        `OTP verification failed: ${
+          err.response?.data?.message || 'Please check your input.'
+        }`
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Box component="form" noValidate autoComplete="off" onSubmit={handleSubmit}>
+    <Box component="form" noValidate autoComplete="off">
       <Typography variant="h6" fontWeight="bold" color="#333333" mb={2}>
-        Login to Your Account
+        Login with OTP
       </Typography>
 
       <TextField
         fullWidth
-        label="Email"
-        name="email"
-        value={formData.email}
-        onChange={handleChange}
+        label="Phone Number"
+        value={phoneNumber}
+        onChange={(e) => setPhoneNumber(e.target.value)}
         variant="outlined"
         margin="normal"
-        InputLabelProps={{ style: { color: '#666666' } }}
+        disabled={otpSent}
       />
 
-      <TextField
-        fullWidth
-        label="Password"
-        type="password"
-        name="password"
-        value={formData.password}
-        onChange={handleChange}
-        variant="outlined"
-        margin="normal"
-        InputLabelProps={{ style: { color: '#666666' } }}
-      />
-
-      <Button
-        type="submit"
-        fullWidth
-        variant="contained"
-        sx={{ mt: 2, bgcolor: '#D4AF37', '&:hover': { bgcolor: '#c49c2d' } }}
-      >
-        Login
-      </Button>
+      {!otpSent ? (
+        <Button
+          onClick={handleSendOtp}
+          fullWidth
+          variant="contained"
+          sx={{ mt: 2, bgcolor: '#1976d2' }}
+          disabled={loading}
+        >
+          {loading ? <CircularProgress size={24} /> : 'Send OTP'}
+        </Button>
+      ) : (
+        <>
+          <TextField
+            fullWidth
+            label="Enter OTP"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+            variant="outlined"
+            margin="normal"
+            autoFocus
+          />
+          <Button
+            onClick={handleVerifyOtp}
+            fullWidth
+            variant="contained"
+            sx={{ mt: 1, bgcolor: '#2e7d32' }}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Verify & Login'}
+          </Button>
+        </>
+      )}
     </Box>
   );
 };

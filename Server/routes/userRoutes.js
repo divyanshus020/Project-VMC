@@ -3,11 +3,13 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const { protect } = require('../middleware/auth');
 
-// Public routes
-router.post('/register', userController.registerUser);
-router.post('/login', userController.loginUser);
+// 👉 Send OTP to user's phone
+router.post('/send-otp', userController.sendOTP);
 
-// Protected routes
+// 👉 Verify OTP and register/login user
+router.post('/verify-otp-login', userController.verifyOTP);
+// ✅ Protected routes
+router.post('/check-exists', userController.checkUserExists);
 router.get('/profile', protect, userController.getProfile);
 router.put('/profile', protect, userController.updateProfile);
 
