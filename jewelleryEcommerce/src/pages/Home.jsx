@@ -5,6 +5,7 @@ import TopCategories from '../components/Basic/TopCategories';
 import OurPromises from '../components/Basic/OurPromises';
 import CustomDesignSection from '../components/Basic/CustomDesignSection';
 import RoyalVideoSection from '../components/Basic/RoyalVideoSection';
+import TopPicksCarousel from '../components/Basic/TopPicksCarousel';
 const Home = () => {
     return (
         <div>
@@ -17,6 +18,7 @@ const Home = () => {
                 
                 <OurPromises/>
                 <CustomDesignSection/>
+                <TopPicksCarousel/>
             </div>
         </div>
     );
