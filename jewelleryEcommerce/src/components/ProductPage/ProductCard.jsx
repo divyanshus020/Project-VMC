@@ -91,25 +91,14 @@ const ProductCard = ({ product }) => {
   const handleViewProduct = async (e) => {
     e.stopPropagation();
     setIsLoading(true);
-    
+
     try {
-      // Add a small delay for better UX (optional)
       await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Check if user is logged in
       if (isUserLoggedIn()) {
-        // User is logged in - navigate to product detail page
-        console.log('User is logged in, navigating to product:', product.name);
-        navigate(`/product/${product.id}`);
+        navigate(`/product/${product._id}`);
       } else {
-        // User is NOT logged in - redirect to login page
-        console.log('User not logged in, redirecting to login');
-        
-        // Store the intended destination to redirect back after login
-        const intendedDestination = `/product/${product.id}`;
+        const intendedDestination = `/product/${product._id}`;
         localStorage.setItem('redirectAfterLogin', intendedDestination);
-        
-        // Navigate to login with additional state information
         navigate('/login', { 
           state: { 
             message: 'Please login to view product details',
@@ -121,7 +110,6 @@ const ProductCard = ({ product }) => {
       }
     } catch (error) {
       console.error('Error handling product view:', error);
-      // Handle error appropriately - maybe show a toast notification
     } finally {
       setIsLoading(false);
     }

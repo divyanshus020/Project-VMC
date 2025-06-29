@@ -9,11 +9,11 @@ const Navbar = () => {
 
   // Check login status on component mount
   useEffect(() => {
-    // Check if user is logged in (you can replace this with your actual auth logic)
+    // Check if user is logged in (replace with your actual auth logic)
     const checkLoginStatus = () => {
-      // Example: Check localStorage, cookie, or call an API
-      const authToken = localStorage.getItem('authToken');
-      const userSession = localStorage.getItem('userSession');
+      // Use sessionStorage instead of localStorage
+      const authToken = sessionStorage.getItem('authToken');
+      const userSession = sessionStorage.getItem('userSession');
       
       if (authToken && userSession) {
         setIsLoggedIn(true);
@@ -24,7 +24,7 @@ const Navbar = () => {
 
     checkLoginStatus();
 
-    // Optional: Listen for storage changes to sync login state across tabs
+    // Listen for storage changes to sync login state across tabs
     const handleStorageChange = (e) => {
       if (e.key === 'authToken' || e.key === 'userSession') {
         checkLoginStatus();
@@ -47,13 +47,10 @@ const Navbar = () => {
   };
 
   const handleLogout = () => {
-    // Clear user session data
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userSession');
-    localStorage.removeItem('userData');
-    
-    // Clear any other user-related data
-    // sessionStorage.clear(); // if you're using sessionStorage
+    // Clear user session data from sessionStorage
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('userSession');
+    sessionStorage.removeItem('userData');
     
     // Update login state
     setIsLoggedIn(false);
@@ -63,16 +60,13 @@ const Navbar = () => {
     
     // Optional: Show success message
     console.log('User logged out successfully');
-    
-    // Optional: Call API to invalidate token on server
-    // logoutApi();
   };
 
   const handleLogin = (userData, token) => {
     // This function can be called when user successfully logs in
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('userSession', 'active');
-    localStorage.setItem('userData', JSON.stringify(userData));
+    sessionStorage.setItem('authToken', token);
+    sessionStorage.setItem('userSession', 'active');
+    sessionStorage.setItem('userData', JSON.stringify(userData));
     
     setIsLoggedIn(true);
     

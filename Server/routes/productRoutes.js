@@ -11,17 +11,24 @@ const {
   deleteProduct
 } = require('../controllers/productController');
 
-// Multer config: saves to ./uploads/
+// Multer config: saves files to ./uploads/
 const storage = multer.diskStorage({
   destination: './uploads/',
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);
   },
 });
+
 const upload = multer({ storage });
 
-// CREATE product (with image)
-router.post('/', upload.single('image'), createProduct);
+// 👇 Use multer.fields for both main image and array of slider images
+const productImageUpload = upload.fields([
+  { name: 'image', maxCount: 1 },     // Thumbnail image
+  { name: 'images', maxCount: 10 }    // Additional slider images
+]);
+
+// CREATE product (supports thumbnail + multiple slider images)
+router.post('/', productImageUpload, createProduct);
 
 // GET all products
 router.get('/', getProducts);
@@ -29,8 +36,8 @@ router.get('/', getProducts);
 // GET single product by ID
 router.get('/:id', getProductById);
 
-// UPDATE product (with optional new image)
-router.put('/:id', upload.single('image'), updateProduct);
+// UPDATE product (supports new thumbnail + new slider images)
+router.put('/:id', productImageUpload, updateProduct);
 
 // DELETE product
 router.delete('/:id', deleteProduct);

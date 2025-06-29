@@ -32,4 +32,10 @@ router.get('/profile', protect, userController.getProfile);
 // 👉 Update user profile (requires token)
 router.put('/profile', protect, userController.updateProfile);
 
+// 👉 Delete user profile (requires token)
+router.delete('/profile', protect, userController.deleteProfile);
+
+// 👉 Get all users (admin only, add auth middleware as needed)
+router.get('/', userController.getAllUsers);
+
 module.exports = router;

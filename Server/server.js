@@ -17,29 +17,27 @@ const app = express();
 // ==========================
 app.use(cors());
 app.use(express.json());
-
-// Serve static files (e.g. images, uploads)
+app.use(express.urlencoded({ extended: true }));
+// Serve static assets (e.g., images, videos)
 app.use('/uploads', express.static('uploads'));
 
-// Optional: Enable request logging in development
-// const morgan = require('morgan');
-// if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
-
 // ==========================
-// 🔗 Routes
+// 🔗 API Routes
 // ==========================
 app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/admin', require('./routes/adminRoutes'));
-app.use('/api/auth', require('./routes/authRoutes')); // Optional: OTP-based login
+app.use('/api/admin', require('./routes/adminRoutes')); // Admin routes (static before dynamic in router)
+app.use('/api/auth', require('./routes/authRoutes')); // OTP login if implemented
 
-// Health Check Route
+// ==========================
+// ✅ Health Check
+// ==========================
 app.get('/', (req, res) => {
   res.send('✅ API is running on Vimla Jewellers backend');
 });
 
 // ==========================
-// ❌ 404 Not Found Handler
+// ❌ 404 Handler
 // ==========================
 app.use((req, res, next) => {
   res.status(404).json({ message: 'Route not found' });

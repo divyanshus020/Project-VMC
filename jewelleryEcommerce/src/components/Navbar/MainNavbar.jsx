@@ -31,6 +31,7 @@ import {
   ListAlt,
   Logout
 } from '@mui/icons-material';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
 // Navigation links data
 const navLinks = [
@@ -294,7 +295,6 @@ const MainNavbar = ({ onMobileMenuToggle, onLogout }) => {
 
             {/* Action Buttons */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
-              {/* Conditional rendering based on login status */}
               {isLoggedIn ? (
                 <>
                   {/* User Account - Only show when logged in */}
@@ -381,10 +381,32 @@ const MainNavbar = ({ onMobileMenuToggle, onLogout }) => {
                         borderColor: '#D4AF37'
                       },
                       display: { xs: 'none', sm: 'flex' },
-                      fontSize: '0.875rem'
+                      fontSize: '0.875rem',
+                      mr: 1
                     }}
                   >
                     Login / Register
+                  </Button>
+                  {/* Admin Login Button */}
+                  <Button
+                    component={Link}
+                    to="/Admin/Login"
+                    variant="outlined"
+                    startIcon={<AdminPanelSettingsIcon />}
+                    sx={{
+                      color: '#1976d2',
+                      borderColor: '#1976d2',
+                      textTransform: 'none',
+                      '&:hover': {
+                        backgroundColor: '#1976d2',
+                        color: 'white',
+                        borderColor: '#1976d2'
+                      },
+                      display: { xs: 'none', sm: 'flex' },
+                      fontSize: '0.875rem'
+                    }}
+                  >
+                    Admin Login
                   </Button>
                 </>
               )}
@@ -451,7 +473,7 @@ const MainNavbar = ({ onMobileMenuToggle, onLogout }) => {
         </Container>
       </AppBar>
 
- {/* User Menu Dropdown - Only show when logged in */}
+      {/* User Menu Dropdown - Only show when logged in */}
       {isLoggedIn && (
         <Menu
           anchorEl={userMenuAnchor}
