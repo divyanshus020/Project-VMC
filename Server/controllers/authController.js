@@ -8,7 +8,7 @@ const otpStore = new Map();
 // Generate 6-digit OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000);
 
-// Send OTP
+// Send OTP with improved error handling
 exports.sendOTP = async (req, res) => {
   const { phoneNumber } = req.body;
 
@@ -23,12 +23,50 @@ exports.sendOTP = async (req, res) => {
     otpStore.set(phoneNumber, { otp, expiresAt: Date.now() + 5 * 60 * 1000 });
 
     const smsText = `Dear User, ${otp} is the verification code for your interaction with Vimla Jewellers, Jodhpur.`;
-    await sendSMS(phoneNumber, smsText);
+    
+    // Add timeout wrapper for SMS sending
+    const SMS_TIMEOUT = 10000; // 10 seconds timeout
+    
+    const smsPromise = sendSMS(phoneNumber, smsText);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('SMS sending timeout')), SMS_TIMEOUT)
+    );
 
+    await Promise.race([smsPromise, timeoutPromise]);
+
+    console.log(`OTP sent successfully to ${phoneNumber}`);
     return res.status(200).json({ message: 'OTP sent successfully' });
+    
   } catch (error) {
-    console.error('Error sending OTP:', error);
-    return res.status(500).json({ message: 'Failed to send OTP. Please try again.' });
+    console.error('Error sending OTP:', {
+      phoneNumber,
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+
+    // Clean up stored OTP if SMS failed
+    otpStore.delete(phoneNumber);
+
+    // Provide more specific error messages
+    if (error.message.includes('timeout') || error.message.includes('Socket connection timeout')) {
+      return res.status(503).json({ 
+        message: 'SMS service is temporarily unavailable. Please try again in a few moments.',
+        error: 'SERVICE_TIMEOUT'
+      });
+    }
+
+    if (error.message.includes('network') || error.message.includes('ENOTFOUND')) {
+      return res.status(503).json({ 
+        message: 'Network connectivity issue. Please check your connection and try again.',
+        error: 'NETWORK_ERROR'
+      });
+    }
+
+    return res.status(500).json({ 
+      message: 'Failed to send OTP. Please try again.',
+      error: 'SMS_SEND_FAILED'
+    });
   }
 };
 
@@ -42,12 +80,26 @@ exports.verifyOTP = async (req, res) => {
 
   const record = otpStore.get(phoneNumber);
 
-  if (
-    !record ||
-    String(record.otp) !== String(otp) || // strict comparison
-    Date.now() > record.expiresAt
-  ) {
-    return res.status(400).json({ message: 'Invalid or expired OTP' });
+  if (!record) {
+    return res.status(400).json({ 
+      message: 'OTP not found. Please request a new OTP.',
+      error: 'OTP_NOT_FOUND'
+    });
+  }
+
+  if (Date.now() > record.expiresAt) {
+    otpStore.delete(phoneNumber); // Clean up expired OTP
+    return res.status(400).json({ 
+      message: 'OTP has expired. Please request a new OTP.',
+      error: 'OTP_EXPIRED'
+    });
+  }
+
+  if (String(record.otp) !== String(otp)) {
+    return res.status(400).json({ 
+      message: 'Invalid OTP. Please check and try again.',
+      error: 'OTP_INVALID'
+    });
   }
 
   try {
@@ -58,6 +110,7 @@ exports.verifyOTP = async (req, res) => {
       if (!fullName.trim() || !address.trim()) {
         return res.status(400).json({
           message: 'Full name and address are required for registration',
+          error: 'MISSING_USER_DATA'
         });
       }
 
@@ -68,6 +121,9 @@ exports.verifyOTP = async (req, res) => {
       });
 
       await user.save();
+      console.log(`New user registered: ${phoneNumber}`);
+    } else {
+      console.log(`Existing user logged in: ${phoneNumber}`);
     }
 
     // Generate JWT token
@@ -89,7 +145,37 @@ exports.verifyOTP = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error verifying OTP:', error);
-    return res.status(500).json({ message: 'Server error during OTP verification' });
+    console.error('Error verifying OTP:', {
+      phoneNumber,
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    return res.status(500).json({ 
+      message: 'Server error during OTP verification',
+      error: 'VERIFICATION_ERROR'
+    });
   }
+};
+
+// Optional: Add cleanup function for expired OTPs
+exports.cleanupExpiredOTPs = () => {
+  const now = Date.now();
+  for (const [phoneNumber, record] of otpStore.entries()) {
+    if (now > record.expiresAt) {
+      otpStore.delete(phoneNumber);
+    }
+  }
+};
+
+// Optional: Get OTP store stats for debugging
+exports.getOTPStats = () => {
+  return {
+    totalOTPs: otpStore.size,
+    otps: Array.from(otpStore.entries()).map(([phone, data]) => ({
+      phone: phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2'), // Mask phone number
+      expiresIn: Math.max(0, data.expiresAt - Date.now()),
+      expired: Date.now() > data.expiresAt
+    }))
+  };
 };

@@ -2,10 +2,21 @@ const Product = require('../models/Product');
 const cloudinary = require('../config/cloudinary');
 const fs = require('fs');
 
+// Helper to parse array fields safely
+function parseArrayField(field) {
+  if (!field) return [];
+  if (Array.isArray(field)) return field;
+  try {
+    return JSON.parse(field);
+  } catch {
+    return [field];
+  }
+}
+
 // ✅ Create Product
 exports.createProduct = async (req, res) => {
   try {
-    const { name, category, imageUrl, sizes, weights, quantities } = req.body;
+    const { name, category, imageUrl } = req.body;
     let finalImageUrl;
     let uploadedImages = [];
 
@@ -18,7 +29,7 @@ exports.createProduct = async (req, res) => {
       finalImageUrl = result.secure_url;
     } else if (imageUrl) {
       finalImageUrl = imageUrl;
-    } else {
+    } else {  
       return res.status(400).json({ message: 'Either an image file or imageUrl is required' });
     }
 
@@ -37,10 +48,7 @@ exports.createProduct = async (req, res) => {
       name,
       category,
       imageUrl: finalImageUrl,
-      images: uploadedImages,
-      sizes: sizes ? JSON.parse(sizes) : [],
-      weights: weights ? JSON.parse(weights) : [],
-      quantities: quantities ? JSON.parse(quantities) : [],
+      images: parseArrayField(req.body.images) || uploadedImages,
     });
 
     await product.save();
@@ -76,7 +84,7 @@ exports.getProductById = async (req, res) => {
 // ✅ UPDATE Product
 exports.updateProduct = async (req, res) => {
   try {
-    const { name, imageUrl, category, sizes, weights, quantities } = req.body;
+    const { name, imageUrl, category, images } = req.body;
 
     const product = await Product.findById(req.params.id);
     if (!product)
@@ -93,8 +101,9 @@ exports.updateProduct = async (req, res) => {
       product.imageUrl = imageUrl;
     }
 
-    // Handle multiple new slider images (optional)
+    // Handle multiple new slider images
     if (req.files && req.files.images) {
+      // If new files are uploaded, replace the images array
       const uploadedImages = [];
       for (const file of req.files.images) {
         const upload = await cloudinary.uploader.upload(file.path, {
@@ -104,19 +113,20 @@ exports.updateProduct = async (req, res) => {
         uploadedImages.push(upload.secure_url);
       }
       product.images = uploadedImages;
+    } else if (images !== undefined) {
+      // Handle images array from JSON body
+      product.images = parseArrayField(images);
     }
 
-    // Update other fields
-    if (name) product.name = name;
-    if (category) product.category = category;
-    if (sizes) product.sizes = JSON.parse(sizes);
-    if (weights) product.weights = JSON.parse(weights);
-    if (quantities) product.quantities = JSON.parse(quantities);
+    // Update other fields - ALWAYS update if provided
+    if (name !== undefined) product.name = name;
+    if (category !== undefined) product.category = category;
 
     await product.save();
     res.json(product);
 
   } catch (err) {
+    console.error('Update product error:', err);
     res.status(500).json({ message: err.message });
   }
 };

@@ -17,7 +17,7 @@ const Home = () => {
                 <RoyalVideoSection/>
                 
                 <OurPromises/>
-                <CustomDesignSection/>
+                {/* <CustomDesignSection/> */}
                 <TopPicksCarousel/>
             </div>
         </div>
