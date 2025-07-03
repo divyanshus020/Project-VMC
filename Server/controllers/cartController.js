@@ -1,66 +1,70 @@
 const Cart = require('../models/Cart');
 
-// Add to cart
+// Add to cart (MySQL)
 exports.addToCart = async (req, res) => {
-  const { productId, quantity, size, weight } = req.body;
-  const userId = req.user._id;
+  const {
+    productId,
+    quantity,
+    capSize,
+    weight,
+    tulsiRudrakshMM,
+    estPCS,
+    diameter,
+    ballGauge,
+    wireGauge,
+    otherWeight
+  } = req.body;
+  const userId = req.user.userId || req.user.id; // Use userId from JWT
 
   try {
-    let cart = await Cart.findOne({ userId });
-
-    const newItem = { productId, quantity, size, weight };
-
-    if (cart) {
-      // Check if item already exists
-      const itemIndex = cart.items.findIndex(
-        item => item.productId.toString() === productId && item.size === size && item.weight === weight
-      );
-
-      if (itemIndex > -1) {
-        cart.items[itemIndex].quantity += quantity;
-      } else {
-        cart.items.push(newItem);
-      }
-    } else {
-      cart = new Cart({ userId, items: [newItem] });
-    }
-
-    await cart.save();
+    await Cart.addItem(userId, {
+      productId,
+      quantity,
+      capSize,
+      weight,
+      tulsiRudrakshMM,
+      estPCS,
+      diameter,
+      ballGauge,
+      wireGauge,
+      otherWeight
+    });
+    const cart = await Cart.getCart(userId);
     res.status(200).json(cart);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Get user's cart
+// Get user's cart (MySQL)
 exports.getCart = async (req, res) => {
   try {
-    const cart = await Cart.findOne({ userId: req.user._id }).populate('items.productId');
+    const userId = req.user.userId || req.user.id;
+    const cart = await Cart.getCart(userId);
     res.status(200).json(cart || { items: [] });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Remove item
+// Remove item from cart (MySQL)
 exports.removeItem = async (req, res) => {
   try {
-    const { productId } = req.params;
-    const cart = await Cart.findOne({ userId: req.user._id });
-
-    cart.items = cart.items.filter(item => item.productId.toString() !== productId);
-    await cart.save();
-
+    const userId = req.user.userId || req.user.id;
+    const { itemId } = req.params;
+    await Cart.removeItem(userId, itemId);
+    const cart = await Cart.getCart(userId);
     res.status(200).json(cart);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Clear cart
+// Clear cart (MySQL)
 exports.clearCart = async (req, res) => {
   try {
-    await Cart.findOneAndUpdate({ userId: req.user._id }, { items: [] });
+    const userId = req.user.userId || req.user.id;
+    await Cart.clearCart(userId);
     res.status(200).json({ message: 'Cart cleared' });
   } catch (err) {
     res.status(500).json({ message: err.message });

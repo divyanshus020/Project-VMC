@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 
-exports.protect = (req, res, next) => {
+exports.protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -14,8 +15,14 @@ exports.protect = (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Attach decoded user info to request
-    req.user = decoded;
+    // Fetch user from MySQL by ID
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(401).json({ message: 'Unauthorized: User not found' });
+    }
+
+    // Attach user info to request
+    req.user = { ...decoded, ...user };
     next();
   } catch (err) {
     console.error('JWT Error:', err.message);

@@ -6,8 +6,15 @@ const connectDB = require('./config/db');
 // Load environment variables
 dotenv.config();
 
-// Connect to MongoDB
-connectDB();
+// Connect to MySQL
+connectDB()
+  .then(() => {
+    console.log('✅ MySQL connection established');
+  })
+  .catch((err) => {
+    console.error('❌ MySQL connection failed:', err.message);
+    process.exit(1);
+  });
 
 // Initialize Express app
 const app = express();

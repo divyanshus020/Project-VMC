@@ -135,9 +135,9 @@ export const getCart = (token) =>
     },
   });
 
-// Remove item from cart
-export const removeCartItem = (productId, token) =>
-  API.delete(`/cart/remove/${productId}`, {
+// Remove item from cart (now expects itemId, not productId)
+export const removeCartItem = (itemId, token) =>
+  API.delete(`/cart/remove/${itemId}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

@@ -70,7 +70,7 @@ exports.sendOTP = async (req, res) => {
   }
 };
 
-// Verify OTP and register/login user
+// Verify OTP and register/login user (MySQL version)
 exports.verifyOTP = async (req, res) => {
   const { phoneNumber, fullName = '', address = '', otp } = req.body;
 
@@ -103,7 +103,8 @@ exports.verifyOTP = async (req, res) => {
   }
 
   try {
-    let user = await User.findOne({ phoneNumber });
+    // Find user by phone number (MySQL)
+    let user = await User.findByPhoneNumber(phoneNumber);
 
     // Register new user if not found
     if (!user) {
@@ -114,20 +115,18 @@ exports.verifyOTP = async (req, res) => {
         });
       }
 
-      user = new User({
+      user = await User.create({
         phoneNumber,
         fullName: fullName.trim(),
         address: address.trim(),
       });
-
-      await user.save();
       console.log(`New user registered: ${phoneNumber}`);
     } else {
       console.log(`Existing user logged in: ${phoneNumber}`);
     }
 
-    // Generate JWT token
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    // Generate JWT token (MySQL: use user.id)
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
       expiresIn: '7d',
     });
 
@@ -138,7 +137,7 @@ exports.verifyOTP = async (req, res) => {
       message: 'OTP verified successfully',
       token,
       user: {
-        id: user._id,
+        id: user.id,
         fullName: user.fullName,
         address: user.address,
         phoneNumber: user.phoneNumber,

@@ -8,11 +8,9 @@ const {
   getProducts,
   getProductById,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  getProductOptions
 } = require('../controllers/productController');
-
-// Import enums from Product model for options endpoint
-const Product = require('../models/Product');
 
 // Multer config: saves files to ./uploads/
 const storage = multer.diskStorage({
@@ -37,18 +35,7 @@ router.post('/', productImageUpload, createProduct);
 router.get('/', getProducts);
 
 // GET product options (enums for dropdowns) - PLACE THIS BEFORE /:id
-router.get('/options', (req, res) => {
-  res.json({
-    capSizes: Product.schema.path('capSize').enumValues,
-    malaWeights: Product.schema.path('weight').enumValues,
-    tulsiRudrakshMM: Product.schema.path('tulsiRudrakshMM').enumValues,
-    tulsiRudrakshEstPcs: Product.schema.path('estPCS').enumValues,
-    diameters: Product.schema.path('diameter').enumValues,
-    ballGauges: Product.schema.path('ballGauge').enumValues,
-    wireGauges: Product.schema.path('wireGauge').enumValues,
-    otherWeights: Product.schema.path('otherWeight').enumValues,
-  });
-});
+router.get('/options', getProductOptions);
 
 // GET single product by ID
 router.get('/:id', getProductById);

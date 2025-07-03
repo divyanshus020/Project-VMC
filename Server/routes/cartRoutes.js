@@ -7,14 +7,15 @@ const {
   clearCart
 } = require('../controllers/cartController');
 
-// 🔐 Require login middleware (ensure req.user._id is available)
-const requireAuth = require('../middleware/requireAuth');
+// 🔐 Require login middleware (ensure req.user.userId is available)
+const { protect } = require('../middleware/auth');
 
-router.use(requireAuth); // Apply auth to all
+router.use(protect); // Apply auth to all routes
 
 router.post('/add', addToCart);
 router.get('/', getCart);
-router.delete('/remove/:productId', removeItem);
+// Remove by cart item ID (not productId, for SQL)
+router.delete('/remove/:itemId', removeItem);
 router.delete('/clear', clearCart);
 
 module.exports = router;
