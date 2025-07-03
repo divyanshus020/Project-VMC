@@ -1,54 +1,58 @@
-import React, { useState } from 'react';
-import SizeSelector from './SizeSelector';
-import WeightSelector from './WeightSelector';
-
-// Static options for different categories
-const OTHER_SIZES = ['Small', 'Medium', 'Large'];
-const OTHER_WEIGHTS = ['5g', '10g', '15g'];
-
-// Cap size options for Mala
-const CAP_SIZE_OPTIONS = [
-  '43 No CAP MALA',
-  '42 No CAP MALA',
-  '22 No CAP MALA',
-  '21 No CAP MALA',
-  '19 No CAP MALA',
-  '17 No CAP MALA',
-  '15 No CAP MALA',
-  '12 No CAP MALA',
-  '11 No CAP MALA',
-  '10 No CAP MALA',
-  '8 No CAP MALA',
-  '5 No CAP MALA',
-];
-
-// Mala-specific weight/mm/pcs options
-const MALA_WEIGHT_OPTIONS = [
-  { weight: '8 - 9 gm', mm: '3 mm', pcs: '80 - 85 Pcs' },
-  { weight: '9 - 10 gm', mm: '3 mm', pcs: '75 - 80 Pcs' },
-  { weight: '10 - 11 gm', mm: '3.5 mm', pcs: '75 - 80 Pcs' },
-  { weight: '12 - 13 gm', mm: '3.5 mm', pcs: '75 - 80 Pcs' },
-  { weight: '14 - 15 gm', mm: '4 mm', pcs: '65 - 70 Pcs' },
-  { weight: '16 - 17 gm', mm: '4.5 mm', pcs: '65 - 70 Pcs' },
-  { weight: '18 - 19 gm', mm: '5 mm', pcs: '57 - 62 Pcs' },
-  { weight: '20 gm', mm: '5 mm', pcs: '54 - 60 Pcs' },
-  { weight: '21 - 22 gm', mm: '5.5 mm', pcs: '54 - 58 Pcs' },
-  { weight: '24 - 25 gm', mm: '6 mm', pcs: '50 - 52 Pcs' },
-  { weight: '28 - 29 gm', mm: '7 mm', pcs: '45 - 48 Pcs' },
-  { weight: '31 - 32 gm', mm: '7.5 mm', pcs: '40 - 45 Pcs' },
-];
+import React, { useState, useEffect } from 'react';
+import { getProductOptions } from '../../lib/api';
 
 const ProductInfo = ({ product }) => {
   const isMala = product.category?.toLowerCase() === 'mala';
-  const [selectedWeightIdx, setSelectedWeightIdx] = useState('');
+  const [capSizeOptions, setCapSizeOptions] = useState([]);
+  const [malaWeightOptions, setMalaWeightOptions] = useState([]);
+  const [mmOptions, setMmOptions] = useState([]);
+  const [pcsOptions, setPcsOptions] = useState([]);
+  const [selectedWeight, setSelectedWeight] = useState('');
   const [selectedCapSize, setSelectedCapSize] = useState('');
   const [selectedMm, setSelectedMm] = useState('');
   const [selectedPcs, setSelectedPcs] = useState('');
   const [quantity, setQuantity] = useState(1);
 
+  // For non-mala
+  const [diameterOptions, setDiameterOptions] = useState([]);
+  const [ballGaugeOptions, setBallGaugeOptions] = useState([]);
+  const [wireGaugeOptions, setWireGaugeOptions] = useState([]);
+  const [otherWeightOptions, setOtherWeightOptions] = useState([]);
+  const [selectedDiameter, setSelectedDiameter] = useState('');
+  const [selectedBallGauge, setSelectedBallGauge] = useState('');
+  const [selectedWireGauge, setSelectedWireGauge] = useState('');
+  const [selectedOtherWeight, setSelectedOtherWeight] = useState('');
+
+  useEffect(() => {
+    // Fetch options from API
+    const fetchOptions = async () => {
+      try {
+        const res = await getProductOptions();
+        setCapSizeOptions(res.data.capSizes || []);
+        setMalaWeightOptions(res.data.malaWeights || []);
+        setMmOptions(res.data.tulsiRudrakshMM || []);
+        setPcsOptions(res.data.tulsiRudrakshEstPcs || []);
+        setDiameterOptions(res.data.diameters || []);
+        setBallGaugeOptions(res.data.ballGauges || []);
+        setWireGaugeOptions(res.data.wireGauges || []);
+        setOtherWeightOptions(res.data.otherWeights || []);
+      } catch (err) {
+        setCapSizeOptions([]);
+        setMalaWeightOptions([]);
+        setMmOptions([]);
+        setPcsOptions([]);
+        setDiameterOptions([]);
+        setBallGaugeOptions([]);
+        setWireGaugeOptions([]);
+        setOtherWeightOptions([]);
+      }
+    };
+    fetchOptions();
+  }, []);
+
   const handleAddToCart = () => {
     // Add to cart logic here
-    console.log('Added to cart:', { product, quantity, selectedWeightIdx, selectedCapSize });
+    console.log('Added to cart:', { product, quantity, selectedWeight, selectedCapSize });
   };
 
   const handleEnquire = () => {
@@ -56,7 +60,6 @@ const ProductInfo = ({ product }) => {
     console.log('Enquire about:', product);
   };
 
-  // Common select styles with scrolling
   const selectStyles = "w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all duration-200 bg-white text-gray-800 font-medium appearance-none cursor-pointer max-h-48 overflow-y-auto";
 
   return (
@@ -96,7 +99,7 @@ const ProductInfo = ({ product }) => {
                 }}
               >
                 <option value="">Choose Cap Size</option>
-                {CAP_SIZE_OPTIONS.map((size, idx) => (
+                {capSizeOptions.map((size, idx) => (
                   <option key={idx} value={size} className="py-2 px-4 hover:bg-amber-50">
                     {size}
                   </option>
@@ -119,8 +122,8 @@ const ProductInfo = ({ product }) => {
             <div className="relative">
               <select
                 className={selectStyles}
-                value={selectedWeightIdx}
-                onChange={e => setSelectedWeightIdx(e.target.value)}
+                value={selectedWeight}
+                onChange={e => setSelectedWeight(e.target.value)}
                 size="1"
                 style={{ 
                   scrollbarWidth: 'thin',
@@ -128,11 +131,11 @@ const ProductInfo = ({ product }) => {
                 }}
               >
                 <option value="">Choose Weight</option>
-                {MALA_WEIGHT_OPTIONS.map((opt, idx) => (
-                  <option key={idx} value={idx} className="py-2 px-4 hover:bg-amber-50">
-                    {opt.weight}
+                {malaWeightOptions.map((weight, idx) => (
+                  <option key={idx} value={weight} className="py-2 px-4 hover:bg-amber-50">
+                  {weight}
                   </option>
-                ))}
+                ))} 
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -159,9 +162,9 @@ const ProductInfo = ({ product }) => {
                 }}
               >
                 <option value="">Choose Size</option>
-                {MALA_WEIGHT_OPTIONS.map((opt, idx) => (
-                  <option key={idx} value={idx} className="py-2 px-4 hover:bg-amber-50">
-                    {opt.mm}
+                {mmOptions.map((mm, idx) => (
+                  <option key={idx} value={mm} className="py-2 px-4 hover:bg-amber-50">
+                    {mm}
                   </option>
                 ))}
               </select>
@@ -190,9 +193,9 @@ const ProductInfo = ({ product }) => {
                 }}
               >
                 <option value="">Choose Pieces</option>
-                {MALA_WEIGHT_OPTIONS.map((opt, idx) => (
-                  <option key={idx} value={idx} className="py-2 px-4 hover:bg-amber-50">
-                    {opt.pcs}
+                {pcsOptions.map((pcs, idx) => (
+                  <option key={idx} value={pcs} className="py-2 px-4 hover:bg-amber-50">
+                    {pcs}
                   </option>
                 ))}
               </select>
@@ -207,8 +210,126 @@ const ProductInfo = ({ product }) => {
       ) : (
         <div className="space-y-6">
           <h3 className="text-xl font-semibold text-gray-800 mb-4">Product Options</h3>
-          <WeightSelector weights={OTHER_WEIGHTS} />
-          <SizeSelector sizes={OTHER_SIZES} />
+          {/* Diameter Selector */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              Diameter
+            </label>
+            <div className="relative">
+              <select
+                className={selectStyles}
+                value={selectedDiameter}
+                onChange={e => setSelectedDiameter(e.target.value)}
+                size="1"
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#D97706 #F3F4F6'
+                }}
+              >
+                <option value="">Choose Diameter</option>
+                {diameterOptions.map((diameter, idx) => (
+                  <option key={idx} value={diameter} className="py-2 px-4 hover:bg-amber-50">
+                    {diameter}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          {/* Ball Gauge Selector */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              Ball Gauge
+            </label>
+            <div className="relative">
+              <select
+                className={selectStyles}
+                value={selectedBallGauge}
+                onChange={e => setSelectedBallGauge(e.target.value)}
+                size="1"
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#D97706 #F3F4F6'
+                }}
+              >
+                <option value="">Choose Ball Gauge</option>
+                {ballGaugeOptions.map((gauge, idx) => (
+                  <option key={idx} value={gauge} className="py-2 px-4 hover:bg-amber-50">
+                    {gauge}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          {/* Wire Gauge Selector */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              Wire Gauge
+            </label>
+            <div className="relative">
+              <select
+                className={selectStyles}
+                value={selectedWireGauge}
+                onChange={e => setSelectedWireGauge(e.target.value)}
+                size="1"
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#D97706 #F3F4F6'
+                }}
+              >
+                <option value="">Choose Wire Gauge</option>
+                {wireGaugeOptions.map((gauge, idx) => (
+                  <option key={idx} value={gauge} className="py-2 px-4 hover:bg-amber-50">
+                    {gauge}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          {/* Other Weight Selector */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              Other Weight
+            </label>
+            <div className="relative">
+              <select
+                className={selectStyles}
+                value={selectedOtherWeight}
+                onChange={e => setSelectedOtherWeight(e.target.value)}
+                size="1"
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#D97706 #F3F4F6'
+                }}
+              >
+                <option value="">Choose Weight</option>
+                {otherWeightOptions.map((weight, idx) => (
+                  <option key={idx} value={weight} className="py-2 px-4 hover:bg-amber-50">
+                    {weight}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -260,7 +381,7 @@ const ProductInfo = ({ product }) => {
           className="flex-1 group relative overflow-hidden bg-white border-2 border-amber-600 text-amber-600 font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-amber-300"
         >
           <span className="relative z-10 flex items-center justify-center space-x-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span>Enquire Now</span>

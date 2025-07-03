@@ -13,6 +13,7 @@ import AdminLogin from './pages/AdminLogin.jsx';
 import Users from './components/AdminDashboard/Users.jsx';
 import ProtectedRoute from './components/Routes/ProtectedRoute.jsx';
 import ProductDetail from './components/ProductDetailPage/ProductDetail.jsx';
+import Cart from './pages/Cart.jsx';
 function AppWrapper() {
   const location = useLocation();
 
@@ -34,6 +35,7 @@ function AppWrapper() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="/profile" element={<Account />} />
+        <Route path="/cart" element={<Cart />} />
         <Route path="/product/:id" element={<ProductDetail />} />
         {/* Admin Login (public) */}
         <Route path="/admin/login" element={<AdminLogin />} />

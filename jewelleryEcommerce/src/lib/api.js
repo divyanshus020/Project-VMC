@@ -24,6 +24,9 @@ export const getProducts = () => API.get('/products');
 // Get product by ID
 export const getProductById = (id) => API.get(`/products/${id}`);
 
+// Get product options (for enums like capSize, weight, etc.)
+export const getProductOptions = () => API.get('/products/options');
+
 // Update product (with file upload)
 export const updateProduct = (id, formData) =>
   API.put(`/products/${id}`, formData, {
@@ -42,27 +45,21 @@ export const deleteProduct = (id) => API.delete(`/products/${id}`);
 // 👤 USER APIs (OTP-based auth)
 // =======================
 
-// 1️⃣ Check if user exists
 export const checkUserExists = (phoneNumber) =>
   API.post('/users/check-exists', { phoneNumber });
 
-// 2️⃣ Send OTP for login
 export const sendOtpForLogin = (phoneNumber) =>
   API.post('/users/send-otp-login', { phoneNumber });
 
-// 3️⃣ Send OTP for register
 export const sendOtpForRegister = (phoneNumber) =>
   API.post('/users/send-otp-register', { phoneNumber });
 
-// 4️⃣ Verify OTP for login
 export const verifyOtpForLogin = (phoneNumber, otp) =>
   API.post('/users/verify-otp-login', { phoneNumber, otp });
 
-// 5️⃣ Verify OTP & register
 export const verifyOtpForRegister = (data) =>
   API.post('/users/verify-otp-register', data);
 
-// 6️⃣ Get profile
 export const getProfile = (token) =>
   API.get('/users/profile', {
     headers: {
@@ -70,7 +67,6 @@ export const getProfile = (token) =>
     },
   });
 
-// 7️⃣ Update profile
 export const updateProfile = (data, token) =>
   API.put('/users/profile', data, {
     headers: {
@@ -78,7 +74,6 @@ export const updateProfile = (data, token) =>
     },
   });
 
-// 8️⃣ Delete profile
 export const deleteProfile = (token) =>
   API.delete('/users/profile', {
     headers: {
@@ -86,7 +81,6 @@ export const deleteProfile = (token) =>
     },
   });
 
-// 9️⃣ Delete user by admin
 export const deleteUser = (id, token) =>
   API.delete(`/users/${id}`, {
     headers: {
@@ -94,7 +88,6 @@ export const deleteUser = (id, token) =>
     },
   });
 
-// 🔟 Get all users
 export const getAllUsers = () => API.get('/users');
 
 
@@ -102,13 +95,9 @@ export const getAllUsers = () => API.get('/users');
 // 🛡️ ADMIN APIs
 // =======================
 
-// Admin registration
 export const registerAdmin = (data) => API.post('/admin/register', data);
-
-// Admin login
 export const loginAdmin = (data) => API.post('/admin/login', data);
 
-// Get admin profile
 export const getAdminProfile = (token) =>
   API.get('/admin/profile', {
     headers: {
@@ -116,7 +105,6 @@ export const getAdminProfile = (token) =>
     },
   });
 
-// Update admin profile
 export const updateAdminProfile = (data, token) =>
   API.put('/admin/profile', data, {
     headers: {
@@ -124,5 +112,41 @@ export const updateAdminProfile = (data, token) =>
     },
   });
 
-// Get all admins
 export const getAllAdmins = () => API.get('/admin');
+
+
+// =======================
+// 🛒 CART APIs
+// =======================
+
+// Add item to cart
+export const addToCart = (data, token) =>
+  API.post('/cart/add', data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+// Get cart
+export const getCart = (token) =>
+  API.get('/cart', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+// Remove item from cart
+export const removeCartItem = (productId, token) =>
+  API.delete(`/cart/remove/${productId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+// Clear all items in cart
+export const clearCart = (token) =>
+  API.delete('/cart/clear', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });

@@ -146,7 +146,7 @@ const ProductCard = ({ product }) => {
 
   const handleAddToCart = (e) => {
     e.stopPropagation();
-    
+
     // Check if user is logged in for cart functionality
     if (!isUserLoggedIn()) {
       localStorage.setItem('redirectAfterLogin', window.location.pathname);
@@ -158,10 +158,28 @@ const ProductCard = ({ product }) => {
       });
       return;
     }
-    
-    // Add to cart logic here
-    console.log('Added to cart:', product.name);
-    // You would typically make an API call here
+
+    // Get current cart from localStorage
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    // Check if product already in cart
+    const existingIndex = cart.findIndex(item => item.id === product._id);
+    if (existingIndex > -1) {
+      // If already in cart, increase quantity
+      cart[existingIndex].quantity += 1;
+    } else {
+      // Add new product to cart
+      cart.push({
+        id: product._id,
+        name: product.name,
+        image: product.imageUrl || (product.images && product.images[0]),
+        price: product.price || 999,
+        category: product.category,
+        quantity: 1,
+      });
+    }
+    localStorage.setItem('cart', JSON.stringify(cart));
+    // Optionally show a toast or redirect to cart
+    // navigate('/cart');
   };
 
   return (
