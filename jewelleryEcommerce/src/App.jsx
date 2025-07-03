@@ -36,7 +36,7 @@ function AppWrapper() {
         <Route path="/login" element={<AuthPage />} />
         <Route path="/profile" element={<Account />} />
         <Route path="/cart" element={<Cart />} />
-        <Route path="/product/:id" element={<ProductDetail />} />
+        <Route path="/products/:id" element={<ProductDetail />} />
         {/* Admin Login (public) */}
         <Route path="/admin/login" element={<AdminLogin />} />
 

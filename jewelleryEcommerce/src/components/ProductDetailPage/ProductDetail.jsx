@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import ImageSlider from './ProductImages';
 import ProductInfo from './ProductInfo';
 import ProductSpecifications from './ProductSpecifications';
@@ -8,6 +8,14 @@ import { getProductById } from '../../lib/api';
 
 const ProductDetails = () => {
   const { id } = useParams();
+  console.log('Product ID from URL:', id);
+  const location = useLocation();
+ 
+  // Enhanced debugging
+  console.log('All URL params:', useParams());
+  console.log('Current location:', location);
+  console.log('Product ID from URL:', id);
+  console.log('Full pathname:', location.pathname);
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -20,35 +28,76 @@ const ProductDetails = () => {
     { icon: "↩️", title: "Easy Returns", desc: "30-day policy" },
   ];
 
-  useEffect(() => {
-    const fetchProduct = async () => {
-      if (!id) {
+ useEffect(() => {
+  if (!id) {
+    console.error('No product ID found in URL');
+    setError(true);
+    setLoading(false);
+    return;
+  }
+
+  const fetchProduct = async () => {
+    try {
+      setLoading(true);
+      setError(false);
+      
+      console.log('Fetching product with ID:', id);
+      const response = await getProductById(id);
+      
+      // Debug the response structure
+      console.log('API Response:', response);
+      console.log('Response type:', typeof response);
+      console.log('Response keys:', Object.keys(response || {}));
+
+      // Handle different response structures
+      let productData;
+      
+      // If response has a data property (typical axios response)
+      if (response && response.data) {
+        productData = response.data;
+        console.log('Using response.data:', productData);
+      } 
+      // If response is the product object directly
+      else if (response && (response.id || response._id)) {
+        productData = response;
+        console.log('Using response directly:', productData);
+      }
+      // If response is wrapped in another structure
+      else if (response && response.product) {
+        productData = response.product;
+        console.log('Using response.product:', productData);
+      }
+      else {
+        console.error('Unexpected response structure:', response);
         setError(true);
-        setLoading(false);
         return;
       }
 
-      try {
-        setLoading(true);
-        setError(false);
-        const response = await getProductById(id);
-        
-        if (response && response.data) {
-          setProduct(response.data);
-        } else {
-          setError(true);
-        }
-      } catch (err) {
-        console.error('Error fetching product:', err);
-        setProduct(null);
+      // Validate product data
+      if (productData && (productData.id || productData._id)) {
+        console.log('Product loaded successfully:', productData);
+        setProduct(productData);
+      } else {
+        console.error('Invalid product data:', productData);
         setError(true);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      console.error('Error fetching product:', err);
+      console.error('Error details:', {
+        message: err.message,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data
+      });
+      setProduct(null);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchProduct();
-  }, [id]);
+  fetchProduct();
+}, [id]);
 
   const handleGoBack = () => {
     if (window.history.length > 1) {
@@ -72,6 +121,10 @@ const ProductDetails = () => {
 
   const closeModal = () => {
     setModalImage(null);
+  };
+
+  const handleProductClick = () => {
+   <Link to={`/products/${product.id}`}>View Details</Link>
   };
 
   if (loading) {

@@ -95,9 +95,9 @@ const ProductCard = ({ product }) => {
     try {
       await new Promise(resolve => setTimeout(resolve, 300));
       if (isUserLoggedIn()) {
-        navigate(`/product/${product._id}`);
+        navigate(`/products/${product.id}`);
       } else {
-        const intendedDestination = `/product/${product._id}`;
+        const intendedDestination = `/products/${product.id}`;
         localStorage.setItem('redirectAfterLogin', intendedDestination);
         navigate('/login', { 
           state: { 

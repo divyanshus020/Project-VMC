@@ -22,7 +22,13 @@ export const createProductWithUrl = (data) => API.post('/products', data);
 export const getProducts = () => API.get('/products');
 
 // Get product by ID
-export const getProductById = (id) => API.get(`/products/${id}`);
+
+// Get product by ID
+export const getProductById = async (id) => {
+  if (!id) throw new Error('Product ID is required');
+  const response = await API.get(`/products/${id}`);
+  return response; // Return the full response object, not just response.data
+};
 
 // Get product options (for enums like capSize, weight, etc.)
 export const getProductOptions = () => API.get('/products/options');
