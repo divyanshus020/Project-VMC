@@ -1,235 +1,450 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import CartItem from '../components/Cart/CartItem';
-import CartSummary from '../components/Cart/CartSummary';
-import EmptyCart from '../components/Cart/EmptyCart';
-import CartHeader from '../components/Cart/CartHeader';
-
-// Simple localStorage cart utility
-const getCart = () => JSON.parse(localStorage.getItem('cart') || '[]');
-const setCart = (cart) => localStorage.setItem('cart', JSON.stringify(cart));
+import React, { useState, useEffect } from 'react';
+import { 
+  ShoppingCart, 
+  Minus, 
+  Plus, 
+  Trash2, 
+  Package,
+  Ruler,
+  Weight,
+  Hash,
+  AlertCircle,
+  ShoppingBag
+} from 'lucide-react';
+import {
+  getDetailedCart,
+  updateCartItemQuantity,
+  removeCartItem,
+  clearCart,
+  getProductById,
+  getSizeById
+} from '../lib/api';
 
 const CartPage = () => {
-  const navigate = useNavigate();
+  const [cartData, setCartData] = useState(null);
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [promoCode, setPromoCode] = useState('');
-  const [discount, setDiscount] = useState(0);
-  const [isPromoApplied, setIsPromoApplied] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Load cart from localStorage on mount
-  useEffect(() => {
-    setCartItems(getCart());
-  }, []);
-
-  // Remove item from cart
-  const removeItem = (id) => {
-    const updated = cartItems.filter(item => item.id !== id);
-    setCartItems(updated);
-    setCart(updated);
+  const getValidToken = () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Please log in to access your cart');
+      return null;
+    }
+    return token;
   };
 
-  // Update quantity
-  const updateQuantity = (id, qty) => {
-    if (qty < 1) return;
-    const updated = cartItems.map(item =>
-      item.id === id ? { ...item, quantity: qty } : item
-    );
-    setCartItems(updated);
-    setCart(updated);
-  };
+  const fetchCartData = async () => {
+    const token = getValidToken();
+    if (!token) return;
 
-  const clearCart = () => {
-    setCartItems([]);
-    setDiscount(0);
-    setIsPromoApplied(false);
-    setPromoCode('');
-  };
-
-  const applyPromoCode = () => {
-    const code = promoCodes[promoCode.toUpperCase()];
-    const subtotal = calculateSubtotal();
+    setLoading(true);
+    setError(null);
     
-    if (code && subtotal >= code.minAmount) {
-      const discountAmount = code.type === 'percentage' 
-        ? (subtotal * code.discount) / 100
-        : code.discount;
+    try {
+      // Fetch detailed cart data
+      const detailedCartResponse = await getDetailedCart(token);
+      const cartResponseData = detailedCartResponse.data || detailedCartResponse;
       
-      setDiscount(discountAmount);
-      setIsPromoApplied(true);
-    } else {
-      setDiscount(0);
-      setIsPromoApplied(false);
-      // You could show an error message here
+      // Handle the API response structure: {cartId, userId, items: [], totalItems}
+      if (cartResponseData && cartResponseData.items) {
+        setCartData({
+          cartId: cartResponseData.cartId,
+          userId: cartResponseData.userId,
+          totalItems: cartResponseData.totalItems
+        });
+
+        // Process the items array
+        const items = cartResponseData.items || [];
+        
+        // Enhance items with additional data if needed
+        const enhancedItems = await Promise.all(
+          items.map(async (cartItem) => {
+            try {
+              let additionalData = {};
+
+              // Fetch size details if DieNo exists and we need more info
+              if (cartItem.DieNo && cartItem.DieNo !== "null") {
+                try {
+                  const sizeResponse = await getSizeById(cartItem.DieNo);
+                  const sizeData = sizeResponse.data || {};
+                  
+                  // Extract size-specific data
+                  additionalData.diameter = sizeData.diameter || null;
+                  additionalData.ballGauge = sizeData.ballGauge || sizeData.ball_gauge || null;
+                  additionalData.wireGauge = sizeData.wireGauge || sizeData.wire_gauge || null;
+                  
+                  // Use API weight if size data has different weight
+                  if (sizeData.weight && sizeData.weight !== cartItem.weight) {
+                    additionalData.sizeWeight = sizeData.weight;
+                  }
+                } catch (sizeError) {
+                  console.warn(`Failed to fetch size ${cartItem.DieNo}:`, sizeError);
+                }
+              }
+
+              return {
+                id: cartItem.id,
+                productId: cartItem.productId,
+                productName: cartItem.productName,
+                dieNo: cartItem.DieNo && cartItem.DieNo !== "null" ? cartItem.DieNo : 'N/A',
+                quantity: cartItem.quantity,
+                weight: cartItem.weight && cartItem.weight !== "null" ? parseFloat(cartItem.weight) : null,
+                diameter: additionalData.diameter || cartItem.diameter || null,
+                ballGauge: additionalData.ballGauge || cartItem.ballGauge || null,
+                wireGauge: additionalData.wireGauge || cartItem.wireGauge || null,
+                productImage: cartItem.productImage || null,
+                createdAt: cartItem.createdAt || new Date().toISOString(),
+                ...additionalData
+              };
+            } catch (itemError) {
+              console.error(`Error processing cart item:`, itemError);
+              return {
+                id: cartItem.id,
+                productId: cartItem.productId,
+                productName: cartItem.productName || 'Unknown Product',
+                dieNo: cartItem.DieNo && cartItem.DieNo !== "null" ? cartItem.DieNo : 'N/A',
+                quantity: cartItem.quantity || 1,
+                weight: cartItem.weight && cartItem.weight !== "null" ? parseFloat(cartItem.weight) : null,
+                diameter: cartItem.diameter || null,
+                ballGauge: cartItem.ballGauge || null,
+                wireGauge: cartItem.wireGauge || null,
+                productImage: cartItem.productImage || null,
+                createdAt: cartItem.createdAt || new Date().toISOString()
+              };
+            }
+          })
+        );
+
+        setCartItems(enhancedItems);
+      } else {
+        // Handle case where no items or different structure
+        setCartItems([]);
+        setCartData({ cartId: null, userId: null, totalItems: 0 });
+      }
+    } catch (err) {
+      console.error('Cart fetch error:', err);
+      setError(err.message || 'Failed to load cart data');
+      
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        setError('Session expired. Please log in again.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const removePromoCode = () => {
-    setDiscount(0);
-    setIsPromoApplied(false);
-    setPromoCode('');
+  const handleQuantityChange = async (itemId, newQuantity) => {
+    if (newQuantity < 1) return;
+    
+    const token = getValidToken();
+    if (!token) return;
+
+    try {
+      await updateCartItemQuantity(itemId, newQuantity, token);
+      setCartItems(prev => 
+        prev.map(item => 
+          item.id === itemId ? { ...item, quantity: newQuantity } : item
+        )
+      );
+      
+      // Update total items count
+      if (cartData) {
+        const newTotal = cartItems.reduce((sum, item) => {
+          return sum + (item.id === itemId ? newQuantity : item.quantity);
+        }, 0);
+        setCartData(prev => ({ ...prev, totalItems: newTotal }));
+      }
+    } catch (err) {
+      console.error('Error updating quantity:', err);
+      setError('Failed to update quantity');
+    }
   };
 
-  const calculateSubtotal = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const handleRemoveItem = async (itemId) => {
+    const token = getValidToken();
+    if (!token) return;
+
+    try {
+      await removeCartItem(itemId, token);
+      const removedItem = cartItems.find(item => item.id === itemId);
+      setCartItems(prev => prev.filter(item => item.id !== itemId));
+      
+      // Update total items count
+      if (cartData && removedItem) {
+        setCartData(prev => ({ 
+          ...prev, 
+          totalItems: prev.totalItems - removedItem.quantity 
+        }));
+      }
+    } catch (err) {
+      console.error('Error removing item:', err);
+      setError('Failed to remove item');
+    }
   };
 
-  const calculateSavings = () => {
-    return cartItems.reduce((total, item) => {
-      const itemSavings = (item.originalPrice - item.price) * item.quantity;
-      return total + itemSavings;
-    }, 0);
+  const handleClearCart = async () => {
+    const token = getValidToken();
+    if (!token) return;
+
+    try {
+      await clearCart(token);
+      setCartItems([]);
+      setCartData(prev => ({ ...prev, totalItems: 0 }));
+    } catch (err) {
+      console.error('Error clearing cart:', err);
+      setError('Failed to clear cart');
+    }
   };
 
-  const calculateTotal = () => {
-    const subtotal = calculateSubtotal();
-    const shipping = subtotal > 999 ? 0 : 99;
-    return subtotal + shipping - discount;
-  };
-
-  const handleContinueShopping = () => {
-    navigate('/products');
-  };
-
-  const handleCheckout = () => {
-    navigate('/checkout');
-  };
+  useEffect(() => {
+    fetchCartData();
+  }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Loading your cart...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your cart...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Cart</h3>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <button
+              onClick={fetchCartData}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   if (cartItems.length === 0) {
-    return <EmptyCart onContinueShopping={handleContinueShopping} />;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
+          <div className="text-center">
+            <ShoppingBag className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Your cart is empty</h3>
+            <p className="text-gray-600 mb-6">Start shopping to add items to your cart</p>
+            <button
+              onClick={() => window.location.href = '/products'}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              Browse Products
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <CartHeader 
-          itemCount={cartItems.length}
-          onClearCart={clearCart}
-          onContinueShopping={handleContinueShopping}
-        />
-
-        <div className="mt-8 lg:grid lg:grid-cols-12 lg:gap-8">
-          {/* Cart Items Section */}
-          <div className="lg:col-span-8">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                  <svg className="w-6 h-6 mr-2 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                  </svg>
-                  Shopping Cart ({cartItems.length} items)
-                </h2>
-              </div>
-              
-              <div className="divide-y divide-gray-100">
-                {cartItems.map((item, index) => (
-                  <CartItem
-                    key={item.id}
-                    item={item}
-                    onUpdateQuantity={updateQuantity}
-                    onRemove={removeItem}
-                    isLast={index === cartItems.length - 1}
-                  />
-                ))}
-              </div>
-
-              {/* Promo Code Section */}
-              <div className="px-6 py-4 bg-gradient-to-r from-amber-50 to-orange-50 border-t border-gray-100">
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      placeholder="Enter promo code"
-                      value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                      disabled={isPromoApplied}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    {!isPromoApplied ? (
-                      <button
-                        onClick={applyPromoCode}
-                        className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors duration-200"
-                      >
-                        Apply
-                      </button>
-                    ) : (
-                      <button
-                        onClick={removePromoCode}
-                        className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors duration-200"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {isPromoApplied && (
-                  <div className="mt-2 text-green-600 text-sm font-medium">
-                    ✓ Promo code applied successfully!
-                  </div>
-                )}
-              </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-3">
+              <ShoppingCart className="h-6 w-6 text-blue-600" />
+              <h1 className="text-xl font-bold text-gray-900">My Cart</h1>
+              <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+                {cartData?.totalItems || cartItems.length} {(cartData?.totalItems || cartItems.length) === 1 ? 'item' : 'items'}
+              </span>
             </div>
-          </div>
-
-          {/* Cart Summary Section */}
-          <div className="lg:col-span-4 mt-8 lg:mt-0">
-            <CartSummary
-              subtotal={calculateSubtotal()}
-              savings={calculateSavings()}
-              discount={discount}
-              total={calculateTotal()}
-              itemCount={cartItems.reduce((total, item) => total + item.quantity, 0)}
-              onCheckout={handleCheckout}
-              isPromoApplied={isPromoApplied}
-              promoCode={promoCode}
-            />
+            {cartItems.length > 0 && (
+              <button
+                onClick={handleClearCart}
+                className="text-red-600 hover:text-red-700 font-medium transition-colors"
+              >
+                Clear Cart
+              </button>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* Trust Indicators */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-100 shadow-sm">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Secure Checkout</h3>
-            <p className="text-gray-600 text-sm">256-bit SSL encryption</p>
-          </div>
+      {/* Cart Items */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid gap-6">
+          {cartItems.map((item) => (
+            <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+              <div className="p-6">
+                <div className="flex flex-col lg:flex-row gap-6">
+                  {/* Product Image */}
+                  <div className="flex-shrink-0">
+                    <div className="w-full lg:w-48 h-48 bg-gray-100 rounded-lg overflow-hidden">
+                      {item.productImage ? (
+                        <img 
+                          src={item.productImage} 
+                          alt={item.productName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="h-12 w-12 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-          <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-100 shadow-sm">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Easy Returns</h3>
-            <p className="text-gray-600 text-sm">30-day return policy</p>
-          </div>
+                  {/* Product Details */}
+                  <div className="flex-1">
+                    <div className="flex flex-col h-full">
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                              {item.productName}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-3">
+                              Product ID: {item.productId}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveItem(item.id)}
+                            className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </div>
 
-          <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-100 shadow-sm">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
+                        {/* Specifications Grid */}
+                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex items-center space-x-2 text-gray-600 mb-1">
+                              <Hash className="h-4 w-4" />
+                              <span className="text-sm font-medium">Die No</span>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900">{item.dieNo}</p>
+                          </div>
+
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex items-center space-x-2 text-gray-600 mb-1">
+                              <Ruler className="h-4 w-4" />
+                              <span className="text-sm font-medium">Diameter</span>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {item.diameter ? `${item.diameter} mm` : 'N/A'}
+                            </p>
+                          </div>
+
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex items-center space-x-2 text-gray-600 mb-1">
+                              <Package className="h-4 w-4" />
+                              <span className="text-sm font-medium">Ball Gauge</span>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {item.ballGauge || 'N/A'}
+                            </p>
+                          </div>
+
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex items-center space-x-2 text-gray-600 mb-1">
+                              <Ruler className="h-4 w-4" />
+                              <span className="text-sm font-medium">Wire Gauge</span>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {item.wireGauge || 'N/A'}
+                            </p>
+                          </div>
+
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex items-center space-x-2 text-gray-600 mb-1">
+                              <Weight className="h-4 w-4" />
+                              <span className="text-sm font-medium">Weight</span>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {item.weight ? `${item.weight} kg` : 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quantity Controls */}
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm font-medium text-gray-700">Quantity:</span>
+                          <div className="flex items-center border border-gray-300 rounded-lg">
+                            <button
+                              onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                              disabled={item.quantity <= 1}
+                              className="p-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <span className="px-4 py-2 font-medium text-gray-900 min-w-[3rem] text-center">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                              className="p-2 hover:bg-gray-100 transition-colors"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Added on</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {new Date(item.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Free Shipping</h3>
-            <p className="text-gray-600 text-sm">On orders over ₹999</p>
+          ))}
+        </div>
+
+        {/* Cart Summary */}
+        {cartData && (
+          <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Cart Summary</h3>
+                <p className="text-sm text-gray-600">
+                  Total Items: {cartData.totalItems} | Unique Products: {cartItems.length}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-600">Total Weight</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {cartItems.reduce((total, item) => {
+                    return total + (item.weight ? item.weight * item.quantity : 0);
+                  }, 0).toFixed(2)} kg
+                </p>
+              </div>
+            </div>
           </div>
+        )}
+
+        {/* Continue Shopping */}
+        <div className="mt-8 text-center">
+          <button
+            onClick={() => window.location.href = '/products'}
+            className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+          >
+            Continue Shopping
+          </button>
         </div>
       </div>
     </div>

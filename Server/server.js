@@ -3,20 +3,24 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
 
-// Load environment variables
+// ==========================
+// 🌍 Load Environment
+// ==========================
 dotenv.config();
 
-// Connect to MySQL
+// ==========================
+// 🔌 Connect to MySQL
+// ==========================
 connectDB()
-  .then(() => {
-    console.log('✅ MySQL connection established');
-  })
+  .then(() => console.log('✅ MySQL connection established'))
   .catch((err) => {
     console.error('❌ MySQL connection failed:', err.message);
     process.exit(1);
   });
 
-// Initialize Express app
+// ==========================
+// 🚀 Initialize App
+// ==========================
 const app = express();
 
 // ==========================
@@ -25,29 +29,31 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// Serve static assets (e.g., images, videos)
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static('uploads')); // Serve static files
 
 // ==========================
 // 🔗 API Routes
 // ==========================
 app.use('/api/products', require('./routes/productRoutes'));
+app.use('/api/sizes', require('./routes/sizeRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/admin', require('./routes/adminRoutes')); // Admin routes (static before dynamic in router)
-app.use('/api/auth', require('./routes/authRoutes')); // OTP login if implemented
+app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
+app.use('/api/cart', require('./routes/cartRoutes')); // Cart routes now enabled
 
 // ==========================
-// ✅ Health Check
+// ✅ Root Route
 // ==========================
 app.get('/', (req, res) => {
-  res.send('✅ API is running on Vimla Jewellers backend');
+  res.send('✅ Vimla Jewellers API is running...');
 });
 
 // ==========================
-// ❌ 404 Handler
+// ❌ 404 - Not Found
 // ==========================
-app.use((req, res, next) => {
-  res.status(404).json({ message: 'Route not found' });
+app.use((req, res) => {
+  res.status(404).json({ message: '❌ Route not found' });
 });
 
 // ==========================
@@ -66,5 +72,5 @@ app.use((err, req, res, next) => {
 // ==========================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server started on http://localhost:${PORT}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

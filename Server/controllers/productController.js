@@ -2,7 +2,7 @@ const Product = require('../models/Product');
 const cloudinary = require('../config/cloudinary');
 const fs = require('fs');
 
-// Helper to parse array fields safely
+// ✅ Parse input field into an array
 function parseArrayField(field) {
   if (!field) return [];
   if (Array.isArray(field)) return field;
@@ -13,41 +13,34 @@ function parseArrayField(field) {
   }
 }
 
-// ✅ Create Product (MySQL)
+// ✅ Helper function to convert undefined to null
+function sanitizeForDB(value) {
+  return value === undefined ? null : value;
+}
+
+// ✅ Create Product
 exports.createProduct = async (req, res) => {
   try {
-    const {
-      name,
-      category,
-      imageUrl,
-      capSize,
-      weight,
-      tulsiRudrakshMM,
-      estPCS,
-      diameter,
-      ballGauge,
-      wireGauge,
-      otherWeight,
-    } = req.body;
+    const { name, category, imageUrl, images, dieIds } = req.body;
 
-    let finalImageUrl;
+    let finalImageUrl = '';
     let uploadedImages = [];
 
-    // Handle main image upload (thumbnail)
-    if (req.files && req.files.image && req.files.image[0]) {
-      const result = await cloudinary.uploader.upload(req.files.image[0].path, {
+    // 🖼️ Upload thumbnail
+    if (req.files?.image?.[0]) {
+      const upload = await cloudinary.uploader.upload(req.files.image[0].path, {
         folder: 'ecommerce/products',
       });
       fs.unlinkSync(req.files.image[0].path);
-      finalImageUrl = result.secure_url;
+      finalImageUrl = upload.secure_url;
     } else if (imageUrl) {
       finalImageUrl = imageUrl;
     } else {
-      return res.status(400).json({ message: 'Either an image file or imageUrl is required' });
+      return res.status(400).json({ message: 'Image file or imageUrl is required' });
     }
 
-    // Handle multiple slider images (images[])
-    if (req.files && req.files.images) {
+    // 🖼️ Upload slider images
+    if (req.files?.images) {
       for (const file of req.files.images) {
         const upload = await cloudinary.uploader.upload(file.path, {
           folder: 'ecommerce/products',
@@ -57,150 +50,120 @@ exports.createProduct = async (req, res) => {
       }
     }
 
-    // Build product object with all fields (always include all keys)
     const productData = {
-      name,
-      category,
+      name: sanitizeForDB(name),
+      category: sanitizeForDB(category),
       imageUrl: finalImageUrl,
-      images: uploadedImages.length > 0 ? uploadedImages : parseArrayField(req.body.images),
-      capSize: capSize || "",
-      weight: weight || "",
-      tulsiRudrakshMM: tulsiRudrakshMM || "",
-      estPCS: estPCS || "",
-      diameter: diameter || "",
-      ballGauge: ballGauge || "",
-      wireGauge: wireGauge || "",
-      otherWeight: otherWeight || "",
+      images: uploadedImages.length ? uploadedImages : parseArrayField(images),
+      dieIds: parseArrayField(dieIds)
     };
 
-    // Save to MySQL
-    const product = await Product.create(productData);
-    res.status(201).json(product);
-
+    const newProduct = await Product.create(productData);
+    res.status(201).json(newProduct);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('❌ Create Product Error:', err);
+    res.status(500).json({ message: 'Failed to create product', error: err.message });
   }
 };
 
-// ✅ Get ALL Products (MySQL)
+// ✅ Get All Products (with optional dieNo filter)
 exports.getProducts = async (req, res) => {
   try {
-    const products = await Product.findAll();
+    const { dieNo } = req.query;
+    let products;
+
+    if (dieNo) {
+      const parsedDieNo = parseInt(dieNo);
+      if (isNaN(parsedDieNo)) {
+        return res.status(400).json({ message: 'Invalid dieNo query parameter' });
+      }
+      products = await Product.filterByDieNo(parsedDieNo);
+    } else {
+      products = await Product.findAll();
+    }
+
     res.json(products);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('❌ Get Products Error:', err);
+    res.status(500).json({ message: 'Failed to fetch products', error: err.message });
   }
 };
 
-// ✅ Get SINGLE Product (MySQL)
+// ✅ Get Single Product by ID
 exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-    if (!product)
-      return res.status(404).json({ message: 'Product not found' });
+    if (!product) return res.status(404).json({ message: 'Product not found' });
     res.json(product);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('❌ Get Product By ID Error:', err);
+    res.status(500).json({ message: 'Failed to fetch product', error: err.message });
   }
 };
 
-// ✅ UPDATE Product (MySQL)
+// ✅ Update Product
 exports.updateProduct = async (req, res) => {
   try {
-    const {
-      name,
-      imageUrl,
-      category,
-      capSize,
-      weight,
-      tulsiRudrakshMM,
-      estPCS,
-      diameter,
-      ballGauge,
-      wireGauge,
-      otherWeight,
-      images
-    } = req.body;
+    const { name, category, imageUrl, images, dieIds } = req.body;
 
-    const product = await Product.findById(req.params.id);
-    if (!product)
-      return res.status(404).json({ message: 'Product not found' });
+    const existing = await Product.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Product not found' });
 
-    let finalImageUrl = product.imageUrl;
-    let uploadedImages = product.images || [];
+    let finalImageUrl = existing.imageUrl;
+    let updatedImages = existing.images || [];
 
-    // Handle single main image (thumbnail)
-    if (req.files && req.files.image && req.files.image[0]) {
-      const result = await cloudinary.uploader.upload(req.files.image[0].path, {
+    // 🖼️ Update thumbnail
+    if (req.files?.image?.[0]) {
+      const upload = await cloudinary.uploader.upload(req.files.image[0].path, {
         folder: 'ecommerce/products',
       });
       fs.unlinkSync(req.files.image[0].path);
-      finalImageUrl = result.secure_url;
+      finalImageUrl = upload.secure_url;
     } else if (imageUrl) {
       finalImageUrl = imageUrl;
     }
 
-    // Handle multiple new slider images
-    if (req.files && req.files.images) {
-      uploadedImages = [];
+    // 🖼️ Update slider images
+    if (req.files?.images) {
+      updatedImages = [];
       for (const file of req.files.images) {
         const upload = await cloudinary.uploader.upload(file.path, {
           folder: 'ecommerce/products',
         });
         fs.unlinkSync(file.path);
-        uploadedImages.push(upload.secure_url);
+        updatedImages.push(upload.secure_url);
       }
     } else if (images !== undefined) {
-      uploadedImages = parseArrayField(images);
+      updatedImages = parseArrayField(images);
     }
 
-    // Build updated product data
     const updatedData = {
-      name: name !== undefined ? name : product.name,
-      category: category !== undefined ? category : product.category,
+      name: sanitizeForDB(name ?? existing.name),
+      category: sanitizeForDB(category ?? existing.category),
       imageUrl: finalImageUrl,
-      images: uploadedImages,
-      capSize: capSize !== undefined ? capSize : product.capSize,
-      weight: weight !== undefined ? weight : product.weight,
-      tulsiRudrakshMM: tulsiRudrakshMM !== undefined ? tulsiRudrakshMM : product.tulsiRudrakshMM,
-      estPCS: estPCS !== undefined ? estPCS : product.estPCS,
-      diameter: diameter !== undefined ? diameter : product.diameter,
-      ballGauge: ballGauge !== undefined ? ballGauge : product.ballGauge,
-      wireGauge: wireGauge !== undefined ? wireGauge : product.wireGauge,
-      otherWeight: otherWeight !== undefined ? otherWeight : product.otherWeight,
+      images: updatedImages,
+      dieIds: dieIds ? parseArrayField(dieIds) : existing.dieIds
     };
 
     await Product.updateById(req.params.id, updatedData);
     const updatedProduct = await Product.findById(req.params.id);
     res.json(updatedProduct);
-
   } catch (err) {
-    console.error('Update product error:', err);
-    res.status(500).json({ message: err.message });
+    console.error('❌ Update Product Error:', err);
+    res.status(500).json({ message: 'Failed to update product', error: err.message });
   }
 };
 
-// ✅ DELETE Product (MySQL)
+// ✅ Delete Product
 exports.deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
-    if (!product)
-      return res.status(404).json({ message: 'Product not found' });
+    const existing = await Product.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Product not found' });
 
     await Product.deleteById(req.params.id);
     res.json({ message: 'Product deleted successfully' });
-
   } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-// ✅ Get Product Options (enums for dropdowns)
-exports.getProductOptions = async (req, res) => {
-  try {
-    const enums = Product.getEnums();
-    res.json(enums);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('❌ Delete Product Error:', err);
+    res.status(500).json({ message: 'Failed to delete product', error: err.message });
   }
 };

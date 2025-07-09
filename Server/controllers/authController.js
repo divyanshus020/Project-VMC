@@ -2,13 +2,13 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const sendSMS = require('../utils/sendSMS');
 
-// Temporary OTP store (For production: use Redis or DB with expiry)
+// In-memory OTP store (recommend Redis or DB in production)
 const otpStore = new Map();
 
-// Generate 6-digit OTP
+// 🔐 Generate a 6-digit numeric OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000);
 
-// Send OTP with improved error handling
+// 📤 Send OTP
 exports.sendOTP = async (req, res) => {
   const { phoneNumber } = req.body;
 
@@ -18,59 +18,45 @@ exports.sendOTP = async (req, res) => {
 
   try {
     const otp = generateOTP();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 min
 
-    // Store OTP with 5-minute expiration
-    otpStore.set(phoneNumber, { otp, expiresAt: Date.now() + 5 * 60 * 1000 });
+    otpStore.set(phoneNumber, { otp, expiresAt });
 
     const smsText = `Dear User, ${otp} is the verification code for your interaction with Vimla Jewellers, Jodhpur.`;
-    
-    // Add timeout wrapper for SMS sending
-    const SMS_TIMEOUT = 10000; // 10 seconds timeout
-    
+
+    const SMS_TIMEOUT = 10000;
     const smsPromise = sendSMS(phoneNumber, smsText);
-    const timeoutPromise = new Promise((_, reject) => 
+    const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('SMS sending timeout')), SMS_TIMEOUT)
     );
 
     await Promise.race([smsPromise, timeoutPromise]);
 
-    console.log(`OTP sent successfully to ${phoneNumber}`);
+    console.log(`✅ OTP sent to ${phoneNumber}`);
     return res.status(200).json({ message: 'OTP sent successfully' });
-    
+
   } catch (error) {
-    console.error('Error sending OTP:', {
+    console.error('❌ Error sending OTP:', {
       phoneNumber,
       error: error.message,
-      stack: error.stack,
       timestamp: new Date().toISOString()
     });
 
-    // Clean up stored OTP if SMS failed
     otpStore.delete(phoneNumber);
 
-    // Provide more specific error messages
-    if (error.message.includes('timeout') || error.message.includes('Socket connection timeout')) {
-      return res.status(503).json({ 
-        message: 'SMS service is temporarily unavailable. Please try again in a few moments.',
-        error: 'SERVICE_TIMEOUT'
-      });
+    if (error.message.includes('timeout')) {
+      return res.status(503).json({ message: 'SMS service timeout', error: 'SERVICE_TIMEOUT' });
     }
 
     if (error.message.includes('network') || error.message.includes('ENOTFOUND')) {
-      return res.status(503).json({ 
-        message: 'Network connectivity issue. Please check your connection and try again.',
-        error: 'NETWORK_ERROR'
-      });
+      return res.status(503).json({ message: 'Network error. Try again.', error: 'NETWORK_ERROR' });
     }
 
-    return res.status(500).json({ 
-      message: 'Failed to send OTP. Please try again.',
-      error: 'SMS_SEND_FAILED'
-    });
+    return res.status(500).json({ message: 'Failed to send OTP', error: 'SMS_SEND_FAILED' });
   }
 };
 
-// Verify OTP and register/login user (MySQL version)
+// ✅ Verify OTP and log in/register user
 exports.verifyOTP = async (req, res) => {
   const { phoneNumber, fullName = '', address = '', otp } = req.body;
 
@@ -81,32 +67,21 @@ exports.verifyOTP = async (req, res) => {
   const record = otpStore.get(phoneNumber);
 
   if (!record) {
-    return res.status(400).json({ 
-      message: 'OTP not found. Please request a new OTP.',
-      error: 'OTP_NOT_FOUND'
-    });
+    return res.status(400).json({ message: 'OTP not found. Please request a new one.', error: 'OTP_NOT_FOUND' });
   }
 
   if (Date.now() > record.expiresAt) {
-    otpStore.delete(phoneNumber); // Clean up expired OTP
-    return res.status(400).json({ 
-      message: 'OTP has expired. Please request a new OTP.',
-      error: 'OTP_EXPIRED'
-    });
+    otpStore.delete(phoneNumber);
+    return res.status(400).json({ message: 'OTP expired. Request again.', error: 'OTP_EXPIRED' });
   }
 
   if (String(record.otp) !== String(otp)) {
-    return res.status(400).json({ 
-      message: 'Invalid OTP. Please check and try again.',
-      error: 'OTP_INVALID'
-    });
+    return res.status(400).json({ message: 'Invalid OTP.', error: 'OTP_INVALID' });
   }
 
   try {
-    // Find user by phone number (MySQL)
     let user = await User.findByPhoneNumber(phoneNumber);
 
-    // Register new user if not found
     if (!user) {
       if (!fullName.trim() || !address.trim()) {
         return res.status(400).json({
@@ -120,20 +95,17 @@ exports.verifyOTP = async (req, res) => {
         fullName: fullName.trim(),
         address: address.trim(),
       });
-      console.log(`New user registered: ${phoneNumber}`);
+
+      console.log(`👤 Registered new user: ${phoneNumber}`);
     } else {
-      console.log(`Existing user logged in: ${phoneNumber}`);
+      console.log(`🔓 Logged in existing user: ${phoneNumber}`);
     }
 
-    // Generate JWT token (MySQL: use user.id)
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
-      expiresIn: '7d',
-    });
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    // Clear OTP from memory
     otpStore.delete(phoneNumber);
 
-    return res.json({
+    return res.status(200).json({
       message: 'OTP verified successfully',
       token,
       user: {
@@ -143,21 +115,19 @@ exports.verifyOTP = async (req, res) => {
         phoneNumber: user.phoneNumber,
       },
     });
+
   } catch (error) {
-    console.error('Error verifying OTP:', {
+    console.error('❌ Error verifying OTP:', {
       phoneNumber,
       error: error.message,
-      stack: error.stack,
       timestamp: new Date().toISOString()
     });
-    return res.status(500).json({ 
-      message: 'Server error during OTP verification',
-      error: 'VERIFICATION_ERROR'
-    });
+
+    return res.status(500).json({ message: 'OTP verification failed', error: 'VERIFICATION_ERROR' });
   }
 };
 
-// Optional: Add cleanup function for expired OTPs
+// 🧹 Clear expired OTPs (optional cron task)
 exports.cleanupExpiredOTPs = () => {
   const now = Date.now();
   for (const [phoneNumber, record] of otpStore.entries()) {
@@ -167,12 +137,12 @@ exports.cleanupExpiredOTPs = () => {
   }
 };
 
-// Optional: Get OTP store stats for debugging
+// 🔍 Debug OTPs (optional admin/debug route)
 exports.getOTPStats = () => {
   return {
     totalOTPs: otpStore.size,
     otps: Array.from(otpStore.entries()).map(([phone, data]) => ({
-      phone: phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2'), // Mask phone number
+      phone: phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2'),
       expiresIn: Math.max(0, data.expiresAt - Date.now()),
       expired: Date.now() > data.expiresAt
     }))

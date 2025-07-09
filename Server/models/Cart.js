@@ -1,14 +1,12 @@
 const db = require('../config/db');
 
-// Helper to get a MySQL connection
 async function getConnection() {
   return db();
 }
 
-// Create Cart and CartItem tables if not exist
 async function createCartTables() {
   const connection = await getConnection();
-  // Cart table (one per user)
+
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS carts (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -17,143 +15,201 @@ async function createCartTables() {
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
-  // Cart items table (many per cart)
+
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS cart_items (
       id INT AUTO_INCREMENT PRIMARY KEY,
       cartId INT NOT NULL,
       productId INT NOT NULL,
-      quantity INT NOT NULL,
-
-      -- Mala fields
-      capSize VARCHAR(50),
-      weight VARCHAR(50),
-      tulsiRudrakshMM VARCHAR(50),
-      estPCS VARCHAR(50),
-
-      -- Non-mala fields
-      diameter VARCHAR(50),
-      ballGauge VARCHAR(50),
-      wireGauge VARCHAR(50),
-      otherWeight VARCHAR(50),
-
+      DieNo VARCHAR(50) DEFAULT NULL,
+      weight VARCHAR(50) DEFAULT NULL,
+      quantity INT NOT NULL DEFAULT 1,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (cartId) REFERENCES carts(id) ON DELETE CASCADE
     )
   `);
+
   await connection.end();
 }
 createCartTables();
 
 module.exports = {
-  // Find or create a cart for a user
   async findOrCreateCart(userId) {
     const connection = await getConnection();
-    let [rows] = await connection.execute(
-      `SELECT * FROM carts WHERE userId = ? LIMIT 1`,
-      [userId]
-    );
-    let cart;
-    if (rows.length === 0) {
-      const [result] = await connection.execute(
-        `INSERT INTO carts (userId) VALUES (?)`,
+    try {
+      const [rows] = await connection.execute(
+        `SELECT * FROM carts WHERE userId = ? LIMIT 1`,
         [userId]
       );
-      cart = { id: result.insertId, userId };
-    } else {
-      cart = rows[0];
+
+      if (rows.length === 0) {
+        const [result] = await connection.execute(
+          `INSERT INTO carts (userId) VALUES (?)`,
+          [userId]
+        );
+        return { id: result.insertId, userId };
+      }
+
+      return rows[0];
+    } finally {
+      await connection.end();
     }
-    await connection.end();
-    return cart;
   },
 
-  // Add item to cart
   async addItem(userId, item) {
+    const { productId, quantity, DieNo = null, weight = null } = item;
+    if (!productId || quantity <= 0) throw new Error('Invalid item data');
+
     const cart = await this.findOrCreateCart(userId);
     const connection = await getConnection();
-    // Check if item with same productId and options exists
-    const [rows] = await connection.execute(
-      `SELECT * FROM cart_items WHERE cartId = ? AND productId = ? 
-        AND capSize = ? AND weight = ? AND tulsiRudrakshMM = ? AND estPCS = ?
-        AND diameter = ? AND ballGauge = ? AND wireGauge = ? AND otherWeight = ? LIMIT 1`,
-      [
-        cart.id,
-        item.productId,
-        item.capSize || null,
-        item.weight || null,
-        item.tulsiRudrakshMM || null,
-        item.estPCS || null,
-        item.diameter || null,
-        item.ballGauge || null,
-        item.wireGauge || null,
-        item.otherWeight || null,
-      ]
-    );
-    if (rows.length > 0) {
-      // Update quantity if item exists
-      await connection.execute(
-        `UPDATE cart_items SET quantity = quantity + ? WHERE id = ?`,
-        [item.quantity, rows[0].id]
+
+    try {
+      const [rows] = await connection.execute(
+        `SELECT * FROM cart_items 
+         WHERE cartId = ? AND productId = ? AND DieNo <=> ? AND weight <=> ? LIMIT 1`,
+        [cart.id, productId, DieNo, weight]
       );
-    } else {
-      // Insert new item
-      await connection.execute(
-        `INSERT INTO cart_items 
-          (cartId, productId, quantity, capSize, weight, tulsiRudrakshMM, estPCS, diameter, ballGauge, wireGauge, otherWeight)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          cart.id,
-          item.productId,
-          item.quantity,
-          item.capSize || null,
-          item.weight || null,
-          item.tulsiRudrakshMM || null,
-          item.estPCS || null,
-          item.diameter || null,
-          item.ballGauge || null,
-          item.wireGauge || null,
-          item.otherWeight || null,
-        ]
-      );
+
+      if (rows.length > 0) {
+        await connection.execute(
+          `UPDATE cart_items SET quantity = quantity + ? WHERE id = ?`,
+          [quantity, rows[0].id]
+        );
+      } else {
+        await connection.execute(
+          `INSERT INTO cart_items (cartId, productId, DieNo, weight, quantity) 
+           VALUES (?, ?, ?, ?, ?)`,
+          [cart.id, productId, DieNo, weight, quantity]
+        );
+      }
+
+      return true;
+    } finally {
+      await connection.end();
     }
-    await connection.end();
-    return true;
   },
 
-  // Get cart with items for a user
   async getCart(userId) {
     const cart = await this.findOrCreateCart(userId);
     const connection = await getConnection();
-    const [items] = await connection.execute(
-      `SELECT * FROM cart_items WHERE cartId = ?`,
-      [cart.id]
-    );
-    await connection.end();
-    return { cartId: cart.id, userId: cart.userId, items };
+
+    try {
+      const [items] = await connection.execute(
+        `SELECT id, productId, DieNo, weight, quantity 
+         FROM cart_items WHERE cartId = ?`,
+        [cart.id]
+      );
+
+      return { cartId: cart.id, userId: cart.userId, items };
+    } finally {
+      await connection.end();
+    }
   },
 
-  // Remove item from cart
+  async getDetailedCart(userId) {
+    const cart = await this.findOrCreateCart(userId);
+    const connection = await getConnection();
+
+    try {
+      const [items] = await connection.execute(
+        `SELECT ci.id, 
+                ci.productId, 
+                ci.DieNo, 
+                ci.weight, 
+                ci.quantity,
+                p.name AS productName, 
+                p.imageUrl AS productImage
+         FROM cart_items ci
+         JOIN products p ON ci.productId = p.id
+         WHERE ci.cartId = ?`,
+        [cart.id]
+      );
+
+      return { 
+        cartId: cart.id, 
+        userId: cart.userId, 
+        items,
+        totalItems: items.reduce((sum, item) => sum + item.quantity, 0)
+      };
+    } finally {
+      await connection.end();
+    }
+  },
+
+  async updateItemQuantity(userId, itemId, quantity) {
+    if (quantity <= 0) {
+      return this.removeItem(userId, itemId);
+    }
+
+    const cart = await this.findOrCreateCart(userId);
+    const connection = await getConnection();
+
+    try {
+      const [rows] = await connection.execute(
+        `SELECT * FROM cart_items WHERE cartId = ? AND id = ? LIMIT 1`,
+        [cart.id, itemId]
+      );
+
+      if (rows.length === 0) {
+        throw new Error('Item not found in cart');
+      }
+
+      await connection.execute(
+        `UPDATE cart_items SET quantity = ? WHERE id = ?`,
+        [quantity, itemId]
+      );
+
+      return true;
+    } finally {
+      await connection.end();
+    }
+  },
+
   async removeItem(userId, itemId) {
     const cart = await this.findOrCreateCart(userId);
     const connection = await getConnection();
-    await connection.execute(
-      `DELETE FROM cart_items WHERE cartId = ? AND id = ?`,
-      [cart.id, itemId]
-    );
-    await connection.end();
-    return true;
+
+    try {
+      await connection.execute(
+        `DELETE FROM cart_items WHERE cartId = ? AND id = ?`,
+        [cart.id, itemId]
+      );
+      return true;
+    } finally {
+      await connection.end();
+    }
   },
 
-  // Clear cart
   async clearCart(userId) {
     const cart = await this.findOrCreateCart(userId);
     const connection = await getConnection();
-    await connection.execute(
-      `DELETE FROM cart_items WHERE cartId = ?`,
-      [cart.id]
-    );
-    await connection.end();
-    return true;
+
+    try {
+      await connection.execute(
+        `DELETE FROM cart_items WHERE cartId = ?`,
+        [cart.id]
+      );
+      return true;
+    } finally {
+      await connection.end();
+    }
+  },
+
+  // Get total quantity in cart
+  async getCartTotal(userId) {
+    const cart = await this.findOrCreateCart(userId);
+    const connection = await getConnection();
+
+    try {
+      const [result] = await connection.execute(
+        `SELECT SUM(quantity) AS totalItems FROM cart_items WHERE cartId = ?`,
+        [cart.id]
+      );
+
+      return result[0].totalItems || 0;
+    } finally {
+      await connection.end();
+    }
   },
 };

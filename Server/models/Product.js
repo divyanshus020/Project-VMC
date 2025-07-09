@@ -1,41 +1,11 @@
 const db = require('../config/db');
 
-// ENUMS (for dropdowns and validation)
-const CAP_SIZE_ENUM = [
-  "43 No CAP MALA", "42 No CAP MALA", "22 No CAP MALA", "21 No CAP MALA", "19 No CAP MALA", "17 No CAP MALA",
-  "15 No CAP MALA", "12 No CAP MALA", "11 No CAP MALA", "10 No CAP MALA", "8 No CAP MALA", "5 No CAP MALA"
-];
-const WEIGHT_ENUM = [
-  "8 - 9 gm", "9 - 10 gm", "10 - 11 gm", "12 - 13 gm", "14 - 15 gm", "16 - 17 gm", "18 - 19 gm", "20 gm",
-  "21 - 22 gm", "24 - 25 gm", "28 - 29 gm", "31 - 32 gm"
-];
-const TULSI_RUDRAKSH_MM_ENUM = [
-  "3 mm", "3 mm", "3.5 mm", "3.5 mm", "4 mm", "4.5 mm", "5 mm", "5 mm", "5.5 mm", "6 mm", "7 mm", "7.5 mm"
-];
-const TULSI_RUDRAKSH_ESTPCS_ENUM = [
-  "80 - 85 Pcs", "75 - 80 Pcs", "75 - 80 Pcs", "75 - 80 Pcs", "65 - 70 Pcs", "65 - 70 Pcs",
-  "57 - 62 Pcs", "54 - 60 Pcs", "54 - 58 Pcs", "50 - 52 Pcs", "45 - 48 Pcs", "40 - 45 Pcs"
-];
-const DIAMETER_ENUM = [
-  "11 MM", "9 MM", "8.25 MM", "7.5 MM", "7 MM", "6.4 MM", "6 MM", "5.6 MM", "5.2 MM", "4.7 MM",
-  "4.4 MM", "4 MM", "3.6 MM", "3.25 MM", "3 MM", "2.8 MM", "2.5 MM"
-];
-const BALL_GAUGE_ENUM = [
-  "-", "-", "-", "-", "38", "34", "33", "31", "30", "25", "22", "20", "17", "15", "13", "12", "10"
-];
-const WIRE_GAUGE_ENUM = [
-  "-", "-", "0", "-", "1.5", "3", "3.5", "4", "5", "6", "7", "8", "9", "10", "-", "11", "12"
-];
-const OTHER_WEIGHT_ENUM = [
-  "1.2", "1", "0.85", "0.65", "0.5", "0.4", "0.35", "0.3", "0.25", "0.2", "0.175", "0.15", "0.125", "0.1", "0.09", "0.075", "0.055"
-];
-
-// Helper to get a MySQL connection
+// Helper: Open DB connection
 async function getConnection() {
   return db();
 }
 
-// Create Product table if not exists (run once at server start)
+// Create Product table if it doesn't exist
 async function createProductTable() {
   const connection = await getConnection();
   await connection.execute(`
@@ -45,19 +15,7 @@ async function createProductTable() {
       imageUrl VARCHAR(500) DEFAULT '',
       category VARCHAR(50) NOT NULL,
       images JSON DEFAULT NULL,
-
-      -- Mala fields
-      capSize VARCHAR(50) DEFAULT '',
-      weight VARCHAR(50) DEFAULT '',
-      tulsiRudrakshMM VARCHAR(50) DEFAULT '',
-      estPCS VARCHAR(50) DEFAULT '',
-
-      -- Non-mala fields
-      diameter VARCHAR(50) DEFAULT '',
-      ballGauge VARCHAR(50) DEFAULT '',
-      wireGauge VARCHAR(50) DEFAULT '',
-      otherWeight VARCHAR(50) DEFAULT '',
-
+      dieIds JSON DEFAULT NULL,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
@@ -66,104 +24,151 @@ async function createProductTable() {
 }
 createProductTable();
 
-// Product Model Methods
 module.exports = {
-  // Create a new product
+  // ✅ Create new product
   async create(product) {
     const connection = await getConnection();
-    const [result] = await connection.execute(
-      `INSERT INTO products
-        (name, imageUrl, category, images, capSize, weight, tulsiRudrakshMM, estPCS, diameter, ballGauge, wireGauge, otherWeight)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 
+    const name = product.name ?? '';
+    const imageUrl = product.imageUrl ?? '';
+    const category = product.category ?? '';
+    const images = Array.isArray(product.images) ? product.images : [];
+    const dieIds = Array.isArray(product.dieIds) ? product.dieIds : [];
+
+    const [result] = await connection.execute(
+      `INSERT INTO products (name, imageUrl, category, images, dieIds)
+       VALUES (?, ?, ?, ?, ?)`,
       [
-        product.name,
-        product.imageUrl || '',
-        product.category,
-        JSON.stringify(product.images || []),
-        product.capSize || '',
-        product.weight || '',
-        product.tulsiRudrakshMM || '',
-        product.estPCS || '',
-        product.diameter || '',
-        product.ballGauge || '',
-        product.wireGauge || '',
-        product.otherWeight || ''
+        name,
+        imageUrl,
+        category,
+        JSON.stringify(images),
+        JSON.stringify(dieIds)
       ]
     );
+
     await connection.end();
-    return { id: result.insertId, ...product };
+    return { id: result.insertId, name, imageUrl, category, images, dieIds };
   },
 
-  // Get all products
+  // ✅ Get all products with their sizes
   async findAll() {
     const connection = await getConnection();
-    const [rows] = await connection.execute(`SELECT * FROM products`);
+
+    const [products] = await connection.execute(`SELECT * FROM products ORDER BY id DESC`);
+    const [sizes] = await connection.execute(`SELECT * FROM sizes`);
+
     await connection.end();
-    // Parse images JSON
-    return rows.map(row => ({
-      ...row,
-      images: row.images ? JSON.parse(row.images) : []
-    }));
+
+    return products.map(product => {
+      const dieIds = product.dieIds ? JSON.parse(product.dieIds) : [];
+      const productSizes = sizes
+        .filter(size => dieIds.includes(size.id))
+        .sort((a, b) => a.dieNo - b.dieNo);
+
+      return {
+        ...product,
+        images: product.images ? JSON.parse(product.images) : [],
+        dieIds,
+        sizes: productSizes
+      };
+    });
   },
 
-  // Get product by ID
+  // ✅ Get product by ID with sizes
   async findById(id) {
     const connection = await getConnection();
+
     const [rows] = await connection.execute(`SELECT * FROM products WHERE id = ? LIMIT 1`, [id]);
+    if (!rows[0]) {
+      await connection.end();
+      return null;
+    }
+
+    const product = rows[0];
+    const dieIds = product.dieIds ? JSON.parse(product.dieIds) : [];
+
+    let sizes = [];
+    if (dieIds.length > 0) {
+      const placeholders = dieIds.map(() => '?').join(',');
+      const [sizeRows] = await connection.execute(
+        `SELECT * FROM sizes WHERE id IN (${placeholders}) ORDER BY dieNo ASC`,
+        dieIds
+      );
+      sizes = sizeRows;
+    }
+
     await connection.end();
-    if (!rows[0]) return null;
+
     return {
-      ...rows[0],
-      images: rows[0].images ? JSON.parse(rows[0].images) : []
+      ...product,
+      images: product.images ? JSON.parse(product.images) : [],
+      dieIds,
+      sizes
     };
   },
 
-  // Update product by ID
+  // ✅ Update product
   async updateById(id, data) {
     const connection = await getConnection();
+
+    const name = data.name ?? '';
+    const imageUrl = data.imageUrl ?? '';
+    const category = data.category ?? '';
+    const images = Array.isArray(data.images) ? data.images : [];
+    const dieIds = Array.isArray(data.dieIds) ? data.dieIds : [];
+
     await connection.execute(
       `UPDATE products SET
-        name = ?, imageUrl = ?, category = ?, images = ?, capSize = ?, weight = ?, tulsiRudrakshMM = ?, estPCS = ?,
-        diameter = ?, ballGauge = ?, wireGauge = ?, otherWeight = ?, updatedAt = CURRENT_TIMESTAMP
+        name = ?, imageUrl = ?, category = ?, images = ?, dieIds = ?, updatedAt = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [
-        data.name,
-        data.imageUrl || '',
-        data.category,
-        JSON.stringify(data.images || []),
-        data.capSize || '',
-        data.weight || '',
-        data.tulsiRudrakshMM || '',
-        data.estPCS || '',
-        data.diameter || '',
-        data.ballGauge || '',
-        data.wireGauge || '',
-        data.otherWeight || '',
+        name,
+        imageUrl,
+        category,
+        JSON.stringify(images),
+        JSON.stringify(dieIds),
         id
       ]
     );
+
     await connection.end();
   },
 
-  // Delete product by ID
+  // ✅ Delete product
   async deleteById(id) {
     const connection = await getConnection();
     await connection.execute(`DELETE FROM products WHERE id = ?`, [id]);
     await connection.end();
   },
 
-  // Get all enums for dropdowns
-  getEnums() {
-    return {
-      capSizes: CAP_SIZE_ENUM,
-      malaWeights: WEIGHT_ENUM,
-      tulsiRudrakshMM: TULSI_RUDRAKSH_MM_ENUM,
-      tulsiRudrakshEstPcs: TULSI_RUDRAKSH_ESTPCS_ENUM,
-      diameters: DIAMETER_ENUM,
-      ballGauges: BALL_GAUGE_ENUM,
-      wireGauges: WIRE_GAUGE_ENUM,
-      otherWeights: OTHER_WEIGHT_ENUM
-    };
+  // ✅ Filter products by dieNo
+  async filterByDieNo(dieNo) {
+    const connection = await getConnection();
+
+    const [products] = await connection.execute(`SELECT * FROM products ORDER BY id DESC`);
+    const [matchingSizes] = await connection.execute(`SELECT * FROM sizes WHERE dieNo = ?`, [dieNo]);
+
+    const sizeMap = new Map(matchingSizes.map(size => [size.id, size]));
+
+    const filteredProducts = products
+      .filter(product => {
+        const dieIds = product.dieIds ? JSON.parse(product.dieIds) : [];
+        return dieIds.some(id => sizeMap.has(id));
+      })
+      .map(product => {
+        const dieIds = product.dieIds ? JSON.parse(product.dieIds) : [];
+        const relatedSizes = dieIds.map(id => sizeMap.get(id)).filter(Boolean);
+
+        return {
+          ...product,
+          images: product.images ? JSON.parse(product.images) : [],
+          dieIds,
+          sizes: relatedSizes.sort((a, b) => a.dieNo - b.dieNo)
+        };
+      });
+
+    await connection.end();
+    return filteredProducts;
   }
 };

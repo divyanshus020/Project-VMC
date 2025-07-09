@@ -9,41 +9,71 @@ const {
   getProductById,
   updateProduct,
   deleteProduct,
-  getProductOptions
 } = require('../controllers/productController');
 
-// Multer config: saves files to ./uploads/
+// ============================
+// 🔧 Multer Configuration
+// ============================
+
 const storage = multer.diskStorage({
-  destination: './uploads/',
+  destination: (req, file, cb) => {
+    cb(null, path.resolve(__dirname, '../uploads/'));
+  },
   filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
+    const uniqueName = `${Date.now()}-${file.originalname}`;
+    cb(null, uniqueName);
   },
 });
 
-const upload = multer({ storage });
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image files are allowed (jpg, jpeg, png, webp).'), false);
+  }
+};
 
-// Use multer.fields for both main image and array of slider images
+const upload = multer({ storage, fileFilter });
+
+// Support single image + multiple gallery images
 const productImageUpload = upload.fields([
-  { name: 'image', maxCount: 1 },     // Thumbnail image
-  { name: 'images', maxCount: 10 }    // Additional slider images
+  { name: 'image', maxCount: 1 },   // Thumbnail
+  { name: 'images', maxCount: 10 }, // Slider/gallery
 ]);
 
-// CREATE product (supports thumbnail + multiple slider images or URLs)
+// ============================
+// 📦 PRODUCT ROUTES
+// ============================
+
+/**
+ * @route   POST /api/products
+ * @desc    Create a new product
+ */
 router.post('/', productImageUpload, createProduct);
 
-// GET all products
+/**
+ * @route   GET /api/products
+ * @desc    Get all products (optional ?dieNo=15)
+ */
 router.get('/', getProducts);
 
-// GET product options (enums for dropdowns) - PLACE THIS BEFORE /:id
-router.get('/options', getProductOptions);
-
-// GET single product by ID
+/**
+ * @route   GET /api/products/:id
+ * @desc    Get a single product by ID
+ */
 router.get('/:id', getProductById);
 
-// UPDATE product (supports new thumbnail + new slider images or URLs)
+/**
+ * @route   PUT /api/products/:id
+ * @desc    Update product by ID
+ */
 router.put('/:id', productImageUpload, updateProduct);
 
-// DELETE product
+/**
+ * @route   DELETE /api/products/:id
+ * @desc    Delete product by ID
+ */
 router.delete('/:id', deleteProduct);
 
 module.exports = router;

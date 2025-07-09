@@ -12,8 +12,10 @@ import Account from './pages/Account.jsx';
 import AdminLogin from './pages/AdminLogin.jsx';
 import Users from './components/AdminDashboard/Users.jsx';
 import ProtectedRoute from './components/Routes/ProtectedRoute.jsx';
-import ProductDetail from './components/ProductDetailPage/ProductDetail.jsx';
+import ProductDetail from './pages/ProductDetail.jsx';
 import Cart from './pages/Cart.jsx';
+import AddProduct from './pages/AddProduct.jsx'; // ✅ Fixed typo here
+
 function AppWrapper() {
   const location = useLocation();
 
@@ -37,6 +39,7 @@ function AppWrapper() {
         <Route path="/profile" element={<Account />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/products/:id" element={<ProductDetail />} />
+
         {/* Admin Login (public) */}
         <Route path="/admin/login" element={<AdminLogin />} />
 
@@ -54,6 +57,14 @@ function AppWrapper() {
           element={
             <ProtectedRoute>
               <Users />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/add-product"
+          element={
+            <ProtectedRoute>
+              <AddProduct />
             </ProtectedRoute>
           }
         />
