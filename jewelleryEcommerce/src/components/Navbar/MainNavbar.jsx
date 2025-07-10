@@ -81,7 +81,7 @@ const MainNavbar = ({ onMobileMenuToggle, onLogout }) => {
   const userMenuItems = isLoggedIn ? [
     { icon: <PersonOutline />, label: 'My Profile', key: 'profile', href: '/profile' },
     { icon: <ListAlt />, label: 'My Orders', key: 'orders', href: '/orders' },
-    { icon: <FavoriteBorder />, label: 'Wishlist', key: 'wishlist', href: '/wishlist' }
+    // { icon: <FavoriteBorder />, label: 'Wishlist', key: 'wishlist', href: '/wishlist' }
   ] : [
     { icon: <AccountCircle />, label: 'Login / Register', key: 'login', href: '/login' }
   ];
@@ -313,7 +313,7 @@ const MainNavbar = ({ onMobileMenuToggle, onLogout }) => {
                   </IconButton>
 
                   {/* Wishlist */}
-                  <IconButton
+                  {/* <IconButton
                     component={Link}
                     to="/wishlist"
                     sx={{
@@ -328,7 +328,12 @@ const MainNavbar = ({ onMobileMenuToggle, onLogout }) => {
                     <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
                       Wishlist
                     </Typography>
-                  </IconButton>
+                  </IconButton> */}
+
+                  
+
+                    
+
 
                   {/* Shopping Cart */}
                   <IconButton

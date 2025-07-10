@@ -152,24 +152,40 @@ export const loginAdmin = (data) => {
 };
 
 export const getAdminProfile = (token) =>
-  API.get('/admin/profile', {
+  API.get('/admin/me', {
     headers: { Authorization: `Bearer ${token}` },
   });
 
 export const updateAdminProfile = (data, token) => {
   const sanitizedData = sanitizeData(data);
-  return API.put('/admin/profile', sanitizedData, {
+  return API.put('/admin/me', sanitizedData, {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
 
 export const getAllAdmins = () => API.get('/admin');
 
+export const getAdminById = (id, token) =>
+  API.get(`/admin/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+export const updateAdmin = (id, data, token) => {
+  const sanitizedData = sanitizeData(data);
+  return API.put(`/admin/${id}`, sanitizedData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const deleteAdmin = (id, token) =>
+  API.delete(`/admin/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
 // ============================
 // 🛒 CART APIs
 // ============================
 export const addToCart = (data, token) => {
-  // Now supports productId, quantity, DieNo, and weight
   const sanitizedData = sanitizeData(data);
   return API.post('/cart/add', sanitizedData, {
     headers: { Authorization: `Bearer ${token}` },

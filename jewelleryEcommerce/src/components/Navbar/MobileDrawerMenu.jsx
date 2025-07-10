@@ -46,7 +46,7 @@ const MobileDrawerMenu = ({ isOpen, onClose }) => {
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Typography sx={{ fontSize: '1.5rem', mr: 1 }}>💎</Typography>
           <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#D4AF37' }}>
-            LUXE GEMS
+            VMC
           </Typography>
         </Box>
       </Box>

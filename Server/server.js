@@ -41,7 +41,7 @@ app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/cart', require('./routes/cartRoutes')); // Cart routes now enabled
-
+// app.use('/proxy', require('./routes/proxy'));
 // ==========================
 // ✅ Root Route
 // ==========================
