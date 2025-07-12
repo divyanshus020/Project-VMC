@@ -18,12 +18,12 @@ function validateHandler(name) {
 // --- User Authentication Routes ---
 
 router.post('/check-exists', validateHandler('checkUserExists'));
-router.post('/send-otp-login', validateHandler('sendLoginOTP'));
-router.post('/verify-otp-login', validateHandler('verifyLoginOTP'));
+router.post('/send-otp-login', validateHandler('sendOTPForLogin'));      // Updated handler name
+router.post('/verify-otp-login', validateHandler('verifyOTPForLogin'));  // Updated handler name
 
 // --- User Registration Routes ---
 
-router.post('/send-otp-register', validateHandler('sendRegisterOTP'));
-router.post('/verify-otp-register', validateHandler('verifyRegisterOTP'));
+router.post('/send-otp-register', validateHandler('sendOTPForRegister'));    // Updated handler name
+router.post('/verify-otp-register', validateHandler('verifyOTPForRegister')); // Updated handler name
 
 module.exports = router;

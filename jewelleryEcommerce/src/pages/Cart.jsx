@@ -17,7 +17,8 @@ import {
   removeCartItem,
   clearCart,
   getProductById,
-  getSizeById
+  getSizeById,
+  getDieById // Add this import - you'll need to create this API function
 } from '../lib/api';
 
 const CartPage = () => {
@@ -64,23 +65,46 @@ const CartPage = () => {
             try {
               let additionalData = {};
 
-              // Fetch size details if DieNo exists and we need more info
+              // Fetch die and size details if DieNo exists
               if (cartItem.DieNo && cartItem.DieNo !== "null") {
                 try {
-                  const sizeResponse = await getSizeById(cartItem.DieNo);
-                  const sizeData = sizeResponse.data || {};
+                  // First, fetch die information to get the size ID
+                  const dieResponse = await getDieById(cartItem.DieNo);
+                  const dieData = dieResponse.data || {};
                   
-                  // Extract size-specific data
-                  additionalData.diameter = sizeData.diameter || null;
-                  additionalData.ballGauge = sizeData.ballGauge || sizeData.ball_gauge || null;
-                  additionalData.wireGauge = sizeData.wireGauge || sizeData.wire_gauge || null;
-                  
-                  // Use API weight if size data has different weight
-                  if (sizeData.weight && sizeData.weight !== cartItem.weight) {
-                    additionalData.sizeWeight = sizeData.weight;
+                  // If die has a size ID, fetch the size details
+                  if (dieData.sizeId) {
+                    const sizeResponse = await getSizeById(dieData.sizeId);
+                    const sizeData = sizeResponse.data || {};
+                    
+                    // Extract size-specific data
+                    additionalData.diameter = sizeData.diameter || null;
+                    additionalData.ballGauge = sizeData.ballGauge || sizeData.ball_gauge || null;
+                    additionalData.wireGauge = sizeData.wireGauge || sizeData.wire_gauge || null;
+                    
+                    // Use API weight if size data has different weight
+                    if (sizeData.weight && sizeData.weight !== cartItem.weight) {
+                      additionalData.sizeWeight = sizeData.weight;
+                    }
                   }
-                } catch (sizeError) {
-                  console.warn(`Failed to fetch size ${cartItem.DieNo}:`, sizeError);
+                } catch (dieError) {
+                  console.warn(`Failed to fetch die ${cartItem.DieNo}:`, dieError);
+                  
+                  // Fallback: If getDieById fails, try direct size fetch (in case DieNo is actually a size ID)
+                  try {
+                    const sizeResponse = await getSizeById(cartItem.DieNo);
+                    const sizeData = sizeResponse.data || {};
+                    
+                    additionalData.diameter = sizeData.diameter || null;
+                    additionalData.ballGauge = sizeData.ballGauge || sizeData.ball_gauge || null;
+                    additionalData.wireGauge = sizeData.wireGauge || sizeData.wire_gauge || null;
+                    
+                    if (sizeData.weight && sizeData.weight !== cartItem.weight) {
+                      additionalData.sizeWeight = sizeData.weight;
+                    }
+                  } catch (sizeError) {
+                    console.warn(`Failed to fetch size for DieNo ${cartItem.DieNo}:`, sizeError);
+                  }
                 }
               }
 

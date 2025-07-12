@@ -7,20 +7,16 @@ const { protect } = require('../middleware/auth');
 // 📱 OTP AUTH ROUTES (MySQL)
 // ==============================
 
-// 👉 Send OTP for login
-router.post('/send-otp-login', userController.sendOTPForLogin);
-
-// 👉 Send OTP for registration
-router.post('/send-otp-register', userController.sendOTPForRegister);
-
-// 👉 Verify OTP for login
-router.post('/verify-otp-login', userController.verifyOTPForLogin);
-
-// 👉 Verify OTP for registration
-router.post('/verify-otp-register', userController.verifyOTPForRegister);
-
-// 👉 Check if user exists
+// Check if user exists
 router.post('/check-exists', userController.checkUserExists);
+
+// Send OTP routes
+router.post('/send-otp-login', userController.sendOTPForLogin);       // Changed
+router.post('/send-otp-register', userController.sendOTPForRegister); // Changed
+
+// Verify OTP routes
+router.post('/verify-otp-login', userController.verifyOTPForLogin);    // Changed
+router.post('/verify-otp-register', userController.verifyOTPForRegister); // Changed
 
 // ==============================
 // 👤 USER PROFILE ROUTES (MySQL)

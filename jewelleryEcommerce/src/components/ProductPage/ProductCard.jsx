@@ -16,6 +16,19 @@ import ProductImageSection from './ProductImageSection';
 import ProductDetailsSection from './ProductDetailsSection';
 
 const ProductCard = ({ product }) => {
+  // Add debug log
+  console.log('ProductCard received product:', product);
+
+  // Destructure needed properties with defaults
+  const {
+    id,
+    name = 'Product Name',
+    imageUrl,
+    images = [],
+    category = 'Uncategorized',
+    price = 0,
+  } = product || {};
+
   const [isFavorited, setIsFavorited] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

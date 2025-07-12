@@ -37,15 +37,18 @@ const LoginForm = () => {
     try {
       setLoading(true);
 
-      const res = await checkUserExists(trimmedPhone);
-      if (!res.data.exists) {
-        return alert('User not found. Please register first.');
+      // Check if user exists first
+      const userExists = await checkUserExists(trimmedPhone);
+      if (!userExists.exists) { // Access exists directly from response
+        alert('User not found. Please register first.');
+        return;
       }
 
-      await sendOtpForLogin(trimmedPhone); // ✅ Send the actual OTP
+      // Send OTP only if user exists
+      const otpResponse = await sendOtpForLogin(trimmedPhone);
       setOtpSent(true);
-      setTimer(15); // ⏳ Start 15s countdown
-      alert('OTP sent to your phone.');
+      setTimer(15);
+      alert(otpResponse.message || 'OTP sent to your phone.');
     } catch (err) {
       console.error('Error sending OTP:', err);
       alert(err.response?.data?.message || 'Failed to send OTP.');
@@ -59,17 +62,25 @@ const LoginForm = () => {
 
     try {
       setLoading(true);
-      const res = await verifyOtpForLogin(phoneNumber.trim(), otp.trim());
-      localStorage.setItem('token', res.data.token);
+      const response = await verifyOtpForLogin(phoneNumber.trim(), otp.trim());
+      
+      // Check if we have a token in the response
+      if (!response?.token) {
+        throw new Error('No authentication token received');
+      }
+
+      // Store the token
+      localStorage.setItem('token', response.token);
+      
       alert('Login successful!');
       navigate('/profile');
       window.location.reload();
     } catch (err) {
       console.error('OTP verification error:', err);
       alert(
-        `OTP verification failed: ${
-          err.response?.data?.message || 'Please check your input.'
-        }`
+        err.response?.data?.message || 
+        err.message || 
+        'OTP verification failed. Please try again.'
       );
     } finally {
       setLoading(false);

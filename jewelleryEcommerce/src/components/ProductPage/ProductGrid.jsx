@@ -7,11 +7,23 @@ import ProductCard from './ProductCard';
 const ProductGrid = ({ 
   colors, 
   loading, 
-  sortedProducts, 
+  sortedProducts = [], 
   selectedCategory, 
   sortOption,
-  categories 
+  categories = [] 
 }) => {
+  // Add debug logs
+  console.log('ProductGrid received:', {
+    productsCount: sortedProducts.length,
+    selectedCategory,
+    categories
+  });
+
+  // Check for empty products
+  if (!loading && (!sortedProducts || sortedProducts.length === 0)) {
+    return <EmptyState />;
+  }
+
   // Group products by category
   const groupedProducts = React.useMemo(() => {
     const grouped = {};

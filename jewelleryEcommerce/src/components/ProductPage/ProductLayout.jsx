@@ -5,13 +5,18 @@ import {
   Box,
   useTheme,
   useMediaQuery,
-  alpha
+  alpha,
+  CircularProgress
 } from '@mui/material';
 import ProductHeader from './ProductHeader';
 import ProductFilters from './ProductFilters';
 import ProductGrid from './ProductGrid';
 
-const ProductLayout = ({ products, loading = false }) => {
+const ProductLayout = ({ products = [], loading = false }) => {
+  // Add debug logs
+  console.log('ProductLayout received products:', products);
+  console.log('Loading state:', loading);
+
   const [sortOption, setSortOption] = useState('default');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const theme = useTheme();
@@ -19,21 +24,28 @@ const ProductLayout = ({ products, loading = false }) => {
 
   // Jewelry ecommerce color scheme
   const colors = {
-    primary: '#D4AF37', // Gold
-    darkGray: '#333333', // Dark text
-    mediumGray: '#666666', // Secondary text
-    lightGray: '#F5F5F5', // Backgrounds
-    white: '#FFFFFF' // Card backgrounds
+    primary: '#D4AF37',
+    darkGray: '#333333',
+    mediumGray: '#666666',
+    lightGray: '#F5F5F5',
+    white: '#FFFFFF'
   };
 
-  const categories = Array.from(new Set(products.map((p) => p.category)));
+  // Only compute categories if products array exists
+  const categories = Array.from(
+    new Set(products?.map((p) => p.category) || [])
+  );
 
-  const filteredProducts =
+  // Filter products only if they exist
+  const filteredProducts = !products ? [] :
     selectedCategory === 'All'
       ? products
       : products.filter((p) => p.category === selectedCategory);
 
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
+  // Sort products only if they exist
+  const sortedProducts = [...(filteredProducts || [])].sort((a, b) => {
+    if (!a || !b) return 0;
+    
     const getPrice = (price) =>
       typeof price === 'string'
         ? parseFloat(price.replace(/[^0-9.]/g, ''))
@@ -45,13 +57,34 @@ const ProductLayout = ({ products, loading = false }) => {
       case 'priceHighLow':
         return getPrice(b.price) - getPrice(a.price);
       case 'nameAZ':
-        return a.title.localeCompare(b.title);
+        return (a.title || '').localeCompare(b.title || '');
       case 'nameZA':
-        return b.title.localeCompare(a.title);
+        return (b.title || '').localeCompare(a.title || '');
       default:
         return 0;
     }
   });
+
+  // Log filtered and sorted products
+  console.log('Filtered products:', filteredProducts);
+  console.log('Sorted products:', sortedProducts);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          minHeight: '60vh',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          bgcolor: colors.lightGray
+        }}
+      >
+        <CircularProgress sx={{ color: colors.primary }} />
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -106,7 +139,7 @@ const ProductLayout = ({ products, loading = false }) => {
               zIndex: 1000
             }}
           >
-            {/* This could be a filter FAB for mobile */}
+            {/* Mobile filter FAB here */}
           </Box>
         )}
       </Container>
