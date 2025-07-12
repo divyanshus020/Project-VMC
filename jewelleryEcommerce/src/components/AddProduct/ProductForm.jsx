@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { getSizes, createProduct, getProducts } from '../../lib/api';
+import { 
+  getSizes, 
+  createProduct, 
+  getProducts, 
+  sanitizeFormData,
+  uploadMultipleImages,
+  uploadSingleImage 
+} from '../../lib/api';
 import Select from 'react-select';
 import axios from 'axios';
 
@@ -40,8 +47,26 @@ const ProductForm = () => {
     fetchInitialData();
   }, []);
 
+  const validateImageFile = (file) => {
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    
+    if (!validTypes.includes(file.type)) {
+      throw new Error('Invalid file type. Please upload JPG, PNG or GIF');
+    }
+    
+    if (file.size > MAX_SIZE) {
+      throw new Error('File too large. Maximum size is 5MB');
+    }
+    
+    return true;
+  };
+
   const handleImageUpload = async (files) => {
     try {
+      // Validate all files first
+      [...files].forEach(validateImageFile);
+
       const uploads = await Promise.all(
         [...files].map(async (file) => {
           const formData = new FormData();
@@ -50,7 +75,15 @@ const ProductForm = () => {
 
           const res = await axios.post(
             `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
-            formData
+            formData,
+            {
+              onUploadProgress: (progressEvent) => {
+                const percentCompleted = Math.round(
+                  (progressEvent.loaded * 100) / progressEvent.total
+                );
+                console.log('Upload progress:', percentCompleted);
+              }
+            }
           );
           return res.data.secure_url;
         })
@@ -58,26 +91,35 @@ const ProductForm = () => {
       return uploads;
     } catch (err) {
       console.error('Multiple image upload failed:', err);
-      alert('Error uploading multiple images');
-      return [];
+      throw new Error(err.message || 'Error uploading multiple images');
     }
   };
 
   const handleSingleImageUpload = async (file) => {
     try {
+      // Validate file
+      validateImageFile(file);
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
 
       const res = await axios.post(
         `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        formData
+        formData,
+        {
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            console.log('Upload progress:', percentCompleted);
+          }
+        }
       );
       return res.data.secure_url;
     } catch (err) {
       console.error('Single image upload failed:', err);
-      alert('Error uploading single image');
-      return '';
+      throw new Error(err.message || 'Error uploading single image');
     }
   };
 
@@ -127,12 +169,10 @@ const ProductForm = () => {
         setUploadProgress(70);
       }
 
-      // Create FormData with proper field names matching backend expectations
+      // Create FormData with sanitization
       const formData = new FormData();
-
-      // Add required fields (convert undefined to empty string to avoid issues)
-      formData.append('name', designName || '');
-      formData.append('category', category || '');
+      formData.append('name', designName);
+      formData.append('category', category);
 
       // Add single image URL if available
       if (uploadedSingleImage) {
@@ -140,29 +180,20 @@ const ProductForm = () => {
       }
 
       // Add die IDs as JSON string array
-      if (Array.isArray(dieNos) && dieNos.length > 0) {
-        const dieIdValues = dieNos.map(d => d.value).filter(Boolean);
-        formData.append('dieIds', JSON.stringify(dieIdValues));
-      } else {
-        formData.append('dieIds', JSON.stringify([]));
+      if (dieNos.length > 0) {
+        formData.append('dieIds', JSON.stringify(dieNos.map(d => d.value)));
       }
 
       // Add multiple images as JSON string array
-      if (Array.isArray(uploadedImages) && uploadedImages.length > 0) {
-        const validImages = uploadedImages.filter(Boolean);
-        formData.append('images', JSON.stringify(validImages));
-      } else {
-        formData.append('images', JSON.stringify([]));
+      if (uploadedImages.length > 0) {
+        formData.append('images', JSON.stringify(uploadedImages));
       }
 
-      // Debug log to check FormData contents
-      console.log('FormData contents:');
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}:`, value);
-      }
+      // Sanitize form data
+      const sanitizedFormData = sanitizeFormData(formData);
 
       setUploadProgress(85);
-      await createProduct(formData);
+      const response = await createProduct(sanitizedFormData);
       setUploadProgress(100);
 
       // Reset form
@@ -178,7 +209,7 @@ const ProductForm = () => {
       alert('Product created successfully!');
     } catch (error) {
       console.error('Error creating product:', error);
-      alert(`Error creating product: ${error.response?.data?.message || error.message}`);
+      alert(error.message || 'Failed to create product');
     } finally {
       setIsLoading(false);
       setUploadProgress(0);
