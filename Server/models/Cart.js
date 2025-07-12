@@ -21,12 +21,15 @@ async function createCartTables() {
       id INT AUTO_INCREMENT PRIMARY KEY,
       cartId INT NOT NULL,
       productId INT NOT NULL,
+      sizeId INT DEFAULT NULL,
       DieNo VARCHAR(50) DEFAULT NULL,
       weight VARCHAR(50) DEFAULT NULL,
+      tunch DECIMAL(5,2) DEFAULT NULL,
       quantity INT NOT NULL DEFAULT 1,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (cartId) REFERENCES carts(id) ON DELETE CASCADE
+      FOREIGN KEY (cartId) REFERENCES carts(id) ON DELETE CASCADE,
+      FOREIGN KEY (sizeId) REFERENCES sizes(id) ON DELETE SET NULL
     )
   `);
 
@@ -58,7 +61,7 @@ module.exports = {
   },
 
   async addItem(userId, item) {
-    const { productId, quantity, DieNo = null, weight = null } = item;
+    const { productId, quantity, sizeId = null, DieNo = null, weight = null, tunch = null } = item;
     if (!productId || quantity <= 0) throw new Error('Invalid item data');
 
     const cart = await this.findOrCreateCart(userId);
@@ -67,8 +70,9 @@ module.exports = {
     try {
       const [rows] = await connection.execute(
         `SELECT * FROM cart_items 
-         WHERE cartId = ? AND productId = ? AND DieNo <=> ? AND weight <=> ? LIMIT 1`,
-        [cart.id, productId, DieNo, weight]
+         WHERE cartId = ? AND productId = ? AND sizeId <=> ? 
+         AND DieNo <=> ? AND weight <=> ? AND tunch <=> ? LIMIT 1`,
+        [cart.id, productId, sizeId, DieNo, weight, tunch]
       );
 
       if (rows.length > 0) {
@@ -78,9 +82,9 @@ module.exports = {
         );
       } else {
         await connection.execute(
-          `INSERT INTO cart_items (cartId, productId, DieNo, weight, quantity) 
-           VALUES (?, ?, ?, ?, ?)`,
-          [cart.id, productId, DieNo, weight, quantity]
+          `INSERT INTO cart_items (cartId, productId, sizeId, DieNo, weight, tunch, quantity) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [cart.id, productId, sizeId, DieNo, weight, tunch, quantity]
         );
       }
 
@@ -113,15 +117,23 @@ module.exports = {
 
     try {
       const [items] = await connection.execute(
-        `SELECT ci.id, 
-                ci.productId, 
-                ci.DieNo, 
-                ci.weight, 
-                ci.quantity,
-                p.name AS productName, 
-                p.imageUrl AS productImage
+        `SELECT 
+          ci.id, 
+          ci.productId, 
+          ci.sizeId,
+          ci.DieNo, 
+          ci.weight, 
+          ci.tunch,
+          ci.quantity,
+          ci.createdAt,
+          p.name AS productName, 
+          p.imageUrl AS productImage,
+          s.diameter,
+          s.ballGauge,
+          s.wireGauge
          FROM cart_items ci
          JOIN products p ON ci.productId = p.id
+         LEFT JOIN sizes s ON ci.sizeId = s.id
          WHERE ci.cartId = ?`,
         [cart.id]
       );
@@ -212,4 +224,33 @@ module.exports = {
       await connection.end();
     }
   },
+
+  async updateItemTunch(userId, itemId, tunch) {
+    const connection = await getConnection();
+    
+    try {
+      // First verify the item belongs to user's cart
+      const [cartItems] = await connection.execute(`
+        SELECT ci.* 
+        FROM cart_items ci
+        JOIN carts c ON ci.cartId = c.id
+        WHERE c.userId = ? AND ci.id = ?
+      `, [userId, itemId]);
+
+      if (cartItems.length === 0) {
+        throw new Error('Item not found in user\'s cart');
+      }
+
+      // Update the tunch value
+      await connection.execute(
+        'UPDATE cart_items SET tunch = ? WHERE id = ?',
+        [tunch, itemId]
+      );
+
+      // Return updated cart
+      return await this.getDetailedCart(userId);
+    } finally {
+      await connection.end();
+    }
+  }
 };

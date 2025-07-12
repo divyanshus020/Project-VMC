@@ -5,29 +5,44 @@ const getUserId = (req) => req.user?.userId || req.user?.id;
 
 // Add item to cart
 exports.addToCart = async (req, res) => {
-  const { productId, quantity, DieNo, weight } = req.body;
+  const { productId, quantity, sizeId, DieNo, weight, tunch } = req.body;
   const userId = getUserId(req);
 
   if (!userId) {
-    return res.status(401).json({ message: 'Unauthorized: User ID missing' });
+    return res.status(401).json({ 
+      success: false,
+      message: 'Unauthorized: User ID missing' 
+    });
   }
 
   if (!productId || !quantity) {
-    return res.status(400).json({ message: 'Product ID and quantity are required' });
+    return res.status(400).json({ 
+      success: false,
+      message: 'Product ID and quantity are required' 
+    });
   }
 
   try {
     await Cart.addItem(userId, {
       productId,
       quantity,
+      sizeId: sizeId || null,
       DieNo: DieNo || null,
-      weight: weight || null
+      weight: weight || null,
+      tunch: tunch || null
     });
 
-    const cart = await Cart.getCart(userId);
-    res.status(200).json(cart || { items: [] });
+    const cart = await Cart.getDetailedCart(userId);
+    res.status(200).json({
+      success: true,
+      data: cart
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Failed to add to cart' });
+    console.error('Error adding to cart:', err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message || 'Failed to add to cart' 
+    });
   }
 };
 
@@ -52,37 +67,61 @@ exports.getDetailedCart = async (req, res) => {
   const userId = getUserId(req);
 
   if (!userId) {
-    return res.status(401).json({ message: 'Unauthorized: User ID missing' });
+    return res.status(401).json({ 
+      success: false,
+      message: 'Unauthorized: User ID missing' 
+    });
   }
 
   try {
     const cart = await Cart.getDetailedCart(userId);
-    res.status(200).json(cart || { items: [], totalItems: 0 });
+    res.status(200).json({
+      success: true,
+      data: cart || { items: [], totalItems: 0 }
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Failed to fetch detailed cart' });
+    console.error('Error fetching detailed cart:', err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message || 'Failed to fetch detailed cart' 
+    });
   }
 };
 
 // Update item quantity in cart
 exports.updateItemQuantity = async (req, res) => {
-  const userId = getUserId(req);
-  const itemId = parseInt(req.params.itemId, 10);
-  const { quantity } = req.body;
-
-  if (!userId) {
-    return res.status(401).json({ message: 'Unauthorized: User ID missing' });
-  }
-
-  if (!itemId || !quantity) {
-    return res.status(400).json({ message: 'Item ID and quantity are required' });
-  }
-
   try {
+    const userId = getUserId(req);
+    const itemId = parseInt(req.params.itemId);
+    const { quantity } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: User ID missing'
+      });
+    }
+
+    if (!itemId || quantity === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Item ID and quantity are required'
+      });
+    }
+
     await Cart.updateItemQuantity(userId, itemId, quantity);
-    const cart = await Cart.getCart(userId);
-    res.status(200).json(cart || { items: [] });
+    const updatedCart = await Cart.getDetailedCart(userId);
+
+    res.json({
+      success: true,
+      data: updatedCart
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Failed to update item quantity' });
+    console.error('Error updating quantity:', err);
+    res.status(500).json({
+      success: false,
+      message: err.message || 'Failed to update quantity'
+    });
   }
 };
 
@@ -137,5 +176,35 @@ exports.getCartTotal = async (req, res) => {
     res.status(200).json({ totalItems });
   } catch (err) {
     res.status(500).json({ message: err.message || 'Failed to get cart total' });
+  }
+};
+
+// Update item tunch in cart
+exports.updateItemTunch = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const itemId = parseInt(req.params.itemId);
+    const { tunch } = req.body;
+
+    if (!itemId || tunch === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Item ID and tunch value are required'
+      });
+    }
+
+    await Cart.updateItemTunch(userId, itemId, tunch);
+    const updatedCart = await Cart.getDetailedCart(userId);
+
+    res.json({
+      success: true,
+      data: updatedCart
+    });
+  } catch (err) {
+    console.error('Error updating tunch:', err);
+    res.status(500).json({
+      success: false,
+      message: err.message || 'Failed to update tunch'
+    });
   }
 };

@@ -373,11 +373,33 @@ export const deleteAdmin = (id, token) =>
 // ============================
 // 🛒 CART APIs
 // ============================
-export const addToCart = (data, token) => {
-  const sanitizedData = sanitizeData(data);
-  return API.post('/cart/add', sanitizedData, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+
+export const addToCart = async (data, token) => {
+  try {
+    const sanitizedData = sanitizeData({
+      productId: data.productId,
+      sizeId: data.sizeId,
+      quantity: parseInt(data.quantity),
+      DieNo: data.DieNo,
+      weight: data.weight?.toString(),
+      tunch: data.tunch ? parseFloat(data.tunch) : null
+    });
+
+    const response = await API.post('/cart/add', sanitizedData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error adding to cart:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to add item to cart'
+    };
+  }
 };
 
 export const getCart = (token) =>
@@ -385,10 +407,47 @@ export const getCart = (token) =>
     headers: { Authorization: `Bearer ${token}` },
   });
 
-export const getDetailedCart = (token) =>
-  API.get('/cart/detailed', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export const getDetailedCart = async (token) => {
+  try {
+    const response = await API.get('/cart/detailed', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    // Add console.log to debug the response
+    console.log('Cart API Response:', response);
+
+    // Check if we have items in the response
+    if (response.data?.data?.items) {
+      return {
+        success: true,
+        data: response.data.data
+      };
+    }
+
+    // If response.data is the direct items array
+    if (Array.isArray(response.data)) {
+      return {
+        success: true,
+        data: {
+          items: response.data,
+          totalItems: response.data.reduce((sum, item) => sum + (item.quantity || 0), 0)
+        }
+      };
+    }
+
+    return {
+      success: false,
+      error: 'Invalid cart data format'
+    };
+
+  } catch (error) {
+    console.error('Error fetching cart:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.message
+    };
+  }
+};
 
 export const getCartTotal = (token) =>
   API.get('/cart/total', {
@@ -397,12 +456,14 @@ export const getCartTotal = (token) =>
 
 export const updateCartItemQuantity = (itemId, quantity, token) => {
   const sanitizedData = sanitizeData({ quantity });
-  return API.patch(`/cart/item/${itemId}`, sanitizedData, {
+  // Fix the route path
+  return API.patch(`/cart/item/${itemId}/quantity`, sanitizedData, {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
 
 export const removeCartItem = (itemId, token) =>
+  // Fix the route path
   API.delete(`/cart/item/${itemId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -411,6 +472,65 @@ export const clearCart = (token) =>
   API.delete('/cart/clear', {
     headers: { Authorization: `Bearer ${token}` },
   });
+
+// Add new tunch-related functions
+export const updateCartItemTunch = (itemId, tunch, token) => {
+  const sanitizedData = sanitizeData({ tunch: parseFloat(tunch) });
+  // Update the route path to match backend
+  return API.patch(`/cart/items/${itemId}/tunch`, sanitizedData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+// Add size-related functions
+export const getSizeDetailsByDieNo = async (dieNo) => {
+  try {
+    if (!dieNo) {
+      return {
+        success: false,
+        error: 'Die number is required'
+      };
+    }
+
+    const response = await API.get(`/sizes/by-die/${encodeURIComponent(dieNo)}`);
+    
+    if (response.data && response.data.success) {
+      return {
+        success: true,
+        data: response.data.data
+      };
+    }
+
+    return {
+      success: false,
+      error: response.data?.message || 'No size details found'
+    };
+
+  } catch (error) {
+    console.error(`Error fetching size details for die ${dieNo}:`, error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to fetch size details',
+      status: error.response?.status
+    };
+  }
+};
+
+// Add validation helpers
+export const validateTunch = (tunch) => {
+  if (!tunch) return false;
+  const tunchNum = parseFloat(tunch);
+  return !isNaN(tunchNum) && tunchNum > 0 && tunchNum <= 100;
+};
+
+export const formatTunch = (tunch) => {
+  if (!tunch) return 'N/A';
+  const tunchNum = parseFloat(tunch);
+  return isNaN(tunchNum) ? 'N/A' : `${tunchNum.toFixed(1)}%`;
+};
+
+// Add constants for fixed tunch values
+export const FIXED_TUNCH_VALUES = ['92.5', '90', '88.5', '84.5'];
 
 // ============================
 // ☁️ IMAGE UPLOAD APIs (Cloudinary)

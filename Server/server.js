@@ -40,7 +40,12 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
-app.use('/api/cart', require('./routes/cartRoutes')); // Cart routes now enabled
+
+// Import routes
+const cartRoutes = require('./routes/cartRoutes');
+
+// Use routes
+app.use('/api/cart', cartRoutes); // Cart routes now enabled
 // app.use('/proxy', require('./routes/proxy'));
 // ==========================
 // ✅ Root Route

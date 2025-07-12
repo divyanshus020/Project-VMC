@@ -1,27 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const cartController = require('../controllers/cartController');
 const { protect } = require('../middleware/auth');
+const cartController = require('../controllers/cartController');
 
-// Add item to cart (requires auth)
-router.post('/add', protect, cartController.addToCart);
-
-// Get user's cart (requires auth)
-router.get('/', protect, cartController.getCart);
-
-// Get detailed cart with product info (requires auth)
+// Base cart routes
 router.get('/detailed', protect, cartController.getDetailedCart);
-
-// Get cart total (number of items)
-router.get('/total', protect, cartController.getCartTotal);
-
-// Update item quantity (requires auth)
-router.patch('/item/:itemId', protect, cartController.updateItemQuantity);
-
-// Remove item by itemId (requires auth)
-router.delete('/item/:itemId', protect, cartController.removeItem);
-
-// Clear entire cart (requires auth)
+router.post('/add', protect, cartController.addToCart);
 router.delete('/clear', protect, cartController.clearCart);
+
+// Item specific routes - update paths to match frontend
+router.patch('/item/:itemId/quantity', protect, cartController.updateItemQuantity);
+router.patch('/item/:itemId/tunch', protect, cartController.updateItemTunch);
+router.delete('/item/:itemId', protect, cartController.removeItem);
 
 module.exports = router;

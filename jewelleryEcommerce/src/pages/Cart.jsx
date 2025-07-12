@@ -9,7 +9,8 @@ import {
   Weight,
   Hash,
   AlertCircle,
-  ShoppingBag
+  ShoppingBag,
+  Percent
 } from 'lucide-react';
 import {
   getDetailedCart,
@@ -26,6 +27,9 @@ const CartPage = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [quantityMode, setQuantityMode] = useState('pieces'); // 'pieces' or 'weight'
+  const [customQuantity, setCustomQuantity] = useState({});
+  const [customWeight, setCustomWeight] = useState({});
 
   const getValidToken = () => {
     const token = localStorage.getItem('token');
@@ -38,152 +42,117 @@ const CartPage = () => {
 
   const fetchCartData = async () => {
     const token = getValidToken();
-    if (!token) return;
+    if (!token) {
+      setError('Please log in to access your cart');
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
-    
+
     try {
-      // Fetch detailed cart data
-      const detailedCartResponse = await getDetailedCart(token);
-      const cartResponseData = detailedCartResponse.data || detailedCartResponse;
+      // Add debug log
+      console.log('Fetching cart with token:', token);
       
-      // Handle the API response structure: {cartId, userId, items: [], totalItems}
-      if (cartResponseData && cartResponseData.items) {
-        setCartData({
-          cartId: cartResponseData.cartId,
-          userId: cartResponseData.userId,
-          totalItems: cartResponseData.totalItems
-        });
-
-        // Process the items array
-        const items = cartResponseData.items || [];
-        
-        // Enhance items with additional data if needed
-        const enhancedItems = await Promise.all(
-          items.map(async (cartItem) => {
-            try {
-              let additionalData = {};
-
-              // Fetch die and size details if DieNo exists
-              if (cartItem.DieNo && cartItem.DieNo !== "null") {
-                try {
-                  // First, fetch die information to get the size ID
-                  const dieResponse = await getDieById(cartItem.DieNo);
-                  const dieData = dieResponse.data || {};
-                  
-                  // If die has a size ID, fetch the size details
-                  if (dieData.sizeId) {
-                    const sizeResponse = await getSizeById(dieData.sizeId);
-                    const sizeData = sizeResponse.data || {};
-                    
-                    // Extract size-specific data
-                    additionalData.diameter = sizeData.diameter || null;
-                    additionalData.ballGauge = sizeData.ballGauge || sizeData.ball_gauge || null;
-                    additionalData.wireGauge = sizeData.wireGauge || sizeData.wire_gauge || null;
-                    
-                    // Use API weight if size data has different weight
-                    if (sizeData.weight && sizeData.weight !== cartItem.weight) {
-                      additionalData.sizeWeight = sizeData.weight;
-                    }
-                  }
-                } catch (dieError) {
-                  console.warn(`Failed to fetch die ${cartItem.DieNo}:`, dieError);
-                  
-                  // Fallback: If getDieById fails, try direct size fetch (in case DieNo is actually a size ID)
-                  try {
-                    const sizeResponse = await getSizeById(cartItem.DieNo);
-                    const sizeData = sizeResponse.data || {};
-                    
-                    additionalData.diameter = sizeData.diameter || null;
-                    additionalData.ballGauge = sizeData.ballGauge || sizeData.ball_gauge || null;
-                    additionalData.wireGauge = sizeData.wireGauge || sizeData.wire_gauge || null;
-                    
-                    if (sizeData.weight && sizeData.weight !== cartItem.weight) {
-                      additionalData.sizeWeight = sizeData.weight;
-                    }
-                  } catch (sizeError) {
-                    console.warn(`Failed to fetch size for DieNo ${cartItem.DieNo}:`, sizeError);
-                  }
-                }
-              }
-
-              return {
-                id: cartItem.id,
-                productId: cartItem.productId,
-                productName: cartItem.productName,
-                dieNo: cartItem.DieNo && cartItem.DieNo !== "null" ? cartItem.DieNo : 'N/A',
-                quantity: cartItem.quantity,
-                weight: cartItem.weight && cartItem.weight !== "null" ? parseFloat(cartItem.weight) : null,
-                diameter: additionalData.diameter || cartItem.diameter || null,
-                ballGauge: additionalData.ballGauge || cartItem.ballGauge || null,
-                wireGauge: additionalData.wireGauge || cartItem.wireGauge || null,
-                productImage: cartItem.productImage || null,
-                createdAt: cartItem.createdAt || new Date().toISOString(),
-                ...additionalData
-              };
-            } catch (itemError) {
-              console.error(`Error processing cart item:`, itemError);
-              return {
-                id: cartItem.id,
-                productId: cartItem.productId,
-                productName: cartItem.productName || 'Unknown Product',
-                dieNo: cartItem.DieNo && cartItem.DieNo !== "null" ? cartItem.DieNo : 'N/A',
-                quantity: cartItem.quantity || 1,
-                weight: cartItem.weight && cartItem.weight !== "null" ? parseFloat(cartItem.weight) : null,
-                diameter: cartItem.diameter || null,
-                ballGauge: cartItem.ballGauge || null,
-                wireGauge: cartItem.wireGauge || null,
-                productImage: cartItem.productImage || null,
-                createdAt: cartItem.createdAt || new Date().toISOString()
-              };
-            }
-          })
-        );
-
-        setCartItems(enhancedItems);
-      } else {
-        // Handle case where no items or different structure
-        setCartItems([]);
-        setCartData({ cartId: null, userId: null, totalItems: 0 });
+      const response = await getDetailedCart(token);
+      console.log('Cart Response:', response); // Debug log
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to load cart');
       }
+
+      // Log the cart response data
+      console.log('Cart Response Data:', response.data);
+
+      const cartResponseData = response.data;
+      const items = cartResponseData.items || [];
+
+      // Debug log for items
+      console.log('Processed Items:', items);
+
+      setCartData({
+        cartId: cartResponseData.cartId,
+        userId: cartResponseData.userId,
+        totalItems: items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0)
+      });
+
+      // Process items with better error handling
+      const processedItems = items.map(item => {
+        try {
+          return {
+            id: item.id || `temp-${Math.random()}`,
+            productId: item.productId,
+            productName: item.productName || 'Unknown Product',
+            quantity: Math.max(1, parseInt(item.quantity) || 1),
+            // Convert weight to grams if it comes in kg
+            weight: item.weight ? parseFloat(item.weight) : null,
+            tunch: item.tunch ? parseFloat(item.tunch) : null,
+            DieNo: item.DieNo || null,
+            sizeId: item.sizeId || null,
+            diameter: item.diameter || null,
+            ballGauge: item.ballGauge || null,
+            wireGauge: item.wireGauge || null,
+            productImage: item.productImage || null,
+            createdAt: item.createdAt || new Date().toISOString()
+          };
+        } catch (err) {
+          console.error('Error processing item:', item, err);
+          return null;
+        }
+      }).filter(Boolean); // Remove any null items
+
+      console.log('Setting cart items:', processedItems); // Debug log
+      setCartItems(processedItems);
+
     } catch (err) {
       console.error('Cart fetch error:', err);
       setError(err.message || 'Failed to load cart data');
-      
-      if (err.response?.status === 401) {
-        localStorage.removeItem('token');
-        setError('Session expired. Please log in again.');
-      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuantityChange = async (itemId, newQuantity) => {
+  const handleQuantityChange = async (itemId, newQuantity, isFromWeight = false) => {
     if (newQuantity < 1) return;
     
     const token = getValidToken();
     if (!token) return;
 
     try {
-      await updateCartItemQuantity(itemId, newQuantity, token);
-      setCartItems(prev => 
-        prev.map(item => 
-          item.id === itemId ? { ...item, quantity: newQuantity } : item
-        )
-      );
+      const response = await updateCartItemQuantity(itemId, newQuantity, token);
       
-      // Update total items count
-      if (cartData) {
-        const newTotal = cartItems.reduce((sum, item) => {
-          return sum + (item.id === itemId ? newQuantity : item.quantity);
-        }, 0);
-        setCartData(prev => ({ ...prev, totalItems: newTotal }));
+      if (response.data?.success) {
+        setCartItems(prev => 
+          prev.map(item => {
+            if (item.id === itemId) {
+              // Update custom weight if change was from quantity
+              if (!isFromWeight && item.weight) {
+                setCustomWeight(prev => ({
+                  ...prev,
+                  [itemId]: (newQuantity * item.weight).toFixed(3)
+                }));
+              }
+              return { ...item, quantity: newQuantity };
+            }
+            return item;
+          })
+        );
+        
+        // Update total items count
+        if (cartData) {
+          const newTotal = cartItems.reduce((sum, item) => {
+            return sum + (item.id === itemId ? newQuantity : item.quantity);
+          }, 0);
+          setCartData(prev => ({ ...prev, totalItems: newTotal }));
+        }
+      } else {
+        throw new Error(response.data?.message || 'Failed to update quantity');
       }
     } catch (err) {
       console.error('Error updating quantity:', err);
-      setError('Failed to update quantity');
+      setError('Failed to update quantity. Please try again.');
+      fetchCartData();
     }
   };
 
@@ -224,8 +193,41 @@ const CartPage = () => {
   };
 
   useEffect(() => {
-    fetchCartData();
+    let mounted = true;
+
+    const loadCart = async () => {
+      if (!mounted) return;
+      await fetchCartData();
+    };
+
+    loadCart();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  // Add this check at the start of your CartPage component
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const token = localStorage.getItem('token');
+      console.log('Token available:', !!token); // Debug log
+      if (!token) {
+        setCartItems([]);
+        setCartData(null);
+        setError('Please log in to access your cart');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Add this helper function inside CartPage component
+  const calculateQuantityFromWeight = (targetWeight, pieceWeight) => {
+    if (!pieceWeight || pieceWeight <= 0) return 1;
+    return Math.max(1, Math.round(targetWeight / pieceWeight));
+  };
 
   if (loading) {
     return (
@@ -349,85 +351,167 @@ const CartPage = () => {
                         </div>
 
                         {/* Specifications Grid */}
-                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                              <Hash className="h-4 w-4" />
-                              <span className="text-sm font-medium">Die No</span>
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">
+                          {/* Die Number */}
+                          {item.DieNo && (
+                            <div className="bg-gray-50 rounded-lg p-3">
+                              <div className="flex items-center space-x-2 text-gray-600 mb-1">
+                                <Hash className="h-4 w-4" />
+                                <span className="text-sm font-medium">Die No</span>
+                              </div>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {item.DieNo}
+                              </p>
                             </div>
-                            <p className="text-sm font-semibold text-gray-900">{item.dieNo}</p>
-                          </div>
+                          )}
 
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                              <Ruler className="h-4 w-4" />
-                              <span className="text-sm font-medium">Diameter</span>
+                          {/* Diameter */}
+                          {item.diameter && (
+                            <div className="bg-gray-50 rounded-lg p-3">
+                              <div className="flex items-center space-x-2 text-gray-600 mb-1">
+                                <Ruler className="h-4 w-4" />
+                                <span className="text-sm font-medium">Diameter</span>
+                              </div>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {item.diameter}mm
+                              </p>
                             </div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {item.diameter ? `${item.diameter} mm` : 'N/A'}
-                            </p>
-                          </div>
+                          )}
 
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                              <Package className="h-4 w-4" />
-                              <span className="text-sm font-medium">Ball Gauge</span>
+                          {/* Ball Gauge */}
+                          {item.ballGauge && (
+                            <div className="bg-gray-50 rounded-lg p-3">
+                              <div className="flex items-center space-x-2 text-gray-600 mb-1">
+                                <Package className="h-4 w-4" />
+                                <span className="text-sm font-medium">Ball Gauge</span>
+                              </div>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {item.ballGauge} BG
+                              </p>
                             </div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {item.ballGauge || 'N/A'}
-                            </p>
-                          </div>
+                          )}
 
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                              <Ruler className="h-4 w-4" />
-                              <span className="text-sm font-medium">Wire Gauge</span>
+                          {/* Wire Gauge */}
+                          {item.wireGauge && (
+                            <div className="bg-gray-50 rounded-lg p-3">
+                              <div className="flex items-center space-x-2 text-gray-600 mb-1">
+                                <Ruler className="h-4 w-4" />
+                                <span className="text-sm font-medium">Wire Gauge</span>
+                              </div>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {item.wireGauge} WG
+                              </p>
                             </div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {item.wireGauge || 'N/A'}
-                            </p>
-                          </div>
+                          )}
 
+                          {/* Tunch */}
+                          {item.tunch && (
+                            <div className="bg-gray-50 rounded-lg p-3">
+                              <div className="flex items-center space-x-2 text-gray-600 mb-1">
+                                <Percent className="h-4 w-4" />
+                                <span className="text-sm font-medium">Tunch</span>
+                              </div>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {item.tunch}%
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Weight */}
                           <div className="bg-gray-50 rounded-lg p-3">
                             <div className="flex items-center space-x-2 text-gray-600 mb-1">
                               <Weight className="h-4 w-4" />
                               <span className="text-sm font-medium">Weight</span>
                             </div>
                             <p className="text-sm font-semibold text-gray-900">
-                              {item.weight ? `${item.weight} kg` : 'N/A'}
+                              {item.weight ? `${item.weight} g` : 'N/A'}
                             </p>
                           </div>
                         </div>
                       </div>
 
-                      {/* Quantity Controls */}
+                      {/* Quantity/Weight Controls */}
                       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                        <div className="flex items-center space-x-3">
-                          <span className="text-sm font-medium text-gray-700">Quantity:</span>
-                          <div className="flex items-center border border-gray-300 rounded-lg">
-                            <button
-                              onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                              disabled={item.quantity <= 1}
-                              className="p-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        <div className="flex items-center space-x-4">
+                          {/* Mode Switch */}
+                          <div className="flex items-center space-x-2">
+                            <select
+                              value={quantityMode}
+                              onChange={(e) => setQuantityMode(e.target.value)}
+                              className="text-sm border border-gray-300 rounded-lg px-2 py-1"
                             >
-                              <Minus className="h-4 w-4" />
-                            </button>
-                            <span className="px-4 py-2 font-medium text-gray-900 min-w-[3rem] text-center">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                              className="p-2 hover:bg-gray-100 transition-colors"
-                            >
-                              <Plus className="h-4 w-4" />
-                            </button>
+                              <option value="pieces">By Pieces</option>
+                              <option value="weight">By Weight</option>
+                            </select>
                           </div>
+
+                          {quantityMode === 'pieces' ? (
+                            // Pieces Quantity Selector
+                            <div className="flex items-center space-x-3">
+                              <span className="text-sm font-medium text-gray-700">Quantity:</span>
+                              <div className="flex items-center">
+                                <div className="flex items-center border border-gray-300 rounded-lg">
+                                  <button
+                                    onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                                    disabled={item.quantity <= 1}
+                                    className="p-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={customQuantity[item.id] || item.quantity}
+                                    onChange={(e) => {
+                                      const val = parseInt(e.target.value) || 1;
+                                      setCustomQuantity(prev => ({ ...prev, [item.id]: val }));
+                                      handleQuantityChange(item.id, val);
+                                    }}
+                                    className="w-16 text-center border-x border-gray-300 py-2 font-medium text-gray-900"
+                                  />
+                                  <button
+                                    onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                                    className="p-2 hover:bg-gray-100 transition-colors"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            // Weight-based Quantity Selector
+                            <div className="flex items-center space-x-3">
+                              <span className="text-sm font-medium text-gray-700">Weight (g):</span>
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="number"
+                                  min="0.001"
+                                  step="0.001"
+                                  value={customWeight[item.id] || (item.weight * item.quantity).toFixed(3)}
+                                  onChange={(e) => {
+                                    const targetWeight = parseFloat(e.target.value) || 0;
+                                    setCustomWeight(prev => ({ ...prev, [item.id]: targetWeight }));
+                                    // Calculate quantity based on per-piece weight
+                                    if (item.weight) {
+                                      const calculatedQuantity = calculateQuantityFromWeight(targetWeight, item.weight);
+                                      handleQuantityChange(item.id, calculatedQuantity);
+                                    }
+                                  }}
+                                  className="w-24 text-center border border-gray-300 rounded-lg py-2 px-3 font-medium text-gray-900"
+                                />
+                                <span className="text-sm text-gray-500">
+                                  ({(item.weight || 0).toFixed(3)}g/piece)
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
+                        {/* Total Weight Display */}
                         <div className="text-right">
-                          <p className="text-sm text-gray-600">Added on</p>
+                          <p className="text-sm text-gray-600">Total Weight</p>
                           <p className="text-sm font-medium text-gray-900">
-                            {new Date(item.createdAt).toLocaleDateString()}
+                            {(item.weight * item.quantity).toFixed(3)}g
                           </p>
                         </div>
                       </div>
@@ -454,7 +538,7 @@ const CartPage = () => {
                 <p className="text-xl font-bold text-gray-900">
                   {cartItems.reduce((total, item) => {
                     return total + (item.weight ? item.weight * item.quantity : 0);
-                  }, 0).toFixed(2)} kg
+                  }, 0).toFixed(2)} g
                 </p>
               </div>
             </div>

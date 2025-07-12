@@ -5,6 +5,13 @@ const ProductInfo = ({ product }) => {
   const [quantity, setQuantity] = useState(1)
   const [selectedSize, setSelectedSize] = useState(product?.sizes?.[0] || null)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
+  const [tunchValue, setTunchValue] = useState('92.5'); // Default to 92.5
+  const [customTunch, setCustomTunch] = useState('');
+  const [quantityMode, setQuantityMode] = useState('pieces'); // 'pieces' or 'weight'
+  const [customWeight, setCustomWeight] = useState('');
+
+  // Add the fixed tunch values
+  const FIXED_TUNCH_VALUES = ['92.5', '90', '88.5', '84.5'];
 
   const handleAddToCart = async () => {
     const token = localStorage.getItem('token') || localStorage.getItem('userToken')
@@ -19,6 +26,16 @@ const ProductInfo = ({ product }) => {
     if (!selectedSize) {
       alert('Please select a size before adding to cart')
       return
+    }
+
+    // Get the final tunch value (either fixed or custom)
+    const finalTunch = customTunch || tunchValue;
+    
+    // Validate tunch value
+    const tunchNum = parseFloat(finalTunch);
+    if (isNaN(tunchNum) || tunchNum <= 0 || tunchNum > 100) {
+      alert('Please enter a valid tunch value between 0 and 100');
+      return;
     }
 
     // pick the correct keys for DieNo and weight
@@ -46,19 +63,22 @@ const ProductInfo = ({ product }) => {
 
     const cartData = {
       productId: product.id,
+      sizeId: selectedSize.id || selectedSize.sizeId,
       quantity: Number(quantity),
       DieNo: dieNo,
-      weight: weight
+      weight: weight,
+      tunch: tunchNum,
+      totalWeight: quantityMode === 'weight' ? parseFloat(customWeight) : weight * quantity
     }
 
     setIsAddingToCart(true)
     try {
       console.debug('Adding to cart:', cartData)
       const response = await addToCart(cartData, token)
-      if (response.status === 200 || response.status === 201) {
+      if (response.success) {
         alert('Product added to cart successfully!')
       } else {
-        console.error('Unexpected status:', response.status, response.data)
+        console.error('Unexpected response:', response)
         alert('Failed to add product to cart')
       }
     } catch (err) {
@@ -120,6 +140,11 @@ const ProductInfo = ({ product }) => {
       setSelectedSize(null)
     }
   }
+
+  const calculateQuantityFromWeight = (targetWeight, pieceWeight) => {
+    if (!pieceWeight || pieceWeight <= 0) return 1;
+    return Math.max(1, Math.round(targetWeight / pieceWeight));
+  };
 
   return (
     <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8 space-y-8">
@@ -206,16 +231,16 @@ const ProductInfo = ({ product }) => {
             <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
               <div className="flex items-center mb-2 text-amber-800">
                 <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 ...
-                  " clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M10 18a8 8 0 ..." clipRule="evenodd" />
                 </svg>
                 Selected Configuration
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-amber-700">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs text-amber-700">
+                <div><strong>Size ID:</strong> {selectedSize.id || selectedSize.sizeId || 'N/A'}</div>
                 <div><strong>Die:</strong> {selectedSize.dieNo}</div>
                 <div><strong>Diameter:</strong> {selectedSize.diameter}</div>
                 <div><strong>Ball:</strong> {selectedSize.ballGauge}</div>
-                <div><strong>Wire:</strong> {selectedSize.wireGauge}</div>
+                <div><strong>Tunch:</strong> {(customTunch || tunchValue)}%</div>
               </div>
             </div>
           )}
@@ -226,25 +251,145 @@ const ProductInfo = ({ product }) => {
         </div>
       )}
 
-      {/* Quantity */}
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-gray-700 uppercase">Quantity</label>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => setQuantity(q => Math.max(1, q - 1))}
-            className="w-12 h-12 border-2 border-gray-300 rounded-full flex items-center justify-center text-xl"
-          >−</button>
+      {/* Quantity/Weight Selection */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <label className="block text-sm font-semibold text-gray-700 uppercase">
+            Order By
+          </label>
+          <select
+            value={quantityMode}
+            onChange={(e) => {
+              setQuantityMode(e.target.value);
+              setCustomWeight('');
+            }}
+            className="text-sm border border-gray-300 rounded-lg px-3 py-1"
+          >
+            <option value="pieces">Pieces</option>
+            <option value="weight">Weight</option>
+          </select>
+        </div>
+
+        {quantityMode === 'pieces' ? (
+          // Pieces Quantity Selector
+          <div className="space-y-2">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                className="w-12 h-12 border-2 border-gray-300 rounded-full flex items-center justify-center text-xl"
+              >−</button>
+              <input
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-20 text-center border-2 border-gray-200 rounded-xl py-2"
+              />
+              <button
+                onClick={() => setQuantity(q => q + 1)}
+                className="w-12 h-12 border-2 border-gray-300 rounded-full flex items-center justify-center text-xl"
+              >+</button>
+            </div>
+            {selectedSize?.weight && (
+              <p className="text-sm text-gray-600">
+                Total weight: {(selectedSize.weight * quantity).toFixed(3)}g
+              </p>
+            )}
+          </div>
+        ) : (
+          // Weight-based Quantity Selector
+          <div className="space-y-2">
+            <div className="flex items-center space-x-3">
+              <input
+                type="number"
+                min="0.001"
+                step="0.001"
+                value={customWeight}
+                onChange={(e) => {
+                  const targetWeight = parseFloat(e.target.value) || 0;
+                  setCustomWeight(targetWeight);
+                  if (selectedSize?.weight) {
+                    const calculatedQuantity = calculateQuantityFromWeight(targetWeight, selectedSize.weight);
+                    setQuantity(calculatedQuantity);
+                  }
+                }}
+                placeholder="Enter total weight in grams"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl font-medium focus:border-amber-500"
+              />
+              <span className="text-sm text-gray-500">g</span>
+            </div>
+            {selectedSize?.weight && (
+              <p className="text-sm text-gray-600">
+                Calculated pieces: {quantity} ({selectedSize.weight}g each)
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Information Note */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+          <div className="flex space-x-2">
+            <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-blue-900 mb-1">How it works:</p>
+              <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                <li><strong>By Pieces:</strong> Directly specify the number of items you want</li>
+                <li><strong>By Weight:</strong> Enter your desired total weight, and we'll calculate the appropriate number of pieces</li>
+                <li>Each piece weighs {selectedSize?.weight || '0.000'}g</li>
+                <li>Minimum order: 1 piece</li>
+                <li>Weight will be automatically rounded to the nearest whole piece</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tunch Selection */}
+      <div className="space-y-4 border-t border-gray-100 pt-6">
+        <label className="block text-sm font-semibold text-gray-700 uppercase">
+          Tunch Value
+        </label>
+        
+        {/* Fixed Tunch Values */}
+        <div className="flex flex-wrap gap-3">
+          {FIXED_TUNCH_VALUES.map((value) => (
+            <button
+              key={value}
+              onClick={() => {
+                setTunchValue(value);
+                setCustomTunch('');
+              }}
+              className={`px-4 py-2 rounded-lg border-2 ${
+                tunchValue === value && !customTunch
+                  ? 'border-amber-500 bg-amber-50 text-amber-700'
+                  : 'border-gray-200 hover:border-amber-300'
+              } transition-colors`}
+            >
+              {value}%
+            </button>
+          ))}
+        </div>
+
+        {/* Custom Tunch Input */}
+        <div className="mt-4">
+          <label className="block text-sm text-gray-600 mb-2">
+            Or enter custom value:
+          </label>
           <input
             type="number"
-            min="1"
-            value={quantity}
-            onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-            className="w-20 text-center border-2 border-gray-200 rounded-xl py-2"
+            value={customTunch}
+            onChange={(e) => {
+              setCustomTunch(e.target.value);
+              setTunchValue('');
+            }}
+            placeholder="Enter custom tunch value"
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl font-medium focus:border-amber-500"
+            min="0"
+            max="100"
+            step="0.1"
           />
-          <button
-            onClick={() => setQuantity(q => q + 1)}
-            className="w-12 h-12 border-2 border-gray-300 rounded-full flex items-center justify-center text-xl"
-          >+</button>
         </div>
       </div>
 
