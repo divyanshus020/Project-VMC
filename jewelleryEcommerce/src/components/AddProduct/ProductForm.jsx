@@ -21,29 +21,80 @@ const ProductForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showCustomCategory, setShowCustomCategory] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [initError, setInitError] = useState(null);
 
   const singleImageRef = useRef();
   const multiImageRef = useRef();
 
   useEffect(() => {
     const fetchInitialData = async () => {
+      setIsInitializing(true);
+      setInitError(null);
+
       try {
+        // Fetch sizes first
         const sizeRes = await getSizes();
+        if (!sizeRes.success) {
+          throw new Error(sizeRes.error || 'Failed to fetch sizes');
+        }
+
+        const sizes = Array.isArray(sizeRes.data) ? sizeRes.data : [];
         setSizeOptions(
-          sizeRes.data.map(size => ({ label: size.dieNo, value: size.id }))
+          sizes.map(size => ({
+            label: `Die No: ${size.dieNo}`,
+            value: size.id,
+            details: size
+          }))
         );
 
+        // Then fetch products for categories
         const productRes = await getProducts();
-        const products = productRes.data;
-        const uniqueCategories = [...new Set(products.map(p => p.category).filter(Boolean))];
-        const categoryOpts = uniqueCategories.map(cat => ({ label: cat, value: cat }));
-        categoryOpts.push({ label: '+ Add New Category', value: '__add_new__' });
+        
+        // Extract categories even if product fetch fails
+        const products = Array.isArray(productRes.data) ? productRes.data : [];
+        let categories = [];
+
+        if (products.length > 0) {
+          // Get unique categories
+          categories = [...new Set(products.map(p => p.category).filter(Boolean))];
+        }
+
+        // Always include default categories if needed
+        // const defaultCategories = ['Gold', 'Silver', 'Platinum']; // Add your default categories
+        // categories = [...new Set([...categories, ...defaultCategories])];
+
+        // Create category options
+        const categoryOpts = categories.map(cat => ({ 
+          label: cat, 
+          value: cat 
+        }));
+
+        // Always add the "Add New" option
+        categoryOpts.push({ 
+          label: '+ Add New Category', 
+          value: '__add_new__' 
+        });
+
         setCategoryOptions(categoryOpts);
+
       } catch (error) {
         console.error('Initialization error:', error);
-        setCategoryOptions([{ label: '+ Add New Category', value: '__add_new__' }]);
+        setInitError(error.message || 'Failed to load initial data');
+        
+        // Set fallback options
+        setSizeOptions([]);
+        setCategoryOptions([
+          // { label: 'Gold', value: 'Gold' },
+          // { label: 'Silver', value: 'Silver' },
+          // { label: 'Platinum', value: 'Platinum' },
+          { label: '+ Add New Category', value: '__add_new__' }
+        ]);
+      } finally {
+        setIsInitializing(false);
       }
     };
+
     fetchInitialData();
   }, []);
 
@@ -247,6 +298,20 @@ const ProductForm = () => {
     }),
   };
 
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-2xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Product</h1>
+            <p className="text-gray-600">Loading initial data, please wait...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
@@ -259,6 +324,33 @@ const ProductForm = () => {
         {/* Form Container */}
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Error Message */}
+            {initError && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <div className="flex items-center space-x-3">
+                  <svg 
+                    className="h-5 w-5 text-red-500" 
+                    viewBox="0 0 20 20" 
+                    fill="currentColor"
+                  >
+                    <path 
+                      fillRule="evenodd" 
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" 
+                      clipRule="evenodd" 
+                    />
+                  </svg>
+                  <div>
+                    <h3 className="text-sm font-medium text-red-800">
+                      Error Loading Form Data
+                    </h3>
+                    <p className="mt-1 text-sm text-red-700">
+                      {initError}. Using default options.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Category Field */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700">
@@ -305,7 +397,7 @@ const ProductForm = () => {
               <label className="block text-sm font-semibold text-gray-700">
                 Design Name <span className="text-red-500">*</span>
               </label>
-              <div className="relative">
+              <div className="relative">  
                 <input
                   type="text"
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder-gray-400"

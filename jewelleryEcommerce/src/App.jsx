@@ -15,7 +15,7 @@ import ProtectedRoute from './components/Routes/ProtectedRoute.jsx';
 import ProductDetail from './pages/ProductDetail.jsx';
 import Cart from './pages/Cart.jsx';
 import AddProduct from './pages/AddProduct.jsx'; // ✅ Fixed typo here
-
+import AdminProductPage from './components/AdminDashboard/AdminProductpage.jsx'; // ✅ Fixed typo here
 function AppWrapper() {
   const location = useLocation();
 
@@ -65,6 +65,14 @@ function AppWrapper() {
           element={
             <ProtectedRoute>
               <AddProduct />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/products"
+          element={
+            <ProtectedRoute>
+              <AdminProductPage />
             </ProtectedRoute>
           }
         />

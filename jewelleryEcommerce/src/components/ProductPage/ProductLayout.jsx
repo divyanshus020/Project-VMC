@@ -13,8 +13,28 @@ import ProductFilters from './ProductFilters';
 import ProductGrid from './ProductGrid';
 
 const ProductLayout = ({ products = [], loading = false }) => {
-  // Add debug logs
+  // Fix: Extract the actual products array from the API response
+  const getProductsArray = (productsData) => {
+    // If it's already an array, return it
+    if (Array.isArray(productsData)) {
+      return productsData;
+    }
+    // If it's an API response object with data property
+    if (productsData && productsData.data && Array.isArray(productsData.data)) {
+      return productsData.data;
+    }
+    // If it's an API response object with success and data
+    if (productsData && productsData.success && productsData.data && Array.isArray(productsData.data)) {
+      return productsData.data;
+    }
+    // Default to empty array
+    return [];
+  };
+
+  const safeProducts = getProductsArray(products);
+  
   console.log('ProductLayout received products:', products);
+  console.log('Safe products array:', safeProducts);
   console.log('Loading state:', loading);
 
   const [sortOption, setSortOption] = useState('default');
@@ -31,25 +51,27 @@ const ProductLayout = ({ products = [], loading = false }) => {
     white: '#FFFFFF'
   };
 
-  // Only compute categories if products array exists
+  // Only compute categories if products array exists and has items
   const categories = Array.from(
-    new Set(products?.map((p) => p.category) || [])
+    new Set(safeProducts.map((p) => p?.category).filter(Boolean))
   );
 
-  // Filter products only if they exist
-  const filteredProducts = !products ? [] :
-    selectedCategory === 'All'
-      ? products
-      : products.filter((p) => p.category === selectedCategory);
+  // Filter products - use safeProducts instead of products
+  const filteredProducts = selectedCategory === 'All'
+    ? safeProducts
+    : safeProducts.filter((p) => p?.category === selectedCategory);
 
-  // Sort products only if they exist
-  const sortedProducts = [...(filteredProducts || [])].sort((a, b) => {
+  // Sort products with additional safety checks
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (!a || !b) return 0;
     
-    const getPrice = (price) =>
-      typeof price === 'string'
-        ? parseFloat(price.replace(/[^0-9.]/g, ''))
-        : price;
+    const getPrice = (price) => {
+      if (typeof price === 'string') {
+        const parsed = parseFloat(price.replace(/[^0-9.]/g, ''));
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      return typeof price === 'number' ? price : 0;
+    };
 
     switch (sortOption) {
       case 'priceLowHigh':
@@ -57,9 +79,11 @@ const ProductLayout = ({ products = [], loading = false }) => {
       case 'priceHighLow':
         return getPrice(b.price) - getPrice(a.price);
       case 'nameAZ':
-        return (a.title || '').localeCompare(b.title || '');
+        // Fix: Use 'name' instead of 'title' based on your data structure
+        return (a.name || '').localeCompare(b.name || '');
       case 'nameZA':
-        return (b.title || '').localeCompare(a.title || '');
+        // Fix: Use 'name' instead of 'title' based on your data structure
+        return (b.name || '').localeCompare(a.name || '');
       default:
         return 0;
     }

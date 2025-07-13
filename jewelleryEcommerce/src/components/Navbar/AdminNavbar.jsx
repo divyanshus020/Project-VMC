@@ -29,6 +29,7 @@ function AdminNavbar() {
 
   const navLinks = [
     { to: '/admin/users', label: 'Users', icon: '👥' },
+    { to: '/admin/products', label: 'Products', icon: '📦' },
     { to: '/admin/enquiry', label: 'Enquiry', icon: '📧' },
     { to: '/admin/add-product', label: 'Add Product', icon: '➕' },
     { to: '/admin/admins', label: 'Admins', icon: '👨‍💼' },

@@ -23,9 +23,9 @@ const sanitizeFormData = (formData) => {
   return sanitizedFormData;
 };
 
-// ============================
+// ===============================
 // 📦 PRODUCT APIs
-// ============================
+// ===============================
 
 // Create product with form data (images + details)
 export const createProduct = async (formData) => {
@@ -80,13 +80,25 @@ export const createProductWithUrl = async (data) => {
   }
 };
 
-export const getProducts = async (params) => {
+export const getProducts = async () => {
   try {
-    const response = await API.get('/products', { params });
-    return response.data;
+    const response = await API.get('/products');
+    
+    if (!response?.data) {
+      throw new Error('Invalid response from server');
+    }
+
+    return {
+      success: true,
+      data: response.data
+    };
   } catch (error) {
     console.error('Error fetching products:', error);
-    throw error;
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch products'
+    };
   }
 };
 
@@ -196,7 +208,22 @@ export const createSize = (data) => {
   return API.post('/sizes', sanitizedData);
 };
 
-export const getSizes = () => API.get('/sizes');
+export const getSizes = async () => {
+  try {
+    const response = await API.get('/sizes');
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error fetching sizes:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch sizes'
+    };
+  }
+};
 
 export const getSizeById = (id) => {
   if (!id) throw new Error('Size ID is required');

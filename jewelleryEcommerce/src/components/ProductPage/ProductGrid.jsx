@@ -19,6 +19,141 @@ const ProductGrid = ({
     categories
   });
 
+  // Empty State Component - moved before it's used
+  const EmptyState = () => (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.6 }}
+    >
+      <Paper
+        elevation={0}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: 400,
+          borderRadius: 4,
+          bgcolor: colors.white,
+          border: `2px dashed ${alpha(colors.primary, 0.3)}`,
+          textAlign: 'center',
+          p: 4,
+          boxShadow: `0 8px 24px ${alpha(colors.mediumGray, 0.08)}`
+        }}
+      >
+        <Box
+          sx={{
+            width: 120,
+            height: 120,
+            borderRadius: '50%',
+            bgcolor: alpha(colors.primary, 0.1),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mb: 3,
+            border: `3px solid ${alpha(colors.primary, 0.2)}`
+          }}
+        >
+          <Typography
+            variant="h1"
+            sx={{
+              fontSize: '3rem',
+              opacity: 0.6,
+              filter: `drop-shadow(0 2px 4px ${alpha(colors.primary, 0.3)})`
+            }}
+          >
+            💎
+          </Typography>
+        </Box>
+        <Typography
+          variant="h5"
+          sx={{ 
+            fontWeight: 600, 
+            mb: 1,
+            color: colors.darkGray
+          }}
+        >
+          No jewellery found
+        </Typography>
+        <Typography
+          variant="body1"
+          sx={{ 
+            maxWidth: 400,
+            color: colors.mediumGray
+          }}
+        >
+          We couldn't find any jewellery matching your current filters. 
+          Try adjusting your category selection or search criteria.
+        </Typography>
+      </Paper>
+    </motion.div>
+  );
+
+  // Loading skeleton component
+  const ProductSkeleton = ({ colors }) => (
+    <Grid item xs={12} sm={6} md={4} lg={3}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          borderRadius: 3,
+          bgcolor: colors.white,
+          border: `1px solid ${alpha(colors.lightGray, 0.8)}`,
+          height: '100%',
+          minHeight: 400,
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: `0 4px 12px ${alpha(colors.mediumGray, 0.1)}`
+        }}
+      >
+        <Skeleton 
+          variant="rectangular" 
+          height={200} 
+          sx={{ 
+            borderRadius: 2, 
+            mb: 2,
+            bgcolor: alpha(colors.lightGray, 0.6)
+          }} 
+        />
+        <Skeleton 
+          variant="text" 
+          height={24} 
+          sx={{ 
+            mb: 1,
+            bgcolor: alpha(colors.lightGray, 0.6)
+          }} 
+        />
+        <Skeleton 
+          variant="text" 
+          height={20} 
+          width="60%" 
+          sx={{ 
+            mb: 2,
+            bgcolor: alpha(colors.lightGray, 0.6)
+          }} 
+        />
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 'auto' }}>
+          <Skeleton 
+            variant="text" 
+            height={28} 
+            width="40%" 
+            sx={{ bgcolor: alpha(colors.primary, 0.3) }}
+          />
+          <Skeleton 
+            variant="rectangular" 
+            height={36} 
+            width={80} 
+            sx={{ 
+              borderRadius: 2,
+              bgcolor: alpha(colors.primary, 0.2)
+            }} 
+          />
+        </Stack>
+      </Paper>
+    </Grid>
+  );
+
   // Check for empty products
   if (!loading && (!sortedProducts || sortedProducts.length === 0)) {
     return <EmptyState />;
@@ -172,139 +307,6 @@ const ProductGrid = ({
           />
         </Box>
       </Box>
-    </motion.div>
-  );
-  // Loading skeleton component
-    <Grid item xs={12} sm={6} md={4} lg={3}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          borderRadius: 3,
-          bgcolor: colors.white,
-          border: `1px solid ${alpha(colors.lightGray, 0.8)}`,
-          height: '100%',
-          minHeight: 400,
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: `0 4px 12px ${alpha(colors.mediumGray, 0.1)}`
-        }}
-      >
-        <Skeleton 
-          variant="rectangular" 
-          height={200} 
-          sx={{ 
-            borderRadius: 2, 
-            mb: 2,
-            bgcolor: alpha(colors.lightGray, 0.6)
-          }} 
-        />
-        <Skeleton 
-          variant="text" 
-          height={24} 
-          sx={{ 
-            mb: 1,
-            bgcolor: alpha(colors.lightGray, 0.6)
-          }} 
-        />
-        <Skeleton 
-          variant="text" 
-          height={20} 
-          width="60%" 
-          sx={{ 
-            mb: 2,
-            bgcolor: alpha(colors.lightGray, 0.6)
-          }} 
-        />
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 'auto' }}>
-          <Skeleton 
-            variant="text" 
-            height={28} 
-            width="40%" 
-            sx={{ bgcolor: alpha(colors.primary, 0.3) }}
-          />
-          <Skeleton 
-            variant="rectangular" 
-            height={36} 
-            width={80} 
-            sx={{ 
-              borderRadius: 2,
-              bgcolor: alpha(colors.primary, 0.2)
-            }} 
-          />
-        </Stack>
-      </Paper>
-    </Grid>
-  
-
-  // Empty State Component
-  const EmptyState = () => (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.6 }}
-    >
-      <Paper
-        elevation={0}
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: 400,
-          borderRadius: 4,
-          bgcolor: colors.white,
-          border: `2px dashed ${alpha(colors.primary, 0.3)}`,
-          textAlign: 'center',
-          p: 4,
-          boxShadow: `0 8px 24px ${alpha(colors.mediumGray, 0.08)}`
-        }}
-      >
-        <Box
-          sx={{
-            width: 120,
-            height: 120,
-            borderRadius: '50%',
-            bgcolor: alpha(colors.primary, 0.1),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            mb: 3,
-            border: `3px solid ${alpha(colors.primary, 0.2)}`
-          }}
-        >
-          <Typography
-            variant="h1"
-            sx={{
-              fontSize: '3rem',
-              opacity: 0.6,
-              filter: `drop-shadow(0 2px 4px ${alpha(colors.primary, 0.3)})`
-            }}
-          >
-            💎
-          </Typography>
-        </Box>
-        <Typography
-          variant="h5"
-          sx={{ 
-            fontWeight: 600, 
-            mb: 1,
-            color: colors.darkGray
-          }}
-        >
-          No jewellery found
-        </Typography>
-        <Typography
-          variant="body1"
-          sx={{ 
-            maxWidth: 400,
-            color: colors.mediumGray
-          }}
-        >
-          We couldn't find any jewellery matching your current filters. 
-          Try adjusting your category selection or search criteria.
-        </Typography>
-      </Paper>
     </motion.div>
   );
 
