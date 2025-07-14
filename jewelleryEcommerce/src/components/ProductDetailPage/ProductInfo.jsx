@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
-import { addToCart } from '../../lib/api'
+import { addToCart, createEnquiry } from '../../lib/api'
 
 const ProductInfo = ({ product }) => {
   const [quantity, setQuantity] = useState(1)
   const [selectedSize, setSelectedSize] = useState(product?.sizes?.[0] || null)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
+  const [isEnquiring, setIsEnquiring] = useState(false)
   const [tunchValue, setTunchValue] = useState('92.5'); // Default to 92.5
   const [customTunch, setCustomTunch] = useState('');
   const [quantityMode, setQuantityMode] = useState('pieces'); // 'pieces' or 'weight'
@@ -95,13 +96,97 @@ const ProductInfo = ({ product }) => {
     }
   }
 
-  const handleEnquire = () => {
-    const enquiryData = {
-      product: product,
-      selectedSize,
-      quantity
+  const handleEnquire = async () => {
+    const token = localStorage.getItem('token') || localStorage.getItem('userToken')
+    if (!token) {
+      alert('Please login to make an enquiry')
+      return
     }
-    console.log('Enquiry data:', enquiryData)
+    if (!product?.id) {
+      alert('Product information is missing')
+      return
+    }
+    if (!selectedSize) {
+      alert('Please select a size configuration before making an enquiry')
+      return
+    }
+
+    // Get the final tunch value (either fixed or custom)
+    const finalTunch = customTunch || tunchValue;
+    
+    // Validate tunch value
+    const tunchNum = parseFloat(finalTunch);
+    if (isNaN(tunchNum) || tunchNum <= 0 || tunchNum > 100) {
+      alert('Please enter a valid tunch value between 0 and 100');
+      return;
+    }
+
+    // Get user ID from token or localStorage
+    const getUserIdFromToken = () => {
+      try {
+        // Try to get user data from localStorage
+        const userData = localStorage.getItem('userData');
+        if (userData) {
+          const user = JSON.parse(userData);
+          return user.id || user.userId || user.user_id;
+        }
+        
+        // Try to get user info from another storage key
+        const userInfo = localStorage.getItem('userInfo');
+        if (userInfo) {
+          const user = JSON.parse(userInfo);
+          return user.id || user.userId || user.user_id;
+        }
+        
+        // If you need to decode JWT token, you can use jwt-decode library
+        // const decoded = jwt_decode(token);
+        // return decoded.userId || decoded.id || decoded.user_id;
+        
+        return null;
+      } catch (error) {
+        console.error('Error getting user ID:', error);
+        return null;
+      }
+    };
+
+    const userId = getUserIdFromToken();
+    if (!userId) {
+      alert('Unable to identify user. Please login again.');
+      return;
+    }
+
+    const enquiryData = {
+      productID: product.id,
+      userID: userId,
+      quantity: quantityMode === 'weight' ? quantity : Number(quantity),
+      sizeID: selectedSize.id || selectedSize.sizeId,
+      tunch: finalTunch
+    };
+
+    setIsEnquiring(true);
+    try {
+      console.debug('Creating enquiry:', enquiryData);
+      const response = await createEnquiry(enquiryData, token);
+      
+      if (response.success) {
+        alert('Enquiry submitted successfully! We will contact you soon.');
+        // Optionally reset form or show success message
+      } else {
+        console.error('Enquiry failed:', response.error);
+        alert(response.error || 'Failed to submit enquiry. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error creating enquiry:', error);
+      if (error.response?.status === 401) {
+        alert('Session expired. Please login again.');
+      } else if (error.response?.status === 400) {
+        alert(error.response.data?.message || 'Invalid enquiry data');
+      } else {
+        alert('Failed to submit enquiry. Please try again.');
+      }
+    } finally {
+      setIsEnquiring(false);
+    }
   }
 
   const fallbackProduct = {
@@ -259,7 +344,7 @@ const ProductInfo = ({ product }) => {
           </label>
           <select
             value={quantityMode}
-            onChange={(e) => {
+                        onChange={(e) => {
               setQuantityMode(e.target.value);
               setCustomWeight('');
             }}
@@ -408,9 +493,14 @@ const ProductInfo = ({ product }) => {
         </button>
         <button
           onClick={handleEnquire}
-          className="flex-1 py-4 px-8 font-bold rounded-xl border-2 border-amber-600 text-amber-600 hover:-translate-y-0.5 transition"
+          disabled={isEnquiring || !selectedSize}
+          className={`flex-1 py-4 px-8 font-bold rounded-xl border-2 transition ${
+            isEnquiring || !selectedSize
+              ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+              : 'border-amber-600 text-amber-600 hover:-translate-y-0.5'
+          }`}
         >
-          Enquire Now
+          {isEnquiring ? 'Submitting…' : 'Enquire Now'}
         </button>
       </div>
 
@@ -419,9 +509,32 @@ const ProductInfo = ({ product }) => {
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex items-center space-x-2 text-yellow-800">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8.257 3.099..." clipRule="evenodd" />
+              <path fillRule="evenodd" d="M8.257 3.099c-.765-1.36-2.722-1.36-3.487 0l-1.17 2.076a1.75 1.75 0 01-.74.74l-2.076 1.17c-1.36.765-1.36 2.722 0 3.487l2.076 1.17c.314.177.563.426.74.74l1.17 2.076c.765 1.36 2.722 1.36 3.487 0l1.17-2.076a1.75 1.75 0 01.74-.74l2.076-1.17c1.36-.765 1.36-2.722 0-3.487l-2.076-1.17a1.75 1.75 0 01-.74-.74L8.257 3.099zM6.5 6a.5.5 0 000 1h3a.5.5 0 000-1h-3zM6 8.5a.5.5 0 01.5-.5h3a.5.5 0 010 1h-3a.5.5 0 01-.5-.5zm.5 2.5a.5.5 0 000 1h3a.5.5 0 000-1h-3z" clipRule="evenodd" />
             </svg>
-            <span>Please select a size configuration before adding to cart</span>
+            <span>Please select a size configuration before adding to cart or making an enquiry</span>
+          </div>
+        </div>
+      )}
+
+      {/* Success/Error Messages */}
+      {isAddingToCart && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2 text-blue-800">
+            <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Adding product to cart...</span>
+          </div>
+        </div>
+      )}
+
+      {isEnquiring && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2 text-green-800">
+            <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Submitting your enquiry...</span>
           </div>
         </div>
       )}

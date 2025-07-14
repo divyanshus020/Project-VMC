@@ -475,7 +475,6 @@ export const getDetailedCart = async (token) => {
     };
   }
 };
-
 export const getCartTotal = (token) =>
   API.get('/cart/total', {
     headers: { Authorization: `Bearer ${token}` },
@@ -560,6 +559,267 @@ export const formatTunch = (tunch) => {
 export const FIXED_TUNCH_VALUES = ['92.5', '90', '88.5', '84.5'];
 
 // ============================
+// 📋 ENQUIRY APIs
+// ============================
+
+// Create a new enquiry
+export const createEnquiry = async (data, token) => {
+  try {
+    const sanitizedData = sanitizeData({
+      productID: parseInt(data.productID),
+      userID: parseInt(data.userID),
+      quantity: parseInt(data.quantity),
+      sizeID: parseInt(data.sizeID),
+      tunch: data.tunch ? data.tunch.toString() : null
+    });
+
+    const response = await API.post('/enquiries', sanitizedData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error creating enquiry:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to create enquiry'
+    };
+  }
+};
+
+// Get all enquiries (Admin only)
+export const getAllEnquiries = async (token) => {
+  try {
+    const response = await API.get('/enquiries', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error fetching enquiries:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch enquiries'
+    };
+  }
+};
+
+// Get enquiry by ID
+export const getEnquiryById = async (id, token) => {
+  try {
+    if (!id) throw new Error('Enquiry ID is required');
+
+    const response = await API.get(`/enquiries/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error(`Error fetching enquiry ${id}:`, error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to fetch enquiry'
+    };
+  }
+};
+
+// Update enquiry
+export const updateEnquiry = async (id, data, token) => {
+  try {
+    if (!id) throw new Error('Enquiry ID is required');
+
+    const sanitizedData = sanitizeData({
+      productID: parseInt(data.productID),
+      userID: parseInt(data.userID),
+      quantity: parseInt(data.quantity),
+      sizeID: parseInt(data.sizeID),
+      tunch: data.tunch ? data.tunch.toString() : null
+    });
+
+    const response = await API.put(`/enquiries/${id}`, sanitizedData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error(`Error updating enquiry ${id}:`, error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to update enquiry'
+    };
+  }
+};
+
+// Delete enquiry
+export const deleteEnquiry = async (id, token) => {
+  try {
+    if (!id) throw new Error('Enquiry ID is required');
+
+    const response = await API.delete(`/enquiries/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error(`Error deleting enquiry ${id}:`, error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to delete enquiry'
+    };
+  }
+};
+
+// Get enquiries by user ID
+export const getEnquiriesByUser = async (userID, token) => {
+  try {
+    if (!userID) throw new Error('User ID is required');
+
+    const response = await API.get(`/enquiries/user/${userID}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error(`Error fetching enquiries for user ${userID}:`, error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch user enquiries'
+    };
+  }
+};
+
+// Get current user's enquiries
+export const getMyEnquiries = async (token) => {
+  try {
+    const response = await API.get('/enquiries/my-enquiries', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error fetching my enquiries:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch your enquiries'
+    };
+  }
+};
+
+// Get enquiries with detailed product and size information
+export const getDetailedEnquiries = async (token) => {
+  try {
+    const response = await API.get('/enquiries/detailed', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error fetching detailed enquiries:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch detailed enquiries'
+    };
+  }
+};
+
+// Get enquiries by product ID
+export const getEnquiriesByProduct = async (productID, token) => {
+  try {
+    if (!productID) throw new Error('Product ID is required');
+
+    const response = await API.get(`/enquiries/product/${productID}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error(`Error fetching enquiries for product ${productID}:`, error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch product enquiries'
+    };
+  }
+};
+
+// Bulk delete enquiries
+export const bulkDeleteEnquiries = async (enquiryIds, token) => {
+  try {
+    if (!enquiryIds || !Array.isArray(enquiryIds) || enquiryIds.length === 0) {
+      throw new Error('Enquiry IDs array is required');
+    }
+
+    const response = await API.delete('/enquiries/bulk-delete', {
+      data: { enquiryIds },
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error bulk deleting enquiries:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to delete enquiries'
+    };
+  }
+};
+
+// Get enquiry statistics (for admin dashboard)
+export const getEnquiryStats = async (token) => {
+  try {
+    const response = await API.get('/enquiries/stats', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error fetching enquiry statistics:', error);
+    return {
+      success: false,
+      data: {},
+      error: error.response?.data?.message || 'Failed to fetch enquiry statistics'
+    };
+  }
+};
+
+// ============================
 // ☁️ IMAGE UPLOAD APIs (Cloudinary)
 // ============================
 export const uploadMultipleImages = (files, fieldName = 'images') => {
@@ -582,3 +842,4 @@ export const uploadSingleImage = (file, fieldName = 'image') => {
 // 🛠️ UTILITY EXPORTS
 // ============================
 export { sanitizeData, sanitizeFormData };
+
