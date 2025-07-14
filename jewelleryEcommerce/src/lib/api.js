@@ -756,7 +756,6 @@ export const getDetailedCart = async (token) => {
     };
   }
 };
-
 export const getCartTotal = (token) =>
   API.get('/cart/total', {
     headers: { Authorization: `Bearer ${token}` },
@@ -1022,7 +1021,11 @@ export const getDetailedEnquiries = async (token) => {
       success: true,
       data: response.data
     };
+<<<<<<< HEAD
     } catch (error) {
+=======
+  } catch (error) {
+>>>>>>> db6ccb0569f2ba62fe7c9e4c00f2f79b0802bc65
     console.error('Error fetching detailed enquiries:', error);
     return {
       success: false,
@@ -1368,6 +1371,7 @@ export const measureApiCall = async (apiCall) => {
 // ============================
 // 🛠️ UTILITY EXPORTS
 // ============================
+<<<<<<< HEAD
 export { 
   sanitizeData, 
   sanitizeFormData,
@@ -1400,3 +1404,7 @@ export const ERROR_MESSAGES = {
   NOT_FOUND: 'Requested resource not found',
   VALIDATION_ERROR: 'Please check your input and try again'
 };
+=======
+export { sanitizeData, sanitizeFormData };
+
+>>>>>>> db6ccb0569f2ba62fe7c9e4c00f2f79b0802bc65
