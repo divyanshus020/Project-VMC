@@ -354,48 +354,329 @@ export const deleteUser = (id, token) =>
 export const getAllUsers = () => API.get('/users');
 
 // ============================
-// 🛡️ ADMIN APIs
+// 🛡️ ADMIN APIs (UPDATED)
 // ============================
-export const registerAdmin = (data) => {
-  const sanitizedData = sanitizeData(data);
-  return API.post('/admin/register', sanitizedData);
+
+// Admin Registration - Updated to handle new response structure
+export const registerAdmin = async (data) => {
+  try {
+    // Validate required fields on frontend
+    if (!data.email || !data.password) {
+      throw new Error('Email and password are required');
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      throw new Error('Please provide a valid email address');
+    }
+
+    // Validate password length
+    if (data.password.length < 6) {
+      throw new Error('Password must be at least 6 characters long');
+    }
+
+    const sanitizedData = sanitizeData({
+      email: data.email,
+      password: data.password,
+      name: data.name || '',
+      role: data.role || 'admin',
+      isActive: typeof data.isActive === 'boolean' ? data.isActive : true
+    });
+
+    console.log('Registering admin with data:', { ...sanitizedData, password: '[HIDDEN]' });
+
+    const response = await API.post('/admin/register', sanitizedData);
+
+    // Return structured response
+    return {
+      success: true,
+      message: response.data.message,
+      token: response.data.token,
+      admin: response.data.admin
+    };
+
+  } catch (error) {
+    console.error('Error registering admin:', error);
+    
+    // Handle different error types
+    if (error.response) {
+      return {
+        success: false,
+        error: error.response.data?.message || 'Registration failed',
+        status: error.response.status
+      };
+    } else if (error.message) {
+      return {
+        success: false,
+        error: error.message
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Network error or server unavailable'
+      };
+    }
+  }
 };
 
-export const loginAdmin = (data) => {
-  const sanitizedData = sanitizeData(data);
-  return API.post('/admin/login', sanitizedData);
+// Admin Login - Updated to handle new response structure
+export const loginAdmin = async (data) => {
+  try {
+    // Validate required fields
+    if (!data.email || !data.password) {
+      throw new Error('Email and password are required');
+    }
+
+    const sanitizedData = sanitizeData({
+      email: data.email,
+      password: data.password
+    });
+
+    console.log('Admin login attempt for:', data.email);
+
+    const response = await API.post('/admin/login', sanitizedData);
+
+    // Return structured response
+    return {
+      success: true,
+      message: response.data.message,
+      token: response.data.token,
+      admin: response.data.admin
+    };
+
+  } catch (error) {
+    console.error('Error logging in admin:', error);
+    
+    // Handle different error types
+    if (error.response) {
+      return {
+        success: false,
+        error: error.response.data?.message || 'Login failed',
+        status: error.response.status
+      };
+    } else if (error.message) {
+      return {
+        success: false,
+        error: error.message
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Network error or server unavailable'
+      };
+    }
+  }
 };
 
-export const getAdminProfile = (token) =>
-  API.get('/admin/me', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+// Get Admin Profile - Updated with better error handling
+export const getAdminProfile = async (token) => {
+  try {
+    if (!token) {
+      throw new Error('Authentication token is required');
+    }
 
-export const updateAdminProfile = (data, token) => {
-  const sanitizedData = sanitizeData(data);
-  return API.put('/admin/me', sanitizedData, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+    const response = await API.get('/admin/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+
+  } catch (error) {
+    console.error('Error fetching admin profile:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to fetch admin profile',
+      status: error.response?.status
+    };
+  }
 };
 
-export const getAllAdmins = () => API.get('/admin');
+// Update Admin Profile - Updated with better error handling
+export const updateAdminProfile = async (data, token) => {
+  try {
+    if (!token) {
+      throw new Error('Authentication token is required');
+    }
 
-export const getAdminById = (id, token) =>
-  API.get(`/admin/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+    const sanitizedData = sanitizeData(data);
+    const response = await API.put('/admin/me', sanitizedData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
 
-export const updateAdmin = (id, data, token) => {
-  const sanitizedData = sanitizeData(data);
-  return API.put(`/admin/${id}`, sanitizedData, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+    return {
+      success: true,
+      message: 'Profile updated successfully',
+      data: response.data
+    };
+
+  } catch (error) {
+    console.error('Error updating admin profile:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to update admin profile',
+      status: error.response?.status
+    };
+  }
 };
 
-export const deleteAdmin = (id, token) =>
-  API.delete(`/admin/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+// Get All Admins - Updated with better error handling
+export const getAllAdmins = async (token) => {
+  try {
+    const response = await API.get('/admin', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+
+  } catch (error) {
+    console.error('Error fetching all admins:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch admins',
+      status: error.response?.status
+    };
+  }
+};
+
+// Get Admin by ID - Updated with better error handling
+export const getAdminById = async (id, token) => {
+  try {
+    if (!id) {
+      throw new Error('Admin ID is required');
+    }
+
+    if (!token) {
+      throw new Error('Authentication token is required');
+    }
+
+    const response = await API.get(`/admin/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+
+  } catch (error) {
+    console.error(`Error fetching admin ${id}:`, error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to fetch admin',
+      status: error.response?.status
+    };
+  }
+};
+
+// Update Admin - Updated with better error handling
+export const updateAdmin = async (id, data, token) => {
+  try {
+    if (!id) {
+      throw new Error('Admin ID is required');
+    }
+
+    if (!token) {
+      throw new Error('Authentication token is required');
+    }
+
+    const sanitizedData = sanitizeData(data);
+    const response = await API.put(`/admin/${id}`, sanitizedData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      message: 'Admin updated successfully',
+      data: response.data
+    };
+
+  } catch (error) {
+    console.error(`Error updating admin ${id}:`, error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to update admin',
+      status: error.response?.status
+    };
+  }
+};
+
+// Delete Admin - Updated with better error handling
+export const deleteAdmin = async (id, token) => {
+  try {
+    if (!id) {
+      throw new Error('Admin ID is required');
+    }
+
+    if (!token) {
+      throw new Error('Authentication token is required');
+    }
+
+    const response = await API.delete(`/admin/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      message: 'Admin deleted successfully',
+      data: response.data
+    };
+
+  } catch (error) {
+    console.error(`Error deleting admin ${id}:`, error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to delete admin',
+      status: error.response?.status
+    };
+  }
+};
+
+// Admin validation helpers
+export const validateAdminData = (data) => {
+  const errors = {};
+
+  if (!data.email) {
+    errors.email = 'Email is required';
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+    errors.email = 'Please provide a valid email address';
+  }
+
+  if (!data.password) {
+    errors.password = 'Password is required';
+  } else if (data.password.length < 6) {
+    errors.password = 'Password must be at least 6 characters long';
+  }
+
+  if (data.role && !['admin', 'super_admin', 'moderator'].includes(data.role)) {
+    errors.role = 'Invalid role specified';
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors
+  };
+};
+
+// Check if admin is authenticated
+export const isAdminAuthenticated = (token) => {
+  if (!token) return false;
+  
+  try {
+    // Basic token format validation
+    const parts = token.split('.');
+    return parts.length === 3; // JWT has 3 parts
+  } catch (error) {
+    return false;
+  }
+};
 
 // ============================
 // 🛒 CART APIs
@@ -560,25 +841,562 @@ export const formatTunch = (tunch) => {
 export const FIXED_TUNCH_VALUES = ['92.5', '90', '88.5', '84.5'];
 
 // ============================
+// 📋 ENQUIRY APIs
+// ============================
+
+// Create a new enquiry
+export const createEnquiry = async (data, token) => {
+  try {
+    const sanitizedData = sanitizeData({
+      productID: parseInt(data.productID),
+      userID: parseInt(data.userID),
+      quantity: parseInt(data.quantity),
+      sizeID: parseInt(data.sizeID),
+      tunch: data.tunch ? data.tunch.toString() : null
+    });
+
+    const response = await API.post('/enquiries', sanitizedData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error creating enquiry:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to create enquiry'
+    };
+  }
+};
+
+// Get all enquiries (Admin only)
+export const getAllEnquiries = async (token) => {
+  try {
+    const response = await API.get('/enquiries', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error fetching enquiries:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch enquiries'
+    };
+  }
+};
+
+// Get enquiry by ID
+export const getEnquiryById = async (id, token) => {
+  try {
+    if (!id) throw new Error('Enquiry ID is required');
+
+    const response = await API.get(`/enquiries/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error(`Error fetching enquiry ${id}:`, error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to fetch enquiry'
+    };
+  }
+};
+
+// Update enquiry
+export const updateEnquiry = async (id, data, token) => {
+  try {
+    if (!id) throw new Error('Enquiry ID is required');
+
+    const sanitizedData = sanitizeData({
+      productID: parseInt(data.productID),
+      userID: parseInt(data.userID),
+      quantity: parseInt(data.quantity),
+      sizeID: parseInt(data.sizeID),
+      tunch: data.tunch ? data.tunch.toString() : null
+    });
+
+    const response = await API.put(`/enquiries/${id}`, sanitizedData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error(`Error updating enquiry ${id}:`, error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to update enquiry'
+    };
+  }
+};
+
+// Delete enquiry
+export const deleteEnquiry = async (id, token) => {
+  try {
+    if (!id) throw new Error('Enquiry ID is required');
+
+    const response = await API.delete(`/enquiries/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error(`Error deleting enquiry ${id}:`, error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to delete enquiry'
+    };
+  }
+};
+
+// Get enquiries by user ID
+export const getEnquiriesByUser = async (userID, token) => {
+  try {
+    if (!userID) throw new Error('User ID is required');
+
+    const response = await API.get(`/enquiries/user/${userID}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error(`Error fetching enquiries for user ${userID}:`, error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch user enquiries'
+    };
+  }
+};
+
+// Get current user's enquiries
+export const getMyEnquiries = async (token) => {
+  try {
+    const response = await API.get('/enquiries/my-enquiries', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error fetching my enquiries:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch your enquiries'
+    };
+  }
+};
+
+// Get enquiries with detailed product and size information
+export const getDetailedEnquiries = async (token) => {
+  try {
+    const response = await API.get('/enquiries/detailed', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+    } catch (error) {
+    console.error('Error fetching detailed enquiries:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch detailed enquiries'
+    };
+  }
+};
+
+// Get enquiries by product ID
+export const getEnquiriesByProduct = async (productID, token) => {
+  try {
+    if (!productID) throw new Error('Product ID is required');
+
+    const response = await API.get(`/enquiries/product/${productID}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error(`Error fetching enquiries for product ${productID}:`, error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || 'Failed to fetch product enquiries'
+    };
+  }
+};
+
+// Bulk delete enquiries
+export const bulkDeleteEnquiries = async (enquiryIds, token) => {
+  try {
+    if (!enquiryIds || !Array.isArray(enquiryIds) || enquiryIds.length === 0) {
+      throw new Error('Enquiry IDs array is required');
+    }
+
+    const response = await API.delete('/enquiries/bulk-delete', {
+      data: { enquiryIds },
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error bulk deleting enquiries:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to delete enquiries'
+    };
+  }
+};
+
+// Get enquiry statistics (for admin dashboard)
+export const getEnquiryStats = async (token) => {
+  try {
+    const response = await API.get('/enquiries/stats', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error fetching enquiry statistics:', error);
+    return {
+      success: false,
+      data: {},
+      error: error.response?.data?.message || 'Failed to fetch enquiry statistics'
+    };
+  }
+};
+
+// ============================
 // ☁️ IMAGE UPLOAD APIs (Cloudinary)
 // ============================
-export const uploadMultipleImages = (files, fieldName = 'images') => {
+export const uploadMultipleImages = async (files, fieldName = 'images') => {
+  try {
+    const formData = new FormData();
+    files.forEach((file) => formData.append(fieldName, file));
+    
+    const response = await API.post('/upload/multiple', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error uploading multiple images:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to upload images'
+    };
+  }
+};
+
+export const uploadSingleImage = async (file, fieldName = 'image') => {
+  try {
+    const formData = new FormData();
+    formData.append(fieldName, file);
+    
+    const response = await API.post('/upload/single', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('Error uploading single image:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to upload image'
+    };
+  }
+};
+
+// ============================
+// 🔧 REQUEST INTERCEPTORS
+// ============================
+
+// Request interceptor to add common headers
+API.interceptors.request.use(
+  (config) => {
+    // Add timestamp to prevent caching
+    config.params = {
+      ...config.params,
+      _t: Date.now()
+    };
+
+    // Log request for debugging (only in development)
+    if (import.meta.env.DEV) {
+      console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+        params: config.params,
+        data: config.data
+      });
+    }
+
+    return config;
+  },
+  (error) => {
+    console.error('Request interceptor error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for global error handling
+API.interceptors.response.use(
+  (response) => {
+    // Log response for debugging (only in development)
+    if (import.meta.env.DEV) {
+      console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+        status: response.status,
+        data: response.data
+      });
+    }
+
+    return response;
+  },
+  (error) => {
+    // Log error for debugging
+    console.error('❌ API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      message: error.response?.data?.message || error.message
+    });
+
+    // Handle specific error cases
+    if (error.response?.status === 401) {
+      // Handle unauthorized access
+      console.warn('Unauthorized access - clearing local storage');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('userToken');
+      
+      // Redirect to login if not already there
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/admin/login';
+      }
+    }
+
+    if (error.response?.status === 403) {
+      console.warn('Forbidden access - insufficient permissions');
+    }
+
+    if (error.response?.status >= 500) {
+      console.error('Server error - please try again later');
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+// ============================
+// 🛠️ UTILITY FUNCTIONS
+// ============================
+
+// Helper function to handle API responses consistently
+export const handleApiResponse = (response) => {
+  if (response.success) {
+    return response;
+  } else {
+    throw new Error(response.error || 'API request failed');
+  }
+};
+
+// Helper function to format error messages
+export const formatErrorMessage = (error) => {
+  if (typeof error === 'string') {
+    return error;
+  }
+  
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+  
+  if (error.message) {
+    return error.message;
+  }
+  
+  return 'An unexpected error occurred';
+};
+
+// Helper function to check if response is successful
+export const isApiSuccess = (response) => {
+  return response && (response.success === true || response.status < 400);
+};
+
+// Helper function to extract data from API response
+export const extractApiData = (response) => {
+  if (response.data) {
+    return response.data;
+  }
+  return response;
+};
+
+// Helper function to create form data from object
+export const createFormData = (data) => {
   const formData = new FormData();
-  files.forEach((file) => formData.append(fieldName, file));
-  return API.post('/upload/multiple', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  
+  Object.keys(data).forEach(key => {
+    const value = data[key];
+    
+    if (value !== null && value !== undefined) {
+      if (Array.isArray(value)) {
+        value.forEach((item, index) => {
+          if (item instanceof File) {
+            formData.append(`${key}[${index}]`, item);
+          } else {
+            formData.append(`${key}[${index}]`, String(item));
+          }
+        });
+      } else if (value instanceof File) {
+        formData.append(key, value);
+      } else {
+        formData.append(key, String(value));
+      }
+    }
+  });
+  
+  return formData;
+};
+
+// Helper function to validate file types
+export const validateFileType = (file, allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']) => {
+  return allowedTypes.includes(file.type);
+};
+
+// Helper function to validate file size
+export const validateFileSize = (file, maxSizeInMB = 5) => {
+  const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
+  return file.size <= maxSizeInBytes;
+};
+
+// Helper function to compress image before upload
+export const compressImage = (file, quality = 0.8) => {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      ctx.drawImage(img, 0, 0);
+      
+      canvas.toBlob(resolve, file.type, quality);
+    };
+    
+    img.src = URL.createObjectURL(file);
   });
 };
 
-export const uploadSingleImage = (file, fieldName = 'image') => {
-  const formData = new FormData();
-  formData.append(fieldName, file);
-  return API.post('/upload/single', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+// ============================
+// 📊 ANALYTICS & MONITORING
+// ============================
+
+// Helper function to track API calls (for analytics)
+export const trackApiCall = (endpoint, method, success, duration) => {
+  if (import.meta.env.DEV) {
+    console.log(`📊 API Analytics: ${method} ${endpoint}`, {
+      success,
+      duration: `${duration}ms`,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Here you could send analytics data to your monitoring service
+  // Example: analytics.track('api_call', { endpoint, method, success, duration });
+};
+
+// Helper function to measure API call duration
+export const measureApiCall = async (apiCall) => {
+  const startTime = performance.now();
+  
+  try {
+    const result = await apiCall();
+    const duration = performance.now() - startTime;
+    
+    // Track successful API call
+    trackApiCall(apiCall.name, 'unknown', true, duration);
+    
+    return result;
+  } catch (error) {
+    const duration = performance.now() - startTime;
+    
+    // Track failed API call
+    trackApiCall(apiCall.name, 'unknown', false, duration);
+    
+    throw error;
+  }
 };
 
 // ============================
 // 🛠️ UTILITY EXPORTS
 // ============================
-export { sanitizeData, sanitizeFormData };
+export { 
+  sanitizeData, 
+  sanitizeFormData,
+};
+
+// Export the axios instance for advanced usage
+export { API };
+
+// Export API base URL for reference
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+
+// Export common HTTP status codes for reference
+export const HTTP_STATUS = {
+  OK: 200,
+  CREATED: 201,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  INTERNAL_SERVER_ERROR: 500
+};
+
+// Export common error messages
+export const ERROR_MESSAGES = {
+  NETWORK_ERROR: 'Network error - please check your connection',
+  SERVER_ERROR: 'Server error - please try again later',
+  UNAUTHORIZED: 'You are not authorized to perform this action',
+  FORBIDDEN: 'Access forbidden - insufficient permissions',
+  NOT_FOUND: 'Requested resource not found',
+  VALIDATION_ERROR: 'Please check your input and try again'
+};
