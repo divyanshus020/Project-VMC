@@ -36,21 +36,18 @@ exports.getEnquiryById = async (req, res) => {
   }
 };
 
-// Update an enquiry
-const updateEnquiry = async (req, res) => {
+exports.updateEnquiry = async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
-    
-    // Sanitize undefined values to null
+
     const sanitizedData = {};
     for (const [key, value] of Object.entries(updateData)) {
       sanitizedData[key] = value === undefined ? null : value;
     }
-    
-    // Your existing update logic here
-    const result = await Enquiry.update(id, sanitizedData);
-    
+
+    const result = await enquiryModel.update(id, sanitizedData); // Assuming `update` method exists
+
     res.status(200).json({
       success: true,
       data: result,
@@ -64,6 +61,7 @@ const updateEnquiry = async (req, res) => {
     });
   }
 };
+
 
 // Delete an enquiry
 exports.deleteEnquiry = async (req, res) => {
