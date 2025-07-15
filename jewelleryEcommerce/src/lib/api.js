@@ -46,7 +46,7 @@ export const createProduct = async (formData) => {
 
     // Parse images JSON if it comes back as a string
     if (response.data && typeof response.data.images === 'string') {
-      response.data.images = JSON.parse(response.data.images);
+           response.data.images = JSON.parse(response.data.images);
     }
 
     return response.data;
@@ -351,7 +351,44 @@ export const deleteUser = (id, token) =>
     headers: { Authorization: `Bearer ${token}` },
   });
 
-export const getAllUsers = () => API.get('/users');
+// Update the getAllUsers function
+export const getAllUsers = async () => {
+  try {
+    console.log('🔄 Fetching all users...');
+    
+    const response = await API.get('/users');
+    console.log('📋 Users API response:', response.data);
+    
+    if (response.data && response.data.success) {
+      return {
+        success: true,
+        data: Array.isArray(response.data.data) ? response.data.data : [],
+        count: response.data.count || 0
+      };
+    } else if (Array.isArray(response.data)) {
+      // Handle direct array response
+      return {
+        success: true,
+        data: response.data,
+        count: response.data.length
+      };
+    }
+    
+    return { 
+      success: false, 
+      data: [], 
+      error: 'Invalid users response format' 
+    };
+    
+  } catch (error) {
+    console.error('❌ Error fetching users:', error);
+    return { 
+      success: false, 
+      data: [], 
+      error: error.response?.data?.message || error.message || 'Failed to fetch users'
+    };
+  }
+};
 
 // ============================
 // 🛡️ ADMIN APIs (UPDATED)
@@ -534,7 +571,6 @@ export const getAllAdmins = async (token) => {
       success: true,
       data: response.data
     };
-
   } catch (error) {
     console.error('Error fetching all admins:', error);
     return {
@@ -756,6 +792,7 @@ export const getDetailedCart = async (token) => {
     };
   }
 };
+
 export const getCartTotal = (token) =>
   API.get('/cart/total', {
     headers: { Authorization: `Bearer ${token}` },
@@ -840,7 +877,7 @@ export const formatTunch = (tunch) => {
 export const FIXED_TUNCH_VALUES = ['92.5', '90', '88.5', '84.5'];
 
 // ============================
-// 📋 ENQUIRY APIs
+// 📋 ENQUIRY APIs (UPDATED)
 // ============================
 
 // Create a new enquiry
@@ -860,7 +897,8 @@ export const createEnquiry = async (data, token) => {
 
     return {
       success: true,
-      data: response.data
+      data: response.data,
+      message: 'Enquiry created successfully'
     };
   } catch (error) {
     console.error('Error creating enquiry:', error);
@@ -871,31 +909,63 @@ export const createEnquiry = async (data, token) => {
   }
 };
 
-// Get all enquiries (Admin only)
+// Get all enquiries (Admin only) - Updated with better error handling
 export const getAllEnquiries = async (token) => {
   try {
+    if (!token) {
+      throw new Error('Authentication token is required');
+    }
+
+    console.log('🔄 Fetching all enquiries...');
+
     const response = await API.get('/enquiries', {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    return {
-      success: true,
-      data: response.data
-    };
-  } catch (error) {
-    console.error('Error fetching enquiries:', error);
+    console.log('📋 Enquiries API response:', response.data);
+
+    // Handle different response formats
+    if (response.data && response.data.success) {
+      return {
+        success: true,
+        data: Array.isArray(response.data.data) ? response.data.data : [],
+        count: response.data.count || 0
+      };
+    } else if (Array.isArray(response.data)) {
+      return {
+        success: true,
+        data: response.data,
+        count: response.data.length
+      };
+    } else if (response.data) {
+      return {
+        success: true,
+        data: [response.data],
+        count: 1
+      };
+    }
+
     return {
       success: false,
       data: [],
-      error: error.response?.data?.message || 'Failed to fetch enquiries'
+      error: 'Invalid enquiries response format'
+    };
+
+  } catch (error) {
+    console.error('❌ Error fetching enquiries:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || error.message || 'Failed to fetch enquiries'
     };
   }
 };
 
-// Get enquiry by ID
+// Get enquiry by ID - Updated with better error handling
 export const getEnquiryById = async (id, token) => {
   try {
     if (!id) throw new Error('Enquiry ID is required');
+    if (!token) throw new Error('Authentication token is required');
 
     const response = await API.get(`/enquiries/${id}`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -914,18 +984,37 @@ export const getEnquiryById = async (id, token) => {
   }
 };
 
-// Update enquiry
+// Update enquiry - Updated with better error handling and status support
 export const updateEnquiry = async (id, data, token) => {
   try {
     if (!id) throw new Error('Enquiry ID is required');
+    if (!token) throw new Error('Authentication token is required');
 
-    const sanitizedData = sanitizeData({
-      productID: parseInt(data.productID),
-      userID: parseInt(data.userID),
-      quantity: parseInt(data.quantity),
-      sizeID: parseInt(data.sizeID),
-      tunch: data.tunch ? data.tunch.toString() : null
-    });
+    // For status updates, we don't need to sanitize all the fields
+    let sanitizedData;
+    if (data.status && Object.keys(data).length === 1) {
+      // If it's just a status update
+      sanitizedData = { status: data.status };
+    } else {
+      // If it's a full enquiry update
+      sanitizedData = sanitizeData({
+        productID: data.productID ? parseInt(data.productID) : undefined,
+        userID: data.userID ? parseInt(data.userID) : undefined,
+        quantity: data.quantity ? parseInt(data.quantity) : undefined,
+        sizeID: data.sizeID ? parseInt(data.sizeID) : undefined,
+        tunch: data.tunch ? data.tunch.toString() : undefined,
+        status: data.status
+      });
+      
+      // Remove undefined values
+      Object.keys(sanitizedData).forEach(key => {
+        if (sanitizedData[key] === undefined) {
+          delete sanitizedData[key];
+        }
+      });
+    }
+
+    console.log(`Updating enquiry ${id} with data:`, sanitizedData);
 
     const response = await API.put(`/enquiries/${id}`, sanitizedData, {
       headers: { Authorization: `Bearer ${token}` }
@@ -933,21 +1022,25 @@ export const updateEnquiry = async (id, data, token) => {
 
     return {
       success: true,
-      data: response.data
+      data: response.data,
+      message: 'Enquiry updated successfully'
     };
   } catch (error) {
     console.error(`Error updating enquiry ${id}:`, error);
     return {
       success: false,
-      error: error.response?.data?.message || 'Failed to update enquiry'
+      error: error.response?.data?.message || error.message || 'Failed to update enquiry'
     };
   }
 };
 
-// Delete enquiry
+// Delete enquiry - Updated with better error handling
 export const deleteEnquiry = async (id, token) => {
   try {
     if (!id) throw new Error('Enquiry ID is required');
+    if (!token) throw new Error('Authentication token is required');
+
+    console.log(`Deleting enquiry ${id}`);
 
     const response = await API.delete(`/enquiries/${id}`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -955,13 +1048,14 @@ export const deleteEnquiry = async (id, token) => {
 
     return {
       success: true,
-      data: response.data
+      data: response.data,
+      message: 'Enquiry deleted successfully'
     };
   } catch (error) {
     console.error(`Error deleting enquiry ${id}:`, error);
     return {
       success: false,
-      error: error.response?.data?.message || 'Failed to delete enquiry'
+      error: error.response?.data?.message || error.message || 'Failed to delete enquiry'
     };
   }
 };
@@ -970,6 +1064,7 @@ export const deleteEnquiry = async (id, token) => {
 export const getEnquiriesByUser = async (userID, token) => {
   try {
     if (!userID) throw new Error('User ID is required');
+    if (!token) throw new Error('Authentication token is required');
 
     const response = await API.get(`/enquiries/user/${userID}`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -992,6 +1087,8 @@ export const getEnquiriesByUser = async (userID, token) => {
 // Get current user's enquiries
 export const getMyEnquiries = async (token) => {
   try {
+    if (!token) throw new Error('Authentication token is required');
+
     const response = await API.get('/enquiries/my-enquiries', {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -1010,23 +1107,54 @@ export const getMyEnquiries = async (token) => {
   }
 };
 
-// Get enquiries with detailed product and size information
+// Get enquiries with detailed product and size information - Updated with better error handling
 export const getDetailedEnquiries = async (token) => {
   try {
+    if (!token) {
+      throw new Error('Authentication token is required');
+    }
+
+    console.log('🔄 Fetching detailed enquiries...');
+
     const response = await API.get('/enquiries/detailed', {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    return {
-      success: true,
-      data: response.data
-    };
-    } catch (error) {
-    console.error('Error fetching detailed enquiries:', error);
+    console.log('📋 Detailed enquiries API response:', response.data);
+
+    // Handle different response formats
+    if (response.data && response.data.success) {
+      return {
+        success: true,
+        data: Array.isArray(response.data.data) ? response.data.data : [],
+        count: response.data.count || 0
+      };
+    } else if (Array.isArray(response.data)) {
+      return {
+        success: true,
+        data: response.data,
+        count: response.data.length
+      };
+    } else if (response.data) {
+      return {
+        success: true,
+        data: [response.data],
+        count: 1
+      };
+    }
+
     return {
       success: false,
       data: [],
-      error: error.response?.data?.message || 'Failed to fetch detailed enquiries'
+      error: 'Invalid detailed enquiries response format'
+    };
+
+  } catch (error) {
+    console.error('❌ Error fetching detailed enquiries:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || error.message || 'Failed to fetch detailed enquiries'
     };
   }
 };
@@ -1035,6 +1163,7 @@ export const getDetailedEnquiries = async (token) => {
 export const getEnquiriesByProduct = async (productID, token) => {
   try {
     if (!productID) throw new Error('Product ID is required');
+    if (!token) throw new Error('Authentication token is required');
 
     const response = await API.get(`/enquiries/product/${productID}`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -1061,6 +1190,8 @@ export const bulkDeleteEnquiries = async (enquiryIds, token) => {
       throw new Error('Enquiry IDs array is required');
     }
 
+    if (!token) throw new Error('Authentication token is required');
+
     const response = await API.delete('/enquiries/bulk-delete', {
       data: { enquiryIds },
       headers: { Authorization: `Bearer ${token}` }
@@ -1068,7 +1199,8 @@ export const bulkDeleteEnquiries = async (enquiryIds, token) => {
 
     return {
       success: true,
-      data: response.data
+      data: response.data,
+      message: 'Enquiries deleted successfully'
     };
   } catch (error) {
     console.error('Error bulk deleting enquiries:', error);
@@ -1082,6 +1214,8 @@ export const bulkDeleteEnquiries = async (enquiryIds, token) => {
 // Get enquiry statistics (for admin dashboard)
 export const getEnquiryStats = async (token) => {
   try {
+    if (!token) throw new Error('Authentication token is required');
+
     const response = await API.get('/enquiries/stats', {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -1096,6 +1230,40 @@ export const getEnquiryStats = async (token) => {
       success: false,
       data: {},
       error: error.response?.data?.message || 'Failed to fetch enquiry statistics'
+    };
+  }
+};
+
+// Bulk update enquiry status
+export const bulkUpdateEnquiryStatus = async (enquiryIds, status, token) => {
+  try {
+    if (!enquiryIds || !Array.isArray(enquiryIds) || enquiryIds.length === 0) {
+      throw new Error('Enquiry IDs array is required');
+    }
+
+    if (!status) {
+      throw new Error('Status is required');
+    }
+
+    if (!token) throw new Error('Authentication token is required');
+
+    const response = await API.patch('/enquiries/bulk-update-status', {
+      enquiryIds,
+      status
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return {
+      success: true,
+      data: response.data,
+      message: `Enquiries ${status} successfully`
+    };
+  } catch (error) {
+    console.error('Error bulk updating enquiry status:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to update enquiry status'
     };
   }
 };
@@ -1365,6 +1533,54 @@ export const measureApiCall = async (apiCall) => {
 };
 
 // ============================
+// 🔍 VALIDATION HELPERS
+// ============================
+
+// Validate enquiry data
+export const validateEnquiryData = (data) => {
+  const errors = {};
+
+  if (!data.productID) {
+    errors.productID = 'Product ID is required';
+  } else if (isNaN(parseInt(data.productID))) {
+    errors.productID = 'Product ID must be a valid number';
+  }
+
+  if (!data.userID) {
+    errors.userID = 'User ID is required';
+  } else if (isNaN(parseInt(data.userID))) {
+    errors.userID = 'User ID must be a valid number';
+  }
+
+  if (!data.quantity) {
+    errors.quantity = 'Quantity is required';
+  } else if (isNaN(parseInt(data.quantity)) || parseInt(data.quantity) <= 0) {
+    errors.quantity = 'Quantity must be a positive number';
+  }
+
+  if (!data.sizeID) {
+    errors.sizeID = 'Size ID is required';
+  } else if (isNaN(parseInt(data.sizeID))) {
+    errors.sizeID = 'Size ID must be a valid number';
+  }
+
+  if (data.tunch && (!validateTunch(data.tunch))) {
+    errors.tunch = 'Tunch must be a valid percentage between 0 and 100';
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors
+  };
+};
+
+// Validate enquiry status
+export const validateEnquiryStatus = (status) => {
+  const validStatuses = ['pending', 'approved', 'rejected', 'cancelled'];
+  return validStatuses.includes(status);
+};
+
+// ============================
 // 🛠️ UTILITY EXPORTS
 // ============================
 export { 
@@ -1399,3 +1615,371 @@ export const ERROR_MESSAGES = {
   NOT_FOUND: 'Requested resource not found',
   VALIDATION_ERROR: 'Please check your input and try again'
 };
+
+// Export enquiry status constants
+export const ENQUIRY_STATUS = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  CANCELLED: 'cancelled'
+};
+
+// Export enquiry status colors for UI
+export const ENQUIRY_STATUS_COLORS = {
+  pending: 'orange',
+  approved: 'green',
+  rejected: 'red',
+  cancelled: 'gray'
+};
+
+// Export enquiry status labels
+export const ENQUIRY_STATUS_LABELS = {
+  pending: 'Pending',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled'
+};
+
+// ============================
+// 🔄 RETRY MECHANISM
+// ============================
+
+// Helper function to retry API calls
+export const retryApiCall = async (apiCall, maxRetries = 3, delay = 1000) => {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔄 API Call attempt ${attempt}/${maxRetries}`);
+      const result = await apiCall();
+      console.log(`✅ API Call succeeded on attempt ${attempt}`);
+      return result;
+    } catch (error) {
+      lastError = error;
+      console.warn(`❌ API Call failed on attempt ${attempt}:`, error.message);
+      
+      // Don't retry on client errors (4xx)
+      if (error.response?.status >= 400 && error.response?.status < 500) {
+        console.log('🚫 Not retrying due to client error');
+        break;
+      }
+      
+      // Wait before retrying (except on last attempt)
+      if (attempt < maxRetries) {
+        console.log(`⏳ Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      }
+    }
+  }
+  
+  console.error(`💥 API Call failed after ${maxRetries} attempts`);
+  throw lastError;
+};
+
+// ============================
+// 🔐 TOKEN MANAGEMENT
+// ============================
+
+// Helper function to get token from localStorage
+export const getAuthToken = (type = 'admin') => {
+  const tokenKey = type === 'admin' ? 'adminToken' : 'userToken';
+  return localStorage.getItem(tokenKey);
+};
+
+// Helper function to set token in localStorage
+export const setAuthToken = (token, type = 'admin') => {
+  const tokenKey = type === 'admin' ? 'adminToken' : 'userToken';
+  localStorage.setItem(tokenKey, token);
+};
+
+// Helper function to remove token from localStorage
+export const removeAuthToken = (type = 'admin') => {
+  const tokenKey = type === 'admin' ? 'adminToken' : 'userToken';
+  localStorage.removeItem(tokenKey);
+};
+
+// Helper function to check if token exists and is valid format
+export const isTokenValid = (token) => {
+  if (!token) return false;
+  
+  try {
+    // Basic JWT format validation (3 parts separated by dots)
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    
+    // Try to decode the payload (middle part)
+    const payload = JSON.parse(atob(parts[1]));
+    
+    // Check if token is expired
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      console.warn('Token is expired');
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Invalid token format:', error);
+    return false;
+  }
+};
+
+// ============================
+// 📱 RESPONSIVE HELPERS
+// ============================
+
+// Helper function to detect mobile device
+export const isMobileDevice = () => {
+  return window.innerWidth <= 768;
+};
+
+// Helper function to get optimal image size based on device
+export const getOptimalImageSize = () => {
+  const width = window.innerWidth;
+  
+  if (width <= 480) return 'small';
+  if (width <= 768) return 'medium';
+  if (width <= 1024) return 'large';
+  return 'xlarge';
+};
+
+// ============================
+// 🎨 UI HELPERS
+// ============================
+
+// Helper function to format currency
+export const formatCurrency = (amount, currency = 'INR') => {
+  if (!amount) return 'N/A';
+  
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: currency,
+    minimumFractionDigits: 2
+  }).format(amount);
+};
+
+// Helper function to format date
+export const formatDate = (date, options = {}) => {
+  if (!date) return 'N/A';
+  
+  const defaultOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  };
+  
+  return new Date(date).toLocaleDateString('en-IN', { ...defaultOptions, ...options });
+};
+
+// Helper function to format relative time
+export const formatRelativeTime = (date) => {
+  if (!date) return 'N/A';
+  
+  const now = new Date();
+  const past = new Date(date);
+  const diffInSeconds = Math.floor((now - past) / 1000);
+  
+  if (diffInSeconds < 60) return 'Just now';
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+  if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+  
+  return formatDate(date, { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
+// Helper function to truncate text
+export const truncateText = (text, maxLength = 100) => {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
+
+// Helper function to generate random color
+export const generateRandomColor = () => {
+  const colors = [
+    '#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1',
+    '#13c2c2', '#eb2f96', '#fa541c', '#a0d911', '#2f54eb'
+  ];
+  return colors[Math.floor(Math.random() * colors.length)];
+};
+
+// ============================
+// 🔍 SEARCH & FILTER HELPERS
+// ============================
+
+// Helper function to create search regex
+export const createSearchRegex = (searchTerm) => {
+  if (!searchTerm) return null;
+  
+  try {
+    // Escape special regex characters
+    const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(escapedTerm, 'i');
+  } catch (error) {
+    console.error('Invalid search term:', error);
+    return null;
+  }
+};
+
+// Helper function to highlight search terms
+export const highlightSearchTerm = (text, searchTerm) => {
+  if (!text || !searchTerm) return text;
+  
+  const regex = createSearchRegex(searchTerm);
+  if (!regex) return text;
+  
+  return text.replace(regex, `<mark>$&</mark>`);
+};
+
+// Helper function to filter array by multiple criteria
+export const filterData = (data, filters) => {
+  if (!Array.isArray(data)) return [];
+  
+  return data.filter(item => {
+    return Object.entries(filters).every(([key, value]) => {
+      if (!value || value === 'all') return true;
+      
+      const itemValue = item[key];
+      
+      if (typeof value === 'string') {
+        return String(itemValue).toLowerCase().includes(value.toLowerCase());
+      }
+      
+      return itemValue === value;
+    });
+  });
+};
+
+// ============================
+// 📊 DATA PROCESSING HELPERS
+// ============================
+
+// Helper function to group data by key
+export const groupBy = (array, key) => {
+  if (!Array.isArray(array)) return {};
+  
+  return array.reduce((groups, item) => {
+    const group = item[key];
+    groups[group] = groups[group] || [];
+    groups[group].push(item);
+    return groups;
+  }, {});
+};
+
+// Helper function to sort data
+export const sortData = (data, key, direction = 'asc') => {
+  if (!Array.isArray(data)) return [];
+  
+  return [...data].sort((a, b) => {
+    const aValue = a[key];
+    const bValue = b[key];
+    
+    if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+    if (aValue > bValue) return direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+};
+
+// Helper function to paginate data
+export const paginateData = (data, page = 1, pageSize = 10) => {
+  if (!Array.isArray(data)) return { data: [], total: 0, pages: 0 };
+  
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  
+  return {
+    data: data.slice(startIndex, endIndex),
+    total: data.length,
+    pages: Math.ceil(data.length / pageSize),
+    currentPage: page,
+    pageSize
+  };
+};
+
+// ============================
+// 🔔 NOTIFICATION HELPERS
+// ============================
+
+// Helper function to show success notification
+export const showSuccessNotification = (message, description = '') => {
+  if (typeof window !== 'undefined' && window.antd?.notification) {
+    window.antd.notification.success({
+      message,
+      description,
+      placement: 'topRight',
+      duration: 4.5
+    });
+  } else {
+    console.log('✅ Success:', message, description);
+  }
+};
+
+// Helper function to show error notification
+export const showErrorNotification = (message, description = '') => {
+  if (typeof window !== 'undefined' && window.antd?.notification) {
+    window.antd.notification.error({
+      message,
+      description,
+      placement: 'topRight',
+      duration: 6
+    });
+  } else {
+    console.error('❌ Error:', message, description);
+  }
+};
+
+// Helper function to show warning notification
+export const showWarningNotification = (message, description = '') => {
+  if (typeof window !== 'undefined' && window.antd?.notification) {
+    window.antd.notification.warning({
+      message,
+      description,
+      placement: 'topRight',
+      duration: 5
+    });
+  } else {
+    console.warn('⚠️ Warning:', message, description);
+  }
+};
+
+// ============================
+// 🔧 DEVELOPMENT HELPERS
+// ============================
+
+// Helper function to log API calls in development
+export const logApiCall = (method, url, data, response) => {
+  if (import.meta.env.DEV) {
+    console.group(`🔍 API Call: ${method.toUpperCase()} ${url}`);
+    console.log('📤 Request Data:', data);
+    console.log('📥 Response:', response);
+    console.groupEnd();
+  }
+};
+
+// Helper function to measure performance
+export const measurePerformance = (label, fn) => {
+  if (import.meta.env.DEV) {
+    console.time(label);
+    const result = fn();
+    console.timeEnd(label);
+    return result;
+  }
+  return fn();
+};
+
+// ============================
+// 🎯 FINAL EXPORTS
+// ============================
+
+// Export all utility functions
+
+
+// Export version for debugging
+export const API_VERSION = '1.0.0';
+
+// Export build timestamp
+export const BUILD_TIMESTAMP = new Date().toISOString();
+
+console.log(`🚀 API Library loaded - Version: ${API_VERSION}, Build: ${BUILD_TIMESTAMP}`);

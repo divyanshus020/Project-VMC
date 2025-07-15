@@ -16,6 +16,7 @@ import ProductDetail from './pages/ProductDetail.jsx';
 import Cart from './pages/Cart.jsx';
 import AddProduct from './pages/AddProduct.jsx'; // ✅ Fixed typo here
 import AdminProductPage from './components/AdminDashboard/AdminProductpage.jsx'; // ✅ Fixed typo here
+import AdminEnquery from './components/AdminDashboard/AdminEnquery.jsx'; // ✅ Fixed typo here
 function AppWrapper() {
   const location = useLocation();
 
@@ -73,6 +74,14 @@ function AppWrapper() {
           element={
             <ProtectedRoute>
               <AdminProductPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/enquiry"
+          element={
+            <ProtectedRoute>
+              <AdminEnquery />
             </ProtectedRoute>
           }
         />

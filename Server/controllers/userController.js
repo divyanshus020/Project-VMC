@@ -213,26 +213,133 @@ exports.updateProfile = async (req, res) => {
 // ===============================
 exports.deleteProfile = async (req, res) => {
   try {
-    // You need to implement a deleteById method in your User model if not present
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Example: await User.deleteById(user.id);
-    res.json({ message: 'Profile deleted successfully (implement delete logic)' });
+    const deleted = await User.deleteById(user.id);
+    if (deleted) {
+      res.json({ message: 'Profile deleted successfully' });
+    } else {
+      res.status(404).json({ message: 'User not found or already deleted' });
+    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
 // ===============================
-// 9️⃣ Get All Users
+// 9️⃣ Get All Users - ✅ FIXED
 // ===============================
 exports.getAllUsers = async (req, res) => {
   try {
-    // You need to implement a findAll method in your User model if not present
-    // Example: const users = await User.findAll();
-    res.json([]); // Return empty array or implement logic
+    console.log('📋 Fetching all users from database...');
+    
+    const users = await User.findAll();
+    const userCount = await User.getCount();
+    
+    console.log(`✅ Found ${users.length} users in database`);
+    
+    // Return users with additional metadata
+    res.status(200).json({
+      success: true,
+      data: users,
+      count: userCount,
+      message: `Found ${users.length} users`
+    });
+    
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('❌ Error fetching users:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch users', 
+      error: err.message 
+    });
+  }
+};
+
+// ===============================
+// 🔟 Get User by ID
+// ===============================
+exports.getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID is required' 
+      });
+    }
+
+    const user = await User.findById(id);
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    // Remove sensitive data
+    const { otpCode, otpExpiresAt, ...safeUser } = user;
+
+    res.status(200).json({
+      success: true,
+      data: safeUser
+    });
+
+  } catch (err) {
+    console.error('Error fetching user by ID:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch user', 
+      error: err.message 
+    });
+  }
+};
+
+// ===============================
+// 1️⃣1️⃣ Delete User by ID (Admin)
+// ===============================
+exports.deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID is required' 
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    const deleted = await User.deleteById(id);
+    
+    if (deleted) {
+      res.status(200).json({ 
+        success: true, 
+        message: 'User deleted successfully' 
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to delete user' 
+      });
+    }
+
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to delete user', 
+      error: err.message 
+    });
   }
 };

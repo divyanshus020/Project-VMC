@@ -109,5 +109,56 @@ module.exports = {
     );
     await connection.end();
     return rows[0] || null;
+  },
+
+  // ✅ NEW: Get all users
+  async findAll() {
+    const connection = await getConnection();
+    try {
+      const [rows] = await connection.execute(
+        `SELECT id, fullName, email, address, phoneNumber, createdAt, updatedAt 
+         FROM users 
+         ORDER BY createdAt DESC`
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error fetching all users:', error);
+      throw error;
+    } finally {
+      await connection.end();
+    }
+  },
+
+  // ✅ NEW: Get users count
+  async getCount() {
+    const connection = await getConnection();
+    try {
+      const [rows] = await connection.execute(
+        `SELECT COUNT(*) as count FROM users`
+      );
+      return rows[0].count;
+    } catch (error) {
+      console.error('Error getting users count:', error);
+      throw error;
+    } finally {
+      await connection.end();
+    }
+  },
+
+  // ✅ NEW: Delete user by ID
+  async deleteById(id) {
+    const connection = await getConnection();
+    try {
+      const [result] = await connection.execute(
+        `DELETE FROM users WHERE id = ?`,
+        [id]
+      );
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    } finally {
+      await connection.end();
+    }
   }
 };

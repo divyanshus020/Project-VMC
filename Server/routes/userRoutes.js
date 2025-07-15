@@ -11,12 +11,12 @@ const { protect } = require('../middleware/auth');
 router.post('/check-exists', userController.checkUserExists);
 
 // Send OTP routes
-router.post('/send-otp-login', userController.sendOTPForLogin);       // Changed
-router.post('/send-otp-register', userController.sendOTPForRegister); // Changed
+router.post('/send-otp-login', userController.sendOTPForLogin);
+router.post('/send-otp-register', userController.sendOTPForRegister);
 
 // Verify OTP routes
-router.post('/verify-otp-login', userController.verifyOTPForLogin);    // Changed
-router.post('/verify-otp-register', userController.verifyOTPForRegister); // Changed
+router.post('/verify-otp-login', userController.verifyOTPForLogin);
+router.post('/verify-otp-register', userController.verifyOTPForRegister);
 
 // ==============================
 // 👤 USER PROFILE ROUTES (MySQL)
@@ -31,7 +31,17 @@ router.put('/profile', protect, userController.updateProfile);
 // 👉 Delete user profile (requires token)
 router.delete('/profile', protect, userController.deleteProfile);
 
-// 👉 Get all users (admin only, add auth middleware as needed)
+// ==============================
+// 👥 USER MANAGEMENT ROUTES
+// ==============================
+
+// 👉 Get all users (public route, but you might want to add admin auth)
 router.get('/', userController.getAllUsers);
+
+// 👉 Get user by ID
+router.get('/:id', userController.getUserById);
+
+// 👉 Delete user by ID (admin only - add admin auth middleware as needed)
+router.delete('/:id', userController.deleteUser);
 
 module.exports = router;

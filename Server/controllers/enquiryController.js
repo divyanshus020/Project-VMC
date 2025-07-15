@@ -37,13 +37,31 @@ exports.getEnquiryById = async (req, res) => {
 };
 
 // Update an enquiry
-exports.updateEnquiry = async (req, res) => {
+const updateEnquiry = async (req, res) => {
   try {
-    const { productID, userID, quantity, sizeID, tunch } = req.body;
-    const updated = await enquiryModel.update(req.params.id, { productID, userID, quantity, sizeID, tunch });
-    res.json({ message: "Enquiry updated", enquiry: updated });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    // Sanitize undefined values to null
+    const sanitizedData = {};
+    for (const [key, value] of Object.entries(updateData)) {
+      sanitizedData[key] = value === undefined ? null : value;
+    }
+    
+    // Your existing update logic here
+    const result = await Enquiry.update(id, sanitizedData);
+    
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: 'Enquiry updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating enquiry:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update enquiry'
+    });
   }
 };
 
