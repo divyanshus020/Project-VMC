@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { addToCart, createEnquiry } from '../../lib/api'
+import { jwtDecode } from 'jwt-decode'
 
 const ProductInfo = ({ product }) => {
   const [quantity, setQuantity] = useState(1)
@@ -13,6 +14,70 @@ const ProductInfo = ({ product }) => {
 
   // Add the fixed tunch values
   const FIXED_TUNCH_VALUES = ['92.5', '90', '88.5', '84.5'];
+
+  // Updated getUserIdFromToken function
+  const getUserIdFromToken = () => {
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('userToken')
+      if (!token) {
+        console.error('No token found in localStorage');
+        return null;
+      }
+
+      // Try to decode JWT token
+      try {
+        const decoded = jwtDecode(token);
+        console.log('Decoded token:', decoded);
+        
+        // Try different possible user ID fields in the token
+        const userId = decoded.userId || decoded.id || decoded.user_id || decoded.sub;
+        if (userId) {
+          console.log('Found user ID in token:', userId);
+          return userId;
+        }
+      } catch (decodeError) {
+        console.error('Error decoding token:', decodeError);
+      }
+
+      // Fallback: Try to get user data from localStorage
+      const userData = localStorage.getItem('userData');
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          const userId = user.id || user.userId || user.user_id;
+          if (userId) {
+            console.log('Found user ID in userData:', userId);
+            return userId;
+          }
+        } catch (parseError) {
+          console.error('Error parsing userData:', parseError);
+        }
+      }
+      
+      // Try to get user info from another storage key
+      const userInfo = localStorage.getItem('userInfo');
+      if (userInfo) {
+        try {
+          const user = JSON.parse(userInfo);
+          const userId = user.id || user.userId || user.user_id;
+          if (userId) {
+            console.log('Found user ID in userInfo:', userId);
+            return userId;
+          }
+        } catch (parseError) {
+          console.error('Error parsing userInfo:', parseError);
+        }
+      }
+
+      // Debug: Log all localStorage keys to help identify where user data might be stored
+      console.log('Available localStorage keys:', Object.keys(localStorage));
+      
+      return null;
+    } catch (error) {
+      console.error('Error getting user ID:', error);
+      return null;
+    }
+  };
 
   const handleAddToCart = async () => {
     const token = localStorage.getItem('token') || localStorage.getItem('userToken')
@@ -121,37 +186,11 @@ const ProductInfo = ({ product }) => {
       return;
     }
 
-    // Get user ID from token or localStorage
-    const getUserIdFromToken = () => {
-      try {
-        // Try to get user data from localStorage
-        const userData = localStorage.getItem('userData');
-        if (userData) {
-          const user = JSON.parse(userData);
-          return user.id || user.userId || user.user_id;
-        }
-        
-        // Try to get user info from another storage key
-        const userInfo = localStorage.getItem('userInfo');
-        if (userInfo) {
-          const user = JSON.parse(userInfo);
-          return user.id || user.userId || user.user_id;
-        }
-        
-        // If you need to decode JWT token, you can use jwt-decode library
-        // const decoded = jwt_decode(token);
-        // return decoded.userId || decoded.id || decoded.user_id;
-        
-        return null;
-      } catch (error) {
-        console.error('Error getting user ID:', error);
-        return null;
-      }
-    };
-
+    // Get user ID from token
     const userId = getUserIdFromToken();
     if (!userId) {
       alert('Unable to identify user. Please login again.');
+      console.error('Could not extract user ID from token or localStorage');
       return;
     }
 
@@ -316,7 +355,7 @@ const ProductInfo = ({ product }) => {
             <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
               <div className="flex items-center mb-2 text-amber-800">
                 <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 ..." clipRule="evenodd" />
+                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 Selected Configuration
               </div>
@@ -344,7 +383,7 @@ const ProductInfo = ({ product }) => {
           </label>
           <select
             value={quantityMode}
-                        onChange={(e) => {
+            onChange={(e) => {
               setQuantityMode(e.target.value);
               setCustomWeight('');
             }}
