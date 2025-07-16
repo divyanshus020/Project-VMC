@@ -17,6 +17,7 @@ import Cart from './pages/Cart.jsx';
 import AddProduct from './pages/AddProduct.jsx'; // ✅ Fixed typo here
 import AdminProductPage from './components/AdminDashboard/AdminProductpage.jsx'; // ✅ Fixed typo here
 import AdminEnquery from './components/AdminDashboard/AdminEnquery.jsx'; // ✅ Fixed typo here
+import AdminSizesPage from './components/AdminDashboard/AdminSizesPage.jsx'; // ✅ Fixed typo here
 function AppWrapper() {
   const location = useLocation();
 
@@ -85,6 +86,7 @@ function AppWrapper() {
             </ProtectedRoute>
           }
         />
+        <Route path="/admin/sizes" element={<AdminSizesPage />} />
       </Routes>
       {!hideLayout && <Footer />}
     </>

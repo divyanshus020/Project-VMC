@@ -32,6 +32,7 @@ function AdminNavbar() {
     { to: '/admin/products', label: 'Products', icon: '📦' },
     { to: '/admin/enquiry', label: 'Enquiry', icon: '📧' },
     { to: '/admin/add-product', label: 'Add Product', icon: '➕' },
+    { to: '/admin/sizes', label: 'Sizes', icon: '📏' },
     { to: '/admin/admins', label: 'Admins', icon: '👨‍💼' },
   ];
 
