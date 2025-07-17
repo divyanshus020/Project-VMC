@@ -345,7 +345,7 @@ const MainNavbar = ({ onMobileMenuToggle, onLogout }) => {
                       transition: 'all 0.2s'
                     }}
                   >
-                    <Badge badgeContent={2} color="primary" sx={{ '& .MuiBadge-badge': { fontSize: '0.7rem', backgroundColor: '#D4AF37' } }}>
+                    <Badge color="primary" sx={{ '& .MuiBadge-badge': { fontSize: '0.7rem', backgroundColor: '#D4AF37' } }}>
                       <ShoppingCartOutlined />
                     </Badge>
                     <Typography sx={{ ml: 1, display: { xs: 'none', lg: 'block' }, fontSize: '0.875rem' }}>
