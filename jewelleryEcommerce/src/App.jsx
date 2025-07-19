@@ -18,6 +18,7 @@ import AddProduct from './pages/AddProduct.jsx'; // ✅ Fixed typo here
 import AdminProductPage from './components/AdminDashboard/AdminProductpage.jsx'; // ✅ Fixed typo here
 import AdminEnquery from './components/AdminDashboard/AdminEnquery.jsx'; // ✅ Fixed typo here
 import AdminSizesPage from './components/AdminDashboard/AdminSizesPage.jsx'; // ✅ Fixed typo here
+import Order from './pages/Order.jsx';
 function AppWrapper() {
   const location = useLocation();
 
@@ -41,6 +42,7 @@ function AppWrapper() {
         <Route path="/profile" element={<Account />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/products/:id" element={<ProductDetail />} />
+        <Route path='/orders' element={<Order />} />
 
         {/* Admin Login (public) */}
         <Route path="/admin/login" element={<AdminLogin />} />
