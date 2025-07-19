@@ -62,6 +62,35 @@ exports.updateEnquiry = async (req, res) => {
   }
 };
 
+// Get current user's enquiries
+exports.getMyEnquiries = async (req, res) => {
+  try {
+    // Extract user ID from the authenticated user (assuming you have auth middleware)
+    const userID = req.user?.userId || req.user?.id || req.user?.userID;
+    
+    console.log('Auth user object:', req.user);
+    console.log('Extracted userID:', userID);
+    
+    if (!userID) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    console.log('Fetching enquiries for user ID:', userID);
+    
+    const enquiries = await enquiryModel.findByUser(userID);
+    
+    console.log('Found enquiries:', enquiries);
+    
+    if (!enquiries || enquiries.length === 0) {
+      return res.json([]);
+    }
+    
+    res.json(enquiries);
+  } catch (err) {
+    console.error('Error fetching user enquiries:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
 
 // Delete an enquiry
 exports.deleteEnquiry = async (req, res) => {

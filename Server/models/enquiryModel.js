@@ -71,11 +71,25 @@ module.exports = {
     return { message: "Enquiry deleted" };
   },
 
-  // Get all enquiries by user ID
+  // Get all enquiries by user ID with product and size details
   async findByUser(userID) {
     const connection = await getConnection();
-    const [rows] = await connection.execute(`SELECT * FROM enquiries WHERE userID = ?`, [userID]);
-    await connection.end();
-    return rows;
+    try {
+      const [rows] = await connection.execute(
+        `SELECT e.*, p.name as productName, p.category, s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight
+         FROM enquiries e
+         LEFT JOIN products p ON e.productID = p.id
+         LEFT JOIN sizes s ON e.sizeID = s.id
+         WHERE e.userID = ?
+         ORDER BY e.createdAt DESC`,
+        [userID]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error finding enquiries by user:', error);
+      throw error;
+    } finally {
+      await connection.end();
+    }
   }
 };

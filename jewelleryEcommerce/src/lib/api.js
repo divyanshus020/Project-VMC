@@ -897,17 +897,18 @@ export const createEnquiry = async (data, token) => {
 
     return {
       success: true,
-      data: response.data,
-      message: 'Enquiry created successfully'
+      data: response.data.enquiry,
+      message: response.data.message || 'Enquiry created successfully'
     };
   } catch (error) {
     console.error('Error creating enquiry:', error);
     return {
       success: false,
-      error: error.response?.data?.message || 'Failed to create enquiry'
+      error: error.response?.data?.error || error.response?.data?.message || 'Failed to create enquiry'
     };
   }
 };
+
 
 // Get all enquiries (Admin only) - Updated with better error handling
 export const getAllEnquiries = async (token) => {
@@ -924,24 +925,21 @@ export const getAllEnquiries = async (token) => {
 
     console.log('📋 Enquiries API response:', response.data);
 
-    // Handle different response formats
-    if (response.data && response.data.success) {
-      return {
-        success: true,
-        data: Array.isArray(response.data.data) ? response.data.data : [],
-        count: response.data.count || 0
-      };
-    } else if (Array.isArray(response.data)) {
+    // Backend returns array directly
+    if (Array.isArray(response.data)) {
       return {
         success: true,
         data: response.data,
         count: response.data.length
       };
-    } else if (response.data) {
+    }
+
+    // Handle wrapped response
+    if (response.data && response.data.success) {
       return {
         success: true,
-        data: [response.data],
-        count: 1
+        data: Array.isArray(response.data.data) ? response.data.data : [],
+        count: response.data.count || 0
       };
     }
 
@@ -956,7 +954,7 @@ export const getAllEnquiries = async (token) => {
     return {
       success: false,
       data: [],
-      error: error.response?.data?.message || error.message || 'Failed to fetch enquiries'
+      error: error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to fetch enquiries'
     };
   }
 };
@@ -979,40 +977,27 @@ export const getEnquiryById = async (id, token) => {
     console.error(`Error fetching enquiry ${id}:`, error);
     return {
       success: false,
-      error: error.response?.data?.message || 'Failed to fetch enquiry'
+      error: error.response?.data?.error || error.response?.data?.message || 'Failed to fetch enquiry'
     };
   }
 };
 
+// Update enquiry - Updated with better error handling and status support
 // Update enquiry - Updated with better error handling and status support
 export const updateEnquiry = async (id, data, token) => {
   try {
     if (!id) throw new Error('Enquiry ID is required');
     if (!token) throw new Error('Authentication token is required');
 
-    // For status updates, we don't need to sanitize all the fields
-    let sanitizedData;
-    if (data.status && Object.keys(data).length === 1) {
-      // If it's just a status update
-      sanitizedData = { status: data.status };
-    } else {
-      // If it's a full enquiry update
-      sanitizedData = sanitizeData({
-        productID: data.productID ? parseInt(data.productID) : undefined,
-        userID: data.userID ? parseInt(data.userID) : undefined,
-        quantity: data.quantity ? parseInt(data.quantity) : undefined,
-        sizeID: data.sizeID ? parseInt(data.sizeID) : undefined,
-        tunch: data.tunch ? data.tunch.toString() : undefined,
-        status: data.status
-      });
-      
-      // Remove undefined values
-      Object.keys(sanitizedData).forEach(key => {
-        if (sanitizedData[key] === undefined) {
-          delete sanitizedData[key];
-        }
-      });
-    }
+    // Sanitize data - only include fields that are provided
+    const sanitizedData = {};
+    
+    if (data.productID !== undefined) sanitizedData.productID = parseInt(data.productID);
+    if (data.userID !== undefined) sanitizedData.userID = parseInt(data.userID);
+    if (data.quantity !== undefined) sanitizedData.quantity = parseInt(data.quantity);
+    if (data.sizeID !== undefined) sanitizedData.sizeID = parseInt(data.sizeID);
+    if (data.tunch !== undefined) sanitizedData.tunch = data.tunch ? data.tunch.toString() : null;
+    if (data.status !== undefined) sanitizedData.status = data.status;
 
     console.log(`Updating enquiry ${id} with data:`, sanitizedData);
 
@@ -1021,15 +1006,15 @@ export const updateEnquiry = async (id, data, token) => {
     });
 
     return {
-      success: true,
-      data: response.data,
-      message: 'Enquiry updated successfully'
+      success: response.data.success || true,
+      data: response.data.data || response.data,
+      message: response.data.message || 'Enquiry updated successfully'
     };
   } catch (error) {
     console.error(`Error updating enquiry ${id}:`, error);
     return {
       success: false,
-      error: error.response?.data?.message || error.message || 'Failed to update enquiry'
+      error: error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to update enquiry'
     };
   }
 };
@@ -1055,7 +1040,7 @@ export const deleteEnquiry = async (id, token) => {
     console.error(`Error deleting enquiry ${id}:`, error);
     return {
       success: false,
-      error: error.response?.data?.message || error.message || 'Failed to delete enquiry'
+      error: error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to delete enquiry'
     };
   }
 };
@@ -1070,6 +1055,14 @@ export const getEnquiriesByUser = async (userID, token) => {
       headers: { Authorization: `Bearer ${token}` }
     });
 
+    // Backend returns array directly
+    if (Array.isArray(response.data)) {
+      return {
+        success: true,
+        data: response.data
+      };
+    }
+
     return {
       success: true,
       data: response.data
@@ -1079,7 +1072,7 @@ export const getEnquiriesByUser = async (userID, token) => {
     return {
       success: false,
       data: [],
-      error: error.response?.data?.message || 'Failed to fetch user enquiries'
+      error: error.response?.data?.error || error.response?.data?.message || 'Failed to fetch user enquiries'
     };
   }
 };
@@ -1093,6 +1086,14 @@ export const getMyEnquiries = async (token) => {
       headers: { Authorization: `Bearer ${token}` }
     });
 
+    // Backend returns array directly
+    if (Array.isArray(response.data)) {
+      return {
+        success: true,
+        data: response.data
+      };
+    }
+
     return {
       success: true,
       data: response.data
@@ -1102,7 +1103,7 @@ export const getMyEnquiries = async (token) => {
     return {
       success: false,
       data: [],
-      error: error.response?.data?.message || 'Failed to fetch your enquiries'
+      error: error.response?.data?.error || error.response?.data?.message || 'Failed to fetch your enquiries'
     };
   }
 };
@@ -1159,58 +1160,6 @@ export const getDetailedEnquiries = async (token) => {
   }
 };
 
-// Get enquiries by product ID
-export const getEnquiriesByProduct = async (productID, token) => {
-  try {
-    if (!productID) throw new Error('Product ID is required');
-    if (!token) throw new Error('Authentication token is required');
-
-    const response = await API.get(`/enquiries/product/${productID}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    return {
-      success: true,
-      data: response.data
-    };
-  } catch (error) {
-    console.error(`Error fetching enquiries for product ${productID}:`, error);
-    return {
-      success: false,
-      data: [],
-      error: error.response?.data?.message || 'Failed to fetch product enquiries'
-    };
-  }
-};
-
-// Bulk delete enquiries
-export const bulkDeleteEnquiries = async (enquiryIds, token) => {
-  try {
-    if (!enquiryIds || !Array.isArray(enquiryIds) || enquiryIds.length === 0) {
-      throw new Error('Enquiry IDs array is required');
-    }
-
-    if (!token) throw new Error('Authentication token is required');
-
-    const response = await API.delete('/enquiries/bulk-delete', {
-      data: { enquiryIds },
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    return {
-      success: true,
-      data: response.data,
-      message: 'Enquiries deleted successfully'
-    };
-  } catch (error) {
-    console.error('Error bulk deleting enquiries:', error);
-    return {
-      success: false,
-      error: error.response?.data?.message || 'Failed to delete enquiries'
-    };
-  }
-};
-
 // Get enquiry statistics (for admin dashboard)
 export const getEnquiryStats = async (token) => {
   try {
@@ -1234,39 +1183,6 @@ export const getEnquiryStats = async (token) => {
   }
 };
 
-// Bulk update enquiry status
-export const bulkUpdateEnquiryStatus = async (enquiryIds, status, token) => {
-  try {
-    if (!enquiryIds || !Array.isArray(enquiryIds) || enquiryIds.length === 0) {
-      throw new Error('Enquiry IDs array is required');
-    }
-
-    if (!status) {
-      throw new Error('Status is required');
-    }
-
-    if (!token) throw new Error('Authentication token is required');
-
-    const response = await API.patch('/enquiries/bulk-update-status', {
-      enquiryIds,
-      status
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    return {
-      success: true,
-      data: response.data,
-      message: `Enquiries ${status} successfully`
-    };
-  } catch (error) {
-    console.error('Error bulk updating enquiry status:', error);
-    return {
-      success: false,
-      error: error.response?.data?.message || 'Failed to update enquiry status'
-    };
-  }
-};
 
 // ============================
 // ☁️ IMAGE UPLOAD APIs (Cloudinary)
@@ -1402,6 +1318,29 @@ export const handleApiResponse = (response) => {
   } else {
     throw new Error(response.error || 'API request failed');
   }
+};
+
+
+// Add helper function to format enquiry data for display
+export const formatEnquiryForDisplay = (enquiry) => {
+  return {
+    ...enquiry,
+    createdAt: formatDate(enquiry.createdAt),
+    updatedAt: formatDate(enquiry.updatedAt),
+    tunch: formatTunch(enquiry.tunch),
+    status: enquiry.status || 'pending'
+  };
+};
+
+// Add helper function to prepare enquiry data for API
+export const prepareEnquiryData = (formData) => {
+  return {
+    productID: parseInt(formData.productID),
+    userID: parseInt(formData.userID), 
+    quantity: parseInt(formData.quantity),
+    sizeID: parseInt(formData.sizeID),
+    tunch: formData.tunch || null
+  };
 };
 
 // Helper function to format error messages
@@ -1564,6 +1503,7 @@ export const validateEnquiryData = (data) => {
     errors.sizeID = 'Size ID must be a valid number';
   }
 
+  // Tunch is optional in backend
   if (data.tunch && (!validateTunch(data.tunch))) {
     errors.tunch = 'Tunch must be a valid percentage between 0 and 100';
   }
@@ -1619,7 +1559,7 @@ export const ERROR_MESSAGES = {
 // Export enquiry status constants
 export const ENQUIRY_STATUS = {
   PENDING: 'pending',
-  APPROVED: 'approved',
+  APPROVED: 'approved', 
   REJECTED: 'rejected',
   CANCELLED: 'cancelled'
 };
