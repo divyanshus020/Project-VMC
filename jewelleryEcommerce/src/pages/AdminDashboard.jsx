@@ -20,6 +20,7 @@ const AdminDashboard = () => {
       month: 'long',
       day: 'numeric'
     });
+
   };
 
   const formatTime = (date) => {
@@ -45,6 +46,7 @@ const AdminDashboard = () => {
                 <h1 className="text-3xl font-bold text-slate-800 mb-1">
                   Welcome, {admin.name || 'Admin'}!
                 </h1>
+                
                 <p className="text-lg text-slate-600">
                   Role: <span className="font-semibold capitalize">{admin.role || 'Administrator'}</span>
                 </p>

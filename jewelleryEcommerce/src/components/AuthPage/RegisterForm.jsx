@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  TextField,
-  Button,
-  Typography,
-  CircularProgress,
+  Box, TextField, Button, Typography, CircularProgress,
 } from '@mui/material';
+import ReCAPTCHA from 'react-google-recaptcha';
 import {
   sendOtpForRegister,
   verifyOtpForRegister,
 } from '../../lib/api.js';
+
+const SITE_KEY = '6Lf8YogrAAAAAHHYgIvwFYATUCw22G1F7GZkqzpM'; // Replace with your actual reCAPTCHA site key
 
 const RegisterForm = () => {
   const [formData, setFormData] = useState({
@@ -24,6 +23,7 @@ const RegisterForm = () => {
   const [otpVerified, setOtpVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(0);
+  const [captchaVerified, setCaptchaVerified] = useState(false);
 
   useEffect(() => {
     let interval;
@@ -41,9 +41,18 @@ const RegisterForm = () => {
     }));
   };
 
+  const handleCaptchaChange = (value) => {
+    setCaptchaVerified(!!value);
+  };
+
+  const isFormComplete = Object.values(formData).every((val) => val.trim() !== '');
+
   const handleSendOtp = async () => {
     if (!formData.phoneNumber.trim()) {
       return alert('Please enter a phone number.');
+    }
+    if (!captchaVerified) {
+      return alert('Please verify the CAPTCHA.');
     }
 
     try {
@@ -51,7 +60,7 @@ const RegisterForm = () => {
       const response = await sendOtpForRegister(formData.phoneNumber.trim());
       console.log('OTP sent:', response.data);
       setOtpSent(true);
-      setTimer(15); // Start 15s timer
+      setTimer(15);
       alert('OTP sent to your phone number.');
     } catch (err) {
       console.error('Error sending OTP:', err);
@@ -62,14 +71,11 @@ const RegisterForm = () => {
   };
 
   const handleResendOtp = async () => {
-    if (!formData.phoneNumber.trim()) {
-      return alert('Please enter a phone number.');
-    }
     try {
       setLoading(true);
       const response = await sendOtpForRegister(formData.phoneNumber.trim());
       console.log('OTP resent:', response.data);
-      setTimer(15); // Restart 15s timer
+      setTimer(15);
       alert('OTP resent to your phone number.');
     } catch (err) {
       console.error('Error resending OTP:', err);
@@ -86,7 +92,6 @@ const RegisterForm = () => {
 
     try {
       setLoading(true);
-
       const res = await verifyOtpForRegister({
         phoneNumber: formData.phoneNumber.trim(),
         otp: otp.trim(),
@@ -99,7 +104,6 @@ const RegisterForm = () => {
         setOtpVerified(true);
         alert('OTP verified. Registration successful!');
         localStorage.setItem('token', res.data.token);
-        // optionally redirect here
       } else {
         alert('Unexpected response from server.');
       }
@@ -118,63 +122,49 @@ const RegisterForm = () => {
       </Typography>
 
       <TextField
-        fullWidth
-        label="Full Name"
-        name="fullName"
-        value={formData.fullName}
-        onChange={handleChange}
-        variant="outlined"
-        margin="normal"
+        fullWidth label="Full Name" name="fullName"
+        value={formData.fullName} onChange={handleChange}
+        variant="outlined" margin="normal"
       />
-
       <TextField
-        fullWidth
-        label="Email"
-        name="email"
-        value={formData.email}
-        onChange={handleChange}
-        variant="outlined"
-        margin="normal"
-        type="email"
+        fullWidth label="Email" name="email" type="email"
+        value={formData.email} onChange={handleChange}
+        variant="outlined" margin="normal"
       />
-
       <TextField
-        fullWidth
-        label="Address"
-        name="address"
-        value={formData.address}
-        onChange={handleChange}
-        variant="outlined"
-        margin="normal"
+        fullWidth label="Address" name="address"
+        value={formData.address} onChange={handleChange}
+        variant="outlined" margin="normal"
       />
-
       <TextField
-        fullWidth
-        label="Phone Number"
-        name="phoneNumber"
-        value={formData.phoneNumber}
-        onChange={handleChange}
-        variant="outlined"
-        margin="normal"
-        type="tel"
+        fullWidth label="Phone Number" name="phoneNumber" type="tel"
+        value={formData.phoneNumber} onChange={handleChange}
+        variant="outlined" margin="normal"
         disabled={otpSent}
       />
 
       {!otpSent ? (
-        <Button
-          onClick={handleSendOtp}
-          fullWidth
-          variant="contained"
-          sx={{ mt: 2, bgcolor: '#1976d2' }}
-          disabled={loading}
-        >
-          {loading ? <CircularProgress size={24} /> : 'Send OTP'}
-        </Button>
+        <>
+          {isFormComplete && (
+            <Box mt={2}>
+              <ReCAPTCHA sitekey={SITE_KEY} onChange={handleCaptchaChange} />
+            </Box>
+          )}
+
+          <Button
+            onClick={handleSendOtp}
+            fullWidth
+            variant="contained"
+            sx={{ mt: 2, bgcolor: '#1976d2' }}
+            disabled={loading || !captchaVerified || !isFormComplete}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Send OTP'}
+          </Button>
+        </>
       ) : (
         <>
           <TextField
-            fullWidth
-            label="Enter OTP"
+            fullWidth label="Enter OTP"
             value={otp}
             onChange={(e) => setOtp(e.target.value)}
             variant="outlined"

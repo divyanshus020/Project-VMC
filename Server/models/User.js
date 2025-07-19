@@ -9,17 +9,17 @@ async function getConnection() {
 async function createUserTable() {
   const connection = await getConnection();
   await connection.execute(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      fullName VARCHAR(255),
-      email VARCHAR(255) UNIQUE,
-      address VARCHAR(255),
-      phoneNumber VARCHAR(20) NOT NULL UNIQUE,
-      otpCode VARCHAR(10),
-      otpExpiresAt DATETIME,
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        fullName VARCHAR(255),
+        email VARCHAR(255) UNIQUE,
+        address VARCHAR(255),
+        phoneNumber VARCHAR(20) NOT NULL UNIQUE,
+        otpCode VARCHAR(10),
+        otpExpiresAt DATETIME,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
   `);
   await connection.end();
 }

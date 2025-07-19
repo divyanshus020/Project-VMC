@@ -9,9 +9,12 @@ import {
 import {
   verifyOtpForLogin,
   checkUserExists,
-  sendOtpForLogin, // ✅ New sendOtp API for login
+  sendOtpForLogin,
 } from '../../lib/api';
 import { useNavigate } from 'react-router-dom';
+import ReCAPTCHA from 'react-google-recaptcha';
+
+const RECAPTCHA_SITE_KEY = '6Lf8YogrAAAAAHHYgIvwFYATUCw22G1F7GZkqzpM'; // 🔁 Replace with your real reCAPTCHA v2 site key
 
 const LoginForm = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -19,6 +22,7 @@ const LoginForm = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(0);
+  const [captchaToken, setCaptchaToken] = useState(null);
 
   const navigate = useNavigate();
 
@@ -30,21 +34,24 @@ const LoginForm = () => {
     return () => clearInterval(interval);
   }, [timer]);
 
+  const handleCaptchaChange = (token) => {
+    setCaptchaToken(token);
+  };
+
   const handleSendOtp = async () => {
     const trimmedPhone = phoneNumber.trim();
     if (!trimmedPhone) return alert('Please enter your phone number.');
+    if (!captchaToken) return alert('Please complete the CAPTCHA.');
 
     try {
       setLoading(true);
 
-      // Check if user exists first
       const userExists = await checkUserExists(trimmedPhone);
-      if (!userExists.exists) { // Access exists directly from response
+      if (!userExists.exists) {
         alert('User not found. Please register first.');
         return;
       }
 
-      // Send OTP only if user exists
       const otpResponse = await sendOtpForLogin(trimmedPhone);
       setOtpSent(true);
       setTimer(15);
@@ -63,23 +70,18 @@ const LoginForm = () => {
     try {
       setLoading(true);
       const response = await verifyOtpForLogin(phoneNumber.trim(), otp.trim());
-      
-      // Check if we have a token in the response
-      if (!response?.token) {
-        throw new Error('No authentication token received');
-      }
 
-      // Store the token
+      if (!response?.token) throw new Error('No authentication token received');
+
       localStorage.setItem('token', response.token);
-      
       alert('Login successful!');
       navigate('/profile');
       window.location.reload();
     } catch (err) {
       console.error('OTP verification error:', err);
       alert(
-        err.response?.data?.message || 
-        err.message || 
+        err.response?.data?.message ||
+        err.message ||
         'OTP verification failed. Please try again.'
       );
     } finally {
@@ -104,15 +106,24 @@ const LoginForm = () => {
       />
 
       {!otpSent ? (
-        <Button
-          onClick={handleSendOtp}
-          fullWidth
-          variant="contained"
-          sx={{ mt: 2, bgcolor: '#1976d2' }}
-          disabled={loading}
-        >
-          {loading ? <CircularProgress size={24} /> : 'Send OTP'}
-        </Button>
+        <>
+          {/* ✅ CAPTCHA Only shows if phone number is entered */}
+          {phoneNumber.trim() && (
+            <Box mt={2}>
+              <ReCAPTCHA sitekey={RECAPTCHA_SITE_KEY} onChange={handleCaptchaChange} />
+            </Box>
+          )}
+
+          <Button
+            onClick={handleSendOtp}
+            fullWidth
+            variant="contained"
+            sx={{ mt: 2, bgcolor: '#1976d2' }}
+            disabled={loading || !captchaToken}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Send OTP'}
+          </Button>
+        </>
       ) : (
         <>
           <TextField
