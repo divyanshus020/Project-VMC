@@ -65,6 +65,8 @@ const columns = [
 
 const Order = () => {
     const token = localStorage.getItem('token'); // For user
+
+    console.log("Fetching orders with token:", token); 
    useEffect(() => {
   const fetchData = async () => {
     try {
