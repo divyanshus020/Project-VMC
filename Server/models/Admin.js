@@ -23,6 +23,8 @@ async function createAdminTable() {
   `);
   await connection.end();
 }
+
+// Initialize table
 createAdminTable();
 
 module.exports = {
@@ -38,6 +40,27 @@ module.exports = {
     return { id: result.insertId, email, name, role, isActive };
   },
 
+  // Find all admins
+  async findAll() {
+    const connection = await getConnection();
+    const [rows] = await connection.execute(
+      `SELECT * FROM admins ORDER BY createdAt DESC`
+    );
+    await connection.end();
+    return rows;
+  },
+
+  // Find admin by ID
+  async findById(id) {
+    const connection = await getConnection();
+    const [rows] = await connection.execute(
+      `SELECT * FROM admins WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    await connection.end();
+    return rows[0] || null;
+  },
+
   // Find admin by email
   async findByEmail(email) {
     const connection = await getConnection();
@@ -47,6 +70,73 @@ module.exports = {
     );
     await connection.end();
     return rows[0] || null;
+  },
+
+  // Update admin by ID
+  async updateById(id, updateData) {
+    const connection = await getConnection();
+    
+    // Build dynamic update query
+    const fields = [];
+    const values = [];
+    
+    if (updateData.email !== undefined) {
+      fields.push('email = ?');
+      values.push(updateData.email);
+    }
+    
+    if (updateData.password !== undefined) {
+      fields.push('password = ?');
+      const hashedPassword = await bcrypt.hash(updateData.password, 10);
+      values.push(hashedPassword);
+    }
+    
+    if (updateData.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updateData.name);
+    }
+    
+    if (updateData.role !== undefined) {
+      fields.push('role = ?');
+      values.push(updateData.role);
+    }
+    
+    if (updateData.isActive !== undefined) {
+      fields.push('isActive = ?');
+      values.push(updateData.isActive);
+    }
+    
+    if (fields.length === 0) {
+      await connection.end();
+      throw new Error('No fields to update');
+    }
+    
+    values.push(id);
+    
+    await connection.execute(
+      `UPDATE admins SET ${fields.join(', ')}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
+      values
+    );
+    
+    // Return updated admin
+    const [rows] = await connection.execute(
+      `SELECT * FROM admins WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    
+    await connection.end();
+    return rows[0] || null;
+  },
+
+  // Delete admin by ID
+  async deleteById(id) {
+    const connection = await getConnection();
+    const [result] = await connection.execute(
+      `DELETE FROM admins WHERE id = ?`,
+      [id]
+    );
+    await connection.end();
+    return result.affectedRows > 0;
   },
 
   // Compare password

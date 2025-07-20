@@ -19,6 +19,7 @@ import AdminProductPage from './components/AdminDashboard/AdminProductpage.jsx';
 import AdminEnquery from './components/AdminDashboard/AdminEnquery.jsx'; // ✅ Fixed typo here
 import AdminSizesPage from './components/AdminDashboard/AdminSizesPage.jsx'; // ✅ Fixed typo here
 import Order from './pages/Order.jsx';
+import AdminData from './components/AdminDashboard/AdminData.jsx';
 function AppWrapper() {
   const location = useLocation();
 
@@ -77,6 +78,14 @@ function AppWrapper() {
           element={
             <ProtectedRoute>
               <AdminProductPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/admins"
+          element={
+            <ProtectedRoute>
+              <AdminData />
             </ProtectedRoute>
           }
         />
