@@ -5,22 +5,157 @@ const API = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
 });
 
-// ✅ Helper function to sanitize data before sending to API
+// ✅ Enhanced Helper function to sanitize data before sending to API
 const sanitizeData = (data) => {
+  if (!data || typeof data !== 'object') {
+    return {};
+  }
+  
   const sanitized = {};
   for (const [key, value] of Object.entries(data)) {
-    sanitized[key] = value === undefined ? null : value;
+    // Convert undefined to null, keep other falsy values as-is
+    if (value === undefined) {
+      sanitized[key] = null;
+    } else if (value === 'undefined' || value === '') {
+      // Handle string 'undefined' and empty strings
+      sanitized[key] = null;
+    } else if (typeof value === 'object' && value !== null) {
+      // Recursively sanitize nested objects
+      sanitized[key] = sanitizeData(value);
+    } else {
+      sanitized[key] = value;
+    }
   }
   return sanitized;
 };
 
-// ✅ Helper function to sanitize FormData
+// ✅ Enhanced Helper function to sanitize FormData
 const sanitizeFormData = (formData) => {
   const sanitizedFormData = new FormData();
   for (const [key, value] of formData.entries()) {
-    sanitizedFormData.append(key, value === undefined || value === 'undefined' ? '' : value);
+    if (value === undefined || value === 'undefined') {
+      sanitizedFormData.append(key, '');
+    } else if (value === null) {
+      sanitizedFormData.append(key, '');
+    } else {
+      sanitizedFormData.append(key, value);
+    }
   }
   return sanitizedFormData;
+};
+
+// ✅ Global data sanitizer to handle undefined values
+export const deepSanitizeData = (data) => {
+  if (data === null || data === undefined) {
+    return null;
+  }
+  
+  if (Array.isArray(data)) {
+    return data.map(item => deepSanitizeData(item));
+  }
+  
+  if (typeof data === 'object' && !(data instanceof Date) && !(data instanceof File)) {
+    const sanitized = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value === undefined) {
+        sanitized[key] = null;
+      } else {
+        sanitized[key] = deepSanitizeData(value);
+      }
+    }
+    return sanitized;
+  }
+  
+  return data;
+};
+
+
+// ✅ Enhanced validation for enquiry data
+export const validateEnquiryUpdateData = (data) => {
+  const errors = {};
+  const sanitized = {};
+
+  // Validate and sanitize each field
+  if (data.productID !== undefined) {
+    const productID = parseInt(data.productID);
+    if (isNaN(productID) || productID <= 0) {
+      errors.productID = 'Product ID must be a valid positive number';
+    } else {
+      sanitized.productID = productID;
+    }
+  }
+
+  if (data.userID !== undefined) {
+    const userID = parseInt(data.userID);
+    if (isNaN(userID) || userID <= 0) {
+      errors.userID = 'User ID must be a valid positive number';
+    } else {
+      sanitized.userID = userID;
+    }
+  }
+
+  if (data.quantity !== undefined) {
+    const quantity = parseInt(data.quantity);
+    if (isNaN(quantity) || quantity <= 0) {
+      errors.quantity = 'Quantity must be a valid positive number';
+    } else {
+      sanitized.quantity = quantity;
+    }
+  }
+
+  if (data.sizeID !== undefined) {
+    const sizeID = parseInt(data.sizeID);
+    if (isNaN(sizeID) || sizeID <= 0) {
+      errors.sizeID = 'Size ID must be a valid positive number';
+    } else {
+      sanitized.sizeID = sizeID;
+    }
+  }
+
+  if (data.tunch !== undefined) {
+    if (data.tunch === null || data.tunch === '') {
+      sanitized.tunch = null;
+    } else {
+      const tunch = parseFloat(data.tunch);
+      if (isNaN(tunch) || tunch < 0 || tunch > 100) {
+        errors.tunch = 'Tunch must be a valid percentage between 0 and 100';
+      } else {
+        sanitized.tunch = tunch.toString();
+      }
+    }
+  }
+
+  if (data.status !== undefined) {
+    const validStatuses = ['pending', 'approved', 'rejected', 'cancelled'];
+    if (!validStatuses.includes(data.status)) {
+      errors.status = 'Status must be one of: pending, approved, rejected, cancelled';
+    } else {
+      sanitized.status = data.status;
+    }
+  }
+
+  if (data.updatedAt !== undefined) {
+    if (data.updatedAt) {
+      try {
+        const date = new Date(data.updatedAt);
+        if (isNaN(date.getTime())) {
+          errors.updatedAt = 'Updated date must be a valid date';
+        } else {
+          sanitized.updatedAt = date.toISOString();
+        }
+      } catch (error) {
+        errors.updatedAt = 'Updated date must be a valid date';
+      }
+    } else {
+      sanitized.updatedAt = new Date().toISOString();
+    }
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+    sanitized
+  };
 };
 
 // ===============================
@@ -351,7 +486,7 @@ export const deleteUser = (id, token) =>
     headers: { Authorization: `Bearer ${token}` },
   });
 
-// Update the getAllUsers function
+// Continue from getAllUsers function
 export const getAllUsers = async () => {
   try {
     console.log('🔄 Fetching all users...');
@@ -881,6 +1016,7 @@ export const FIXED_TUNCH_VALUES = ['92.5', '90', '88.5', '84.5'];
 // ============================
 
 // Create a new enquiry
+// Continue from createEnquiry function
 export const createEnquiry = async (data, token) => {
   try {
     const sanitizedData = sanitizeData({
@@ -909,7 +1045,6 @@ export const createEnquiry = async (data, token) => {
   }
 };
 
-
 // Get all enquiries (Admin only) - Updated with better error handling
 export const getAllEnquiries = async (token) => {
   try {
@@ -917,7 +1052,11 @@ export const getAllEnquiries = async (token) => {
       throw new Error('Authentication token is required');
     }
 
-    console.log('🔄 Fetching all enquiries...');
+    if (!isTokenValid(token)) {
+      throw new Error('Invalid or expired authentication token');
+    }
+
+    console.log('🔄 Fetching all enquiries with valid token...');
 
     const response = await API.get('/enquiries', {
       headers: { Authorization: `Bearer ${token}` }
@@ -951,6 +1090,16 @@ export const getAllEnquiries = async (token) => {
 
   } catch (error) {
     console.error('❌ Error fetching enquiries:', error);
+    
+    // Handle specific error cases
+    if (error.response?.status === 401) {
+      return {
+        success: false,
+        data: [],
+        error: 'Authentication failed - please login again'
+      };
+    }
+    
     return {
       success: false,
       data: [],
@@ -982,24 +1131,64 @@ export const getEnquiryById = async (id, token) => {
   }
 };
 
-// Update enquiry - Updated with better error handling and status support
-// Update enquiry - Updated with better error handling and status support
+// Enhanced updateEnquiry function with better data sanitization
 export const updateEnquiry = async (id, data, token) => {
   try {
     if (!id) throw new Error('Enquiry ID is required');
     if (!token) throw new Error('Authentication token is required');
 
-    // Sanitize data - only include fields that are provided
+    // Enhanced sanitization - only include fields that are provided and not undefined
     const sanitizedData = {};
     
-    if (data.productID !== undefined) sanitizedData.productID = parseInt(data.productID);
-    if (data.userID !== undefined) sanitizedData.userID = parseInt(data.userID);
-    if (data.quantity !== undefined) sanitizedData.quantity = parseInt(data.quantity);
-    if (data.sizeID !== undefined) sanitizedData.sizeID = parseInt(data.sizeID);
-    if (data.tunch !== undefined) sanitizedData.tunch = data.tunch ? data.tunch.toString() : null;
-    if (data.status !== undefined) sanitizedData.status = data.status;
+    // Only add fields that have actual values (not undefined)
+    if (data.productID !== undefined && data.productID !== null && data.productID !== '') {
+      const productID = parseInt(data.productID);
+      if (!isNaN(productID)) {
+        sanitizedData.productID = productID;
+      }
+    }
+    
+    if (data.userID !== undefined && data.userID !== null && data.userID !== '') {
+      const userID = parseInt(data.userID);
+      if (!isNaN(userID)) {
+        sanitizedData.userID = userID;
+      }
+    }
+    
+    if (data.quantity !== undefined && data.quantity !== null && data.quantity !== '') {
+      const quantity = parseInt(data.quantity);
+      if (!isNaN(quantity)) {
+        sanitizedData.quantity = quantity;
+      }
+    }
+    
+    if (data.sizeID !== undefined && data.sizeID !== null && data.sizeID !== '') {
+      const sizeID = parseInt(data.sizeID);
+      if (!isNaN(sizeID)) {
+        sanitizedData.sizeID = sizeID;
+      }
+    }
+    
+    if (data.tunch !== undefined) {
+      sanitizedData.tunch = data.tunch ? data.tunch.toString() : null;
+    }
+    
+    if (data.status !== undefined && data.status !== null && data.status !== '') {
+      sanitizedData.status = data.status;
+    }
+    
+    if (data.updatedAt !== undefined) {
+      sanitizedData.updatedAt = data.updatedAt || new Date().toISOString();
+    }
 
-    console.log(`Updating enquiry ${id} with data:`, sanitizedData);
+    // Remove any remaining undefined values
+    Object.keys(sanitizedData).forEach(key => {
+      if (sanitizedData[key] === undefined) {
+        delete sanitizedData[key];
+      }
+    });
+
+    console.log(`Updating enquiry ${id} with sanitized data:`, sanitizedData);
 
     const response = await API.put(`/enquiries/${id}`, sanitizedData, {
       headers: { Authorization: `Bearer ${token}` }
@@ -1078,28 +1267,39 @@ export const getEnquiriesByUser = async (userID, token) => {
 };
 
 // Get current user's enquiries
+// In your api.js file, replace the old getMyEnquiries function with this one:
+
 export const getMyEnquiries = async (token) => {
   try {
-    if (!token) throw new Error('Authentication token is required');
+    if (!token) {
+      // Return a structured error if the token is missing
+      return { success: false, error: 'Authentication token is required' };
+    }
 
     const response = await API.get('/enquiries/my-enquiries', {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    // Backend returns array directly
-    if (Array.isArray(response.data)) {
+    // The backend now returns a structured response { success: true, data: [...] }
+    if (response.data && response.data.success) {
+      return {
+        success: true,
+        data: Array.isArray(response.data.data) ? response.data.data : []
+      };
+    } else if (Array.isArray(response.data)) {
+      // Handle cases where the backend might just return an array
       return {
         success: true,
         data: response.data
       };
     }
 
-    return {
-      success: true,
-      data: response.data
-    };
+    // Handle cases where the response is successful but the format is unexpected
+    return { success: false, error: 'Invalid data format received from server.' };
+
   } catch (error) {
     console.error('Error fetching my enquiries:', error);
+    // Always return a structured error on failure
     return {
       success: false,
       data: [],
@@ -1115,7 +1315,11 @@ export const getDetailedEnquiries = async (token) => {
       throw new Error('Authentication token is required');
     }
 
-    console.log('🔄 Fetching detailed enquiries...');
+    if (!isTokenValid(token)) {
+      throw new Error('Invalid or expired authentication token');
+    }
+
+    console.log('🔄 Fetching detailed enquiries with valid token...');
 
     const response = await API.get('/enquiries/detailed', {
       headers: { Authorization: `Bearer ${token}` }
@@ -1152,6 +1356,16 @@ export const getDetailedEnquiries = async (token) => {
 
   } catch (error) {
     console.error('❌ Error fetching detailed enquiries:', error);
+    
+    // Handle specific error cases
+    if (error.response?.status === 401) {
+      return {
+        success: false,
+        data: [],
+        error: 'Authentication failed - please login again'
+      };
+    }
+    
     return {
       success: false,
       data: [],
@@ -1182,7 +1396,6 @@ export const getEnquiryStats = async (token) => {
     };
   }
 };
-
 
 // ============================
 // ☁️ IMAGE UPLOAD APIs (Cloudinary)
@@ -1235,9 +1448,19 @@ export const uploadSingleImage = async (file, fieldName = 'image') => {
 // 🔧 REQUEST INTERCEPTORS
 // ============================
 
-// Request interceptor to add common headers
+// Enhanced request interceptor to sanitize all data
 API.interceptors.request.use(
   (config) => {
+    // Sanitize request data
+    if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
+      config.data = deepSanitizeData(config.data);
+    }
+    
+    // Sanitize query parameters
+    if (config.params) {
+      config.params = deepSanitizeData(config.params);
+    }
+    
     // Add timestamp to prevent caching
     config.params = {
       ...config.params,
@@ -1248,7 +1471,7 @@ API.interceptors.request.use(
     if (import.meta.env.DEV) {
       console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
         params: config.params,
-        data: config.data
+        data: config.data instanceof FormData ? 'FormData' : config.data
       });
     }
 
@@ -1285,13 +1508,27 @@ API.interceptors.response.use(
     // Handle specific error cases
     if (error.response?.status === 401) {
       // Handle unauthorized access
-      console.warn('Unauthorized access - clearing local storage');
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('userToken');
+      console.warn('Unauthorized access - token may be invalid or expired');
       
-      // Redirect to login if not already there
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/admin/login';
+      // Only redirect if we're in an admin route and have an admin token
+      const currentPath = window.location.pathname;
+      const isAdminRoute = currentPath.includes('/admin');
+      const adminToken = localStorage.getItem('adminToken');
+      
+      if (isAdminRoute && adminToken) {
+        // Clear invalid admin token
+      // Continue from response interceptor
+        localStorage.removeItem('adminToken');
+        console.warn('Cleared invalid admin token');
+        
+        // Only redirect if not already on login page
+        if (!currentPath.includes('/login')) {
+          console.warn('Redirecting to admin login...');
+          window.location.href = '/admin/login';
+        }
+      } else if (!isAdminRoute) {
+        // Handle user token
+        localStorage.removeItem('userToken');
       }
     }
 
@@ -1319,7 +1556,6 @@ export const handleApiResponse = (response) => {
     throw new Error(response.error || 'API request failed');
   }
 };
-
 
 // Add helper function to format enquiry data for display
 export const formatEnquiryForDisplay = (enquiry) => {
@@ -1624,29 +1860,51 @@ export const retryApiCall = async (apiCall, maxRetries = 3, delay = 1000) => {
 // Helper function to get token from localStorage
 export const getAuthToken = (type = 'admin') => {
   const tokenKey = type === 'admin' ? 'adminToken' : 'userToken';
-  return localStorage.getItem(tokenKey);
+  const token = localStorage.getItem(tokenKey);
+  
+  if (!token) {
+    console.log(`No ${type} token found in localStorage`);
+    return null;
+  }
+  
+  console.log(`${type} token found in localStorage`);
+  return token;
 };
 
 // Helper function to set token in localStorage
 export const setAuthToken = (token, type = 'admin') => {
+  if (!token) {
+    console.error('Cannot set empty token');
+    return false;
+  }
+  
   const tokenKey = type === 'admin' ? 'adminToken' : 'userToken';
   localStorage.setItem(tokenKey, token);
+  console.log(`${type} token saved to localStorage`);
+  return true;
 };
 
 // Helper function to remove token from localStorage
 export const removeAuthToken = (type = 'admin') => {
   const tokenKey = type === 'admin' ? 'adminToken' : 'userToken';
   localStorage.removeItem(tokenKey);
+  console.log(`${type} token removed from localStorage`);
 };
 
 // Helper function to check if token exists and is valid format
 export const isTokenValid = (token) => {
-  if (!token) return false;
+  if (!token) {
+    console.log('No token provided');
+    return false;
+  }
   
   try {
     // Basic JWT format validation (3 parts separated by dots)
     const parts = token.split('.');
-    if (parts.length !== 3) return false;
+    if (parts.length !== 3) {
+      console.log('Invalid token format - not 3 parts');
+      return false;
+    }
     
     // Try to decode the payload (middle part)
     const payload = JSON.parse(atob(parts[1]));
@@ -1657,11 +1915,75 @@ export const isTokenValid = (token) => {
       return false;
     }
     
+    // Check if token has required fields for admin
+    if (!payload.id && !payload.userId && !payload.adminId) {
+      console.warn('Token missing user/admin ID');
+      return false;
+    }
+    
+    console.log('Token is valid');
     return true;
   } catch (error) {
-    console.error('Invalid token format:', error);
+    console.error('Error validating token:', error);
     return false;
   }
+};
+
+// Function to check if user is authenticated and redirect if not
+export const requireAuth = (type = 'admin') => {
+  const token = getAuthToken(type);
+  
+  if (!token || !isTokenValid(token)) {
+    console.warn(`${type} authentication required - redirecting to login`);
+    
+    // Clear invalid token
+    removeAuthToken(type);
+    
+    // Redirect to appropriate login page
+    const loginPath = type === 'admin' ? '/admin/login' : '/login';
+    
+    // Only redirect if not already on login page
+    if (!window.location.pathname.includes('/login')) {
+      window.location.href = loginPath;
+    }
+    
+    return false;
+  }
+  
+  return true;
+};
+
+// Function to decode token payload
+export const decodeToken = (token) => {
+  if (!token) return null;
+  
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    
+    const payload = JSON.parse(atob(parts[1]));
+    return payload;
+  } catch (error) {
+    console.error('Error decoding token:', error);
+    return null;
+  }
+};
+
+// Function to get user info from token
+export const getUserFromToken = (type = 'admin') => {
+  const token = getAuthToken(type);
+  if (!token) return null;
+  
+  const payload = decodeToken(token);
+  if (!payload) return null;
+  
+  return {
+    id: payload.id || payload.userId || payload.adminId,
+    email: payload.email,
+    role: payload.role,
+    exp: payload.exp,
+    iat: payload.iat
+  };
 };
 
 // ============================
@@ -1683,6 +2005,7 @@ export const getOptimalImageSize = () => {
   return 'xlarge';
 };
 
+// Continue from UI HELPERS
 // ============================
 // 🎨 UI HELPERS
 // ============================
@@ -1908,13 +2231,6 @@ export const measurePerformance = (label, fn) => {
   }
   return fn();
 };
-
-// ============================
-// 🎯 FINAL EXPORTS
-// ============================
-
-// Export all utility functions
-
 
 // Export version for debugging
 export const API_VERSION = '1.0.0';

@@ -1,20 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Typography,
-  Box,
-  Alert,
-  CircularProgress,
-  Chip,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, Typography, Box, Alert, CircularProgress, Chip, Snackbar
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { getMyEnquiries, ENQUIRY_STATUS_LABELS } from '../lib/api';
+// Make sure decodeToken is exported from your api.js file
+import { getMyEnquiries, ENQUIRY_STATUS_LABELS, decodeToken } from '../lib/api';
+import io from 'socket.io-client';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   [`&.MuiTableCell-head`]: {
@@ -38,119 +30,115 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 
 const StatusChip = styled(Chip)(({ theme, status }) => ({
   backgroundColor: 
-    status === 'pending' ? theme.palette.warning.light :
     status === 'approved' ? theme.palette.success.light :
     status === 'rejected' ? theme.palette.error.light :
-    theme.palette.grey[300],
-  color: 
-    status === 'pending' ? theme.palette.warning.contrastText :
-    status === 'approved' ? theme.palette.success.contrastText :
-    status === 'rejected' ? theme.palette.error.contrastText :
-    theme.palette.text.primary,
+    status === 'cancelled' ? theme.palette.grey[500] :
+    theme.palette.warning.light,
+  color: theme.palette.getContrastText(
+    status === 'approved' ? theme.palette.success.light :
+    status === 'rejected' ? theme.palette.error.light :
+    status === 'cancelled' ? theme.palette.grey[500] :
+    theme.palette.warning.light
+  ),
+  fontWeight: 'bold',
 }));
 
 const Order = () => {
-  // Use userToken instead of token for consistency with api.js
   const token = localStorage.getItem('userToken') || localStorage.getItem('token');
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
-
-  console.log("Fetching orders with token:", token ? 'Token present' : 'No token');
+  const [notification, setNotification] = useState({ open: false, message: '' });
 
   useEffect(() => {
+    // 1. Initial Data Fetching
     const fetchData = async () => {
       if (!token) {
         setError("Please log in to view your orders.");
         setLoading(false);
         return;
       }
-
       try {
         setLoading(true);
-        console.log("🔄 Fetching user enquiries...");
-        
         const response = await getMyEnquiries(token);
-        console.log("📋 My Enquiries API response:", response);
-
         if (response.success && Array.isArray(response.data)) {
-          console.log("✅ Enquiry Data:", response.data);
-          setOrders(response.data);
-          setError(null);
-        } else if (Array.isArray(response.data)) {
-          // Handle direct array response
-          console.log("✅ Direct array response:", response.data);
           setOrders(response.data);
           setError(null);
         } else {
-          console.error("❌ Error fetching enquiries:", response.error);
           setError(response.error || "Failed to fetch orders.");
           setOrders([]);
         }
       } catch (err) {
-        console.error("💥 Exception fetching enquiries:", err);
-        setError("Failed to fetch orders. Please try again.");
+        setError("An error occurred while fetching your orders.");
         setOrders([]);
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
+
+    // 2. WebSocket Connection
+    if (token) {
+      const socket = io('http://localhost:5000');
+
+      socket.on('connect', () => {
+        console.log('✅ Connected to WebSocket server with ID:', socket.id);
+        const userInfo = decodeToken(token);
+        if (userInfo && (userInfo.id || userInfo.userId)) {
+          socket.emit('joinUserRoom', userInfo.id || userInfo.userId);
+        }
+      });
+
+      socket.on('enquiryStatusUpdated', (updatedEnquiry) => {
+        console.log('✅ Real-time update received:', updatedEnquiry);
+        setOrders(prevOrders =>
+          prevOrders.map(order =>
+            (order.enquiryID === updatedEnquiry.enquiryID) ? updatedEnquiry : order
+          )
+        );
+        setNotification({ 
+            open: true, 
+            message: `Order #${String(updatedEnquiry.enquiryID).slice(-6)} is now ${updatedEnquiry.status}!` 
+        });
+      });
+
+      socket.on('disconnect', () => {
+        console.log('❌ Disconnected from WebSocket server.');
+      });
+
+      return () => {
+        socket.disconnect();
+      };
+    }
   }, [token]);
 
-  const formatValue = (value) => {
-    return value || 'N/A';
+  const handleCloseNotification = () => {
+    setNotification({ open: false, message: '' });
   };
 
-  const getOrderId = (order) => {
-    return order._id || order.enquiryID || 'N/A';
-  };
+  const formatValue = (value) => value || 'N/A';
+  const getOrderId = (order) => order.enquiryID || 'N/A';
 
   if (loading) {
     return (
       <Box sx={{ p: 4, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <CircularProgress />
-        <Typography variant="body1" sx={{ ml: 2 }}>
-          Loading your orders...
-        </Typography>
+        <Typography variant="body1" sx={{ ml: 2 }}>Loading your orders...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Your Orders
-      </Typography>
+    <Box sx={{ p: { xs: 2, md: 4 } }}>
+      <Typography variant="h4" component="h1" gutterBottom>Your Orders</Typography>
 
-      {successMessage && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {successMessage}
-        </Alert>
-      )}
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {!token && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Please log in to view your orders.
-        </Alert>
-      )}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {!token && <Alert severity="warning" sx={{ mb: 2 }}>Please log in to view your orders.</Alert>}
 
       {orders.length === 0 && !loading && !error ? (
         <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography variant="h6" color="textSecondary">
-            No orders found
-          </Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-            You haven't placed any orders yet.
-          </Typography>
+          <Typography variant="h6" color="textSecondary">No orders found</Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>You haven't placed any orders yet.</Typography>
         </Box>
       ) : (
         <TableContainer component={Paper} sx={{ mt: 2 }}>
@@ -174,42 +162,21 @@ const Order = () => {
             <TableBody>
               {orders.map((order) => {
                 const orderId = getOrderId(order);
-                
                 return (
                   <StyledTableRow key={orderId}>
                     <StyledTableCell component="th" scope="row">
-                      <Typography variant="body2" fontWeight="bold">
-                        #{orderId}
-                      </Typography>
+                      <Typography variant="body2" fontWeight="bold">#{orderId}</Typography>
                     </StyledTableCell>
+                    <StyledTableCell>{formatValue(order.productName || order.product?.name)}</StyledTableCell>
+                    <StyledTableCell>{formatValue(order.category || order.product?.category)}</StyledTableCell>
+                    <StyledTableCell>{formatValue(order.dieNo || order.die?.dieNo)}</StyledTableCell>
+                    <StyledTableCell>{formatValue(order.diameter || order.size?.diameter)}</StyledTableCell>
+                    <StyledTableCell>{formatValue(order.ballGauge || order.size?.ballGauge)}</StyledTableCell>
+                    <StyledTableCell>{formatValue(order.wireGauge || order.size?.wireGauge)}</StyledTableCell>
+                    <StyledTableCell>{formatValue(order.weight || order.size?.weight)}</StyledTableCell>
+                    <StyledTableCell>{formatValue(order.tunch)}</StyledTableCell>
                     <StyledTableCell>
-                      {formatValue(order.productName || order.product?.name)}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {formatValue(order.category || order.product?.category)}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {formatValue(order.dieNo || order.die?.dieNo)}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {formatValue(order.diameter || order.size?.diameter)}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {formatValue(order.ballGauge || order.size?.ballGauge)}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {formatValue(order.wireGauge || order.size?.wireGauge)}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {formatValue(order.weight || order.size?.weight)}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {formatValue(order.tunch)}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      <Typography variant="body2" fontWeight="bold">
-                        {formatValue(order.quantity)}
-                      </Typography>
+                      <Typography variant="body2" fontWeight="bold">{formatValue(order.quantity)}</Typography>
                     </StyledTableCell>
                     <StyledTableCell>
                       <StatusChip
@@ -230,6 +197,17 @@ const Order = () => {
           </Table>
         </TableContainer>
       )}
+      
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseNotification} severity="success" sx={{ width: '100%' }}>
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
