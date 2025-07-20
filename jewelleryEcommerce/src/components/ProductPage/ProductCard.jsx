@@ -317,33 +317,7 @@ const ProductCard = ({ product }) => {
               {isLoading ? 'Loading...' : 'View Details'}
             </Button>
 
-            {/* Add to Cart Button */}
-            {product.inStock !== false && (
-              <Button
-                variant="outlined"
-                startIcon={<ShoppingCartOutlined sx={{ fontSize: 16 }} />}
-                onClick={handleAddToCart}
-                sx={{
-                  minWidth: 'auto',
-                  borderColor: colors.primary,
-                  color: colors.primary,
-                  borderRadius: '12px',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.8rem',
-                  px: 2,
-                  py: 1,
-                  transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                  '&:hover': {
-                    borderColor: colors.primary,
-                    backgroundColor: alpha(colors.primary, 0.1),
-                    transform: 'translateY(-1px)',
-                  },
-                }}
-              >
-                Cart
-              </Button>
-            )}
+
           </Box>
         </Box>
 
