@@ -360,7 +360,74 @@ const CartPage = () => {
 
                       {/* Quantity/Weight Controls */}
                       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                        {/* ... (Quantity controls JSX remains the same) ... */}
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-2">
+                            <select
+                              value={quantityMode}
+                              onChange={(e) => setQuantityMode(e.target.value)}
+                              className="text-sm border border-gray-300 rounded-lg px-2 py-1"
+                            >
+                              <option value="pieces">By Pieces</option>
+                              <option value="weight">By Weight</option>
+                            </select>
+                          </div>
+                          {quantityMode === 'pieces' ? (
+                            <div className="flex items-center space-x-3">
+                              <span className="text-sm font-medium text-gray-700">Quantity:</span>
+                              <div className="flex items-center border border-gray-300 rounded-lg">
+                                <button
+                                  onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                                  disabled={item.quantity <= 1}
+                                  className="p-2 hover:bg-gray-100 disabled:opacity-50"
+                                >
+                                  <Minus className="h-4 w-4" />
+                                </button>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={customQuantity[item.id] || item.quantity}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 1;
+                                    setCustomQuantity(prev => ({ ...prev, [item.id]: val }));
+                                    handleQuantityChange(item.id, val);
+                                  }}
+                                  className="w-16 text-center border-x border-gray-300 py-2 font-medium"
+                                />
+                                <button
+                                  onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                                  className="p-2 hover:bg-gray-100"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-3">
+                              <span className="text-sm font-medium text-gray-700">Weight (g):</span>
+                              <input
+                                type="number"
+                                min="0.001"
+                                step="0.001"
+                                value={customWeight[item.id] || (item.weight * item.quantity).toFixed(3)}
+                                onChange={(e) => {
+                                  const targetWeight = parseFloat(e.target.value) || 0;
+                                  setCustomWeight(prev => ({ ...prev, [item.id]: targetWeight }));
+                                  if (item.weight) {
+                                    const newQty = calculateQuantityFromWeight(targetWeight, item.weight);
+                                    handleQuantityChange(item.id, newQty);
+                                  }
+                                }}
+                                className="w-24 text-center border border-gray-300 rounded-lg py-2 px-3"
+                              />
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Total Weight</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {(item.weight * item.quantity).toFixed(3)}g
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
