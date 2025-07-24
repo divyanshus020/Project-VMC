@@ -1,5 +1,8 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 import Navbar from './components/Navbar/Navbar.jsx';
 import Footer from './components/Basic/Footer.jsx';
 import Home from './pages/Home.jsx';
@@ -14,22 +17,23 @@ import Users from './components/AdminDashboard/Users.jsx';
 import ProtectedRoute from './components/Routes/ProtectedRoute.jsx';
 import ProductDetail from './pages/ProductDetail.jsx';
 import Cart from './pages/Cart.jsx';
-import AddProduct from './pages/AddProduct.jsx'; // ✅ Fixed typo here
-import AdminProductPage from './components/AdminDashboard/AdminProductpage.jsx'; // ✅ Fixed typo here
-import AdminEnquery from './components/AdminDashboard/AdminEnquery.jsx'; // ✅ Fixed typo here
-import AdminSizesPage from './components/AdminDashboard/AdminSizesPage.jsx'; // ✅ Fixed typo here
+import AddProduct from './pages/AddProduct.jsx';
+import AdminProductPage from './components/AdminDashboard/AdminProductpage.jsx';
+import AdminEnquery from './components/AdminDashboard/AdminEnquery.jsx';
+import AdminSizesPage from './components/AdminDashboard/AdminSizesPage.jsx';
 import Order from './pages/Order.jsx';
 import AdminData from './components/AdminDashboard/AdminData.jsx';
+
 function AppWrapper() {
   const location = useLocation();
-
+  
   // Hide Navbar and Footer for any /admin/* route
   const hideLayout = location.pathname.toLowerCase().startsWith('/admin');
-
+  
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
-
+  
   return (
     <>
       {!hideLayout && <Navbar />}
@@ -44,10 +48,10 @@ function AppWrapper() {
         <Route path="/cart" element={<Cart />} />
         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path='/orders' element={<Order />} />
-
+        
         {/* Admin Login (public) */}
         <Route path="/admin/login" element={<AdminLogin />} />
-
+        
         {/* Protected Admin Routes */}
         <Route
           path="/admin/dashboard"
@@ -100,6 +104,26 @@ function AppWrapper() {
         <Route path="/admin/sizes" element={<AdminSizesPage />} />
       </Routes>
       {!hideLayout && <Footer />}
+      
+      {/* Toast Container - Global notification system */}
+      <ToastContainer
+        position="top-right"
+        autoClose={4000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+        toastClassName="custom-toast"
+        bodyClassName="custom-toast-body"
+        progressClassName="custom-toast-progress"
+        style={{
+          fontSize: '14px',
+        }}
+      />
     </>
   );
 }

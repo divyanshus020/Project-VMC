@@ -316,8 +316,6 @@ const ProductCard = ({ product }) => {
             >
               {isLoading ? 'Loading...' : 'View Details'}
             </Button>
-
-
           </Box>
         </Box>
 

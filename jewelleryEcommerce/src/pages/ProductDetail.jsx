@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import ImageSlider from '../components/ProductDetailPage/ProductImages';
 import ProductInfo from '../components/ProductDetailPage/ProductInfo';
 import ProductSpecifications from '../components/ProductDetailPage/ProductSpecifications';
@@ -7,14 +9,6 @@ import { getProductById } from '../lib/api';
 
 const ProductDetails = () => {
   const { id } = useParams();
-  console.log('Product ID from URL:', id);
-  const location = useLocation();
- 
-  // Enhanced debugging
-  console.log('All URL params:', useParams());
-  console.log('Current location:', location);
-  console.log('Product ID from URL:', id);
-  console.log('Full pathname:', location.pathname);
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,55 +23,42 @@ const ProductDetails = () => {
   useEffect(() => {
     if (!id) {
       console.error('No product ID found in URL');
+      toast.error('No product ID found in the URL.');
       setError(true);
       setLoading(false);
       return;
     }
 
     const fetchProduct = async () => {
+      setLoading(true);
+      setError(false);
+      const toastId = toast.loading("Fetching product details...");
+
       try {
-        setLoading(true);
-        setError(false);
-        
-        console.log('Fetching product with ID:', id);
         const response = await getProductById(id);
         
-        console.log('API Response:', response);
-        console.log('Response type:', typeof response);
-        console.log('Response keys:', Object.keys(response || {}));
-
         let productData;
 
         if (response && response.data) {
           productData = response.data;
-          console.log('Using response.data:', productData);
         } else if (response && (response.id || response._id)) {
           productData = response;
-          console.log('Using response directly:', productData);
         } else if (response && response.product) {
           productData = response.product;
-          console.log('Using response.product:', productData);
         } else {
-          console.error('Unexpected response structure:', response);
-          setError(true);
-          return;
+          throw new Error('Unexpected response structure from the server.');
         }
 
         if (productData && (productData.id || productData._id)) {
-          console.log('Product loaded successfully:', productData);
           setProduct(productData);
+          toast.update(toastId, { render: "Product loaded successfully!", type: "success", isLoading: false, autoClose: 2000 });
         } else {
-          console.error('Invalid product data:', productData);
-          setError(true);
+          throw new Error('Invalid product data received.');
         }
       } catch (err) {
         console.error('Error fetching product:', err);
-        console.error('Error details:', {
-          message: err.message,
-          status: err.response?.status,
-          statusText: err.response?.statusText,
-          data: err.response?.data
-        });
+        const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch product.';
+        toast.update(toastId, { render: errorMessage, type: "error", isLoading: false, autoClose: 4000 });
         setProduct(null);
         setError(true);
       } finally {
@@ -102,10 +83,6 @@ const ProductDetails = () => {
 
   const handleContactClick = () => {
     navigate('/contact');
-  };
-
-  const handleProductClick = () => {
-    <Link to={`/products/${product.id}`}>View Details</Link>
   };
 
   if (loading) {
@@ -143,82 +120,96 @@ const ProductDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Breadcrumb */}
-        <nav className="mb-8" aria-label="Breadcrumb">
-          <div className="flex items-center space-x-2 text-sm font-medium text-gray-600">
-            <button 
-              onClick={() => handleBreadcrumbClick('/')}
-              className="hover:text-amber-600 cursor-pointer transition-colors"
-            >
-              Home
-            </button>
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-            </svg>
-            <button 
-              onClick={() => handleBreadcrumbClick('/products')}
-              className="hover:text-amber-600 cursor-pointer transition-colors"
-            >
-              Products
-            </button>
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-            </svg>
-            <span className="text-gray-900 font-semibold">
-              {product.name || 'Product Details'}
-            </span>
-          </div>
-        </nav>
+    <>
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          {/* Breadcrumb */}
+          <nav className="mb-8" aria-label="Breadcrumb">
+            <div className="flex items-center space-x-2 text-sm font-medium text-gray-600">
+              <button 
+                onClick={() => handleBreadcrumbClick('/')}
+                className="hover:text-amber-600 cursor-pointer transition-colors"
+              >
+                Home
+              </button>
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+              <button 
+                onClick={() => handleBreadcrumbClick('/products')}
+                className="hover:text-amber-600 cursor-pointer transition-colors"
+              >
+                Products
+              </button>
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+              <span className="text-gray-900 font-semibold">
+                {product.name || 'Product Details'}
+              </span>
+            </div>
+          </nav>
 
-        {/* Main Product Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
-          {/* Product Images */}
-          <div className="relative">
-            <div className="sticky top-8">
-              <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-                <ImageSlider images={product.images || []} />
+          {/* Main Product Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+            {/* Product Images */}
+            <div className="relative">
+              <div className="sticky top-8">
+                <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+                  <ImageSlider images={product.images || []} />
+                </div>
+                {product.isNew && (
+                  <div className="absolute top-4 left-4 z-10">
+                    <span className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+                      New Arrival
+                    </span>
+                  </div>
+                )}
               </div>
-              {product.isNew && (
-                <div className="absolute top-4 left-4 z-10">
-                  <span className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
-                    New Arrival
-                  </span>
-                </div>
-              )}
+            </div>
+
+            {/* Product Information */}
+            <div className="relative">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100 p-8 lg:p-10">
+                <ProductInfo product={product} />
+              </div>
+              
+              {/* Trust Indicators */}
+              <div className="mt-8 grid grid-cols-3 gap-4">
+                {trustIndicators.map((item, index) => (
+                  <div
+                    key={index}
+                    className="bg-white/60 backdrop-blur-sm rounded-xl p-4 text-center border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300"
+                  >
+                    <div className="text-2xl mb-2">{item.icon}</div>
+                    <h4 className="font-semibold text-gray-800 text-sm mb-1">{item.title}</h4>
+                    <p className="text-xs text-gray-600">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Product Information */}
-          <div className="relative">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100 p-8 lg:p-10">
-              <ProductInfo product={product} />
-            </div>
-            
-            {/* Trust Indicators */}
-            <div className="mt-8 grid grid-cols-3 gap-4">
-              {trustIndicators.map((item, index) => (
-                <div
-                  key={index}
-                  className="bg-white/60 backdrop-blur-sm rounded-xl p-4 text-center border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300"
-                >
-                  <div className="text-2xl mb-2">{item.icon}</div>
-                  <h4 className="font-semibold text-gray-800 text-sm mb-1">{item.title}</h4>
-                  <p className="text-xs text-gray-600">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Product Specifications Section */}
+          <ProductSpecifications 
+            product={product} 
+            onContactClick={handleContactClick}
+          />
         </div>
-
-        {/* Product Specifications Section */}
-        <ProductSpecifications 
-          product={product} 
-          onContactClick={handleContactClick}
-        />
       </div>
-    </div>
+    </>
   );
 };
 

@@ -1,27 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { 
   ShoppingCart, 
-  Minus, 
-  Plus, 
-  Trash2, 
-  Package,
-  Ruler,
-  Weight,
-  Hash,
   AlertCircle,
-  ShoppingBag,
-  Percent,
-  Send // Icon for the new enquiry button
+  ShoppingBag
 } from 'lucide-react';
+import { toast } from 'react-toastify';
 import {
   getDetailedCart,
   updateCartItemQuantity,
   removeCartItem,
   clearCart,
-  createEnquiry // Ensure this is imported from your api.js
+  createEnquiry
 } from '../lib/api';
+import CartItem from '../components/Cart/CartItem';
+import CartSummary from '../components/Cart/CartSummary';
 
-const CartPage = () => {
+const Cart = () => {
   const [cartData, setCartData] = useState(null);
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,17 +24,21 @@ const CartPage = () => {
   const [quantityMode, setQuantityMode] = useState('pieces');
   const [customQuantity, setCustomQuantity] = useState({});
   const [customWeight, setCustomWeight] = useState({});
-  const [isEnquiring, setIsEnquiring] = useState(false); // Loading state for the enquiry button
+  const [isEnquiring, setIsEnquiring] = useState(false);
+  const navigate = useNavigate(); // Initialize useNavigate
 
+  // Function to get a valid token from localStorage
   const getValidToken = () => {
     const token = localStorage.getItem('token');
     if (!token) {
       setError('Please log in to access your cart');
+      toast.error('Please log in to access your cart');
       return null;
     }
     return token;
   };
 
+  // Fetches the detailed cart data from the API
   const fetchCartData = async () => {
     const token = getValidToken();
     if (!token) {
@@ -84,16 +83,20 @@ const CartPage = () => {
       setCartItems(processedItems);
 
     } catch (err) {
-      setError(err.message || 'Failed to load cart data');
+      const errorMessage = err.message || 'Failed to load cart data';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
   
+  // Fetch cart data on component mount
   useEffect(() => {
     fetchCartData();
   }, []);
 
+  // Handles changing the quantity of a cart item
   const handleQuantityChange = async (itemId, newQuantity) => {
     if (newQuantity < 1) return;
     const token = getValidToken();
@@ -102,85 +105,142 @@ const CartPage = () => {
     try {
       const response = await updateCartItemQuantity(itemId, newQuantity, token);
       if (response.data?.success) {
-        fetchCartData(); // Re-fetch for consistency
+        fetchCartData();
+        toast.success('Quantity updated successfully');
       } else {
         throw new Error(response.data?.message || 'Failed to update quantity');
       }
     } catch (err) {
-      setError('Failed to update quantity. Please try again.');
-      fetchCartData();
+      const errorMessage = 'Failed to update quantity. Please try again.';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      fetchCartData(); // Refetch to reset to original state
     }
   };
 
+  // Handles removing an item from the cart with loading toast
   const handleRemoveItem = async (itemId) => {
     const token = getValidToken();
     if (!token) return;
 
+    const toastId = toast.loading("Removing item..."); // Show loading toast
+
     try {
       await removeCartItem(itemId, token);
       fetchCartData();
+      toast.update(toastId, { 
+        render: "Item removed from cart", 
+        type: "success", 
+        isLoading: false, 
+        autoClose: 2000 
+      });
     } catch (err) {
-      setError('Failed to remove item');
+      const errorMessage = 'Failed to remove item';
+      setError(errorMessage);
+      toast.update(toastId, { 
+        render: errorMessage, 
+        type: "error", 
+        isLoading: false, 
+        autoClose: 3000 
+      });
     }
   };
 
-  const handleClearCart = async () => {
+  // Handles clearing the entire cart with loading toast
+  // Allows disabling toast for internal calls (e.g., after enquiry)
+  const handleClearCart = async (showToast = true) => { 
     const token = getValidToken();
     if (!token) return;
+
+    const toastId = showToast ? toast.loading("Clearing cart...") : null;
 
     try {
       await clearCart(token);
       setCartItems([]);
       setCartData(prev => ({ ...prev, totalItems: 0 }));
+      if (toastId) {
+        toast.update(toastId, { 
+          render: "Cart cleared successfully", 
+          type: "success", 
+          isLoading: false, 
+          autoClose: 2000 
+        });
+      }
     } catch (err) {
-      setError('Failed to clear cart');
+      const errorMessage = 'Failed to clear cart';
+      setError(errorMessage);
+      if (toastId) {
+        toast.update(toastId, { 
+          render: errorMessage, 
+          type: "error", 
+          isLoading: false, 
+          autoClose: 3000 
+        });
+      }
     }
   };
 
+  // Handles submitting the cart as an enquiry
   const handleEnquiryCart = async () => {
     const token = getValidToken();
     if (!token || !cartData?.userId || cartItems.length === 0) {
-        setError("Cannot submit enquiry. Cart is empty or user is not identified.");
-        return;
+      toast.error("Cannot submit enquiry. Cart is empty or user is not identified.");
+      return;
     }
 
     setIsEnquiring(true);
-    setError(null);
+    const toastId = toast.loading("Submitting your enquiry...");
 
     try {
-        const enquiryPromises = cartItems.map(item => {
-            const enquiryData = {
-                productID: item.productId,
-                userID: cartData.userId,
-                quantity: item.quantity,
-                sizeID: item.sizeId,
-                tunch: item.tunch
-            };
-            return createEnquiry(enquiryData, token);
-        });
+      const enquiryPromises = cartItems.map(item => {
+        const enquiryData = {
+          productID: item.productId,
+          userID: cartData.userId,
+          quantity: item.quantity,
+          sizeID: item.sizeId,
+          tunch: item.tunch
+        };
+        return createEnquiry(enquiryData, token);
+      });
 
-        const results = await Promise.all(enquiryPromises);
+      const results = await Promise.all(enquiryPromises);
+      const failedEnquiries = results.filter(res => !res.success);
 
-        const failedEnquiries = results.filter(res => !res.success);
-        if (failedEnquiries.length > 0) {
-            throw new Error(`Could not submit ${failedEnquiries.length} item(s). Please try again.`);
-        }
-
-        alert('All items have been successfully submitted as enquiries!');
-        await handleClearCart();
-        window.location.href = '/orders';
+      if (failedEnquiries.length > 0) {
+        throw new Error(`Could not submit ${failedEnquiries.length} item(s). Please try again.`);
+      }
+      
+      // Update loading toast to success
+      toast.update(toastId, {
+        render: 'Enquiry submitted successfully!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 4000
+      });
+      
+      await handleClearCart(false); // Clear cart without showing another toast
+      navigate('/orders'); // Navigate to orders page
 
     } catch (err) {
-        setError(err.message || "An unexpected error occurred while submitting your enquiry.");
+      const errorMessage = err.message || "An unexpected error occurred.";
+      setError(errorMessage);
+      toast.update(toastId, {
+        render: errorMessage,
+        type: 'error',
+        isLoading: false,
+        autoClose: 4000
+      });
     } finally {
-        setIsEnquiring(false);
+      setIsEnquiring(false);
     }
   };
-  
-  const calculateQuantityFromWeight = (targetWeight, pieceWeight) => {
-    if (!pieceWeight || pieceWeight <= 0) return 1;
-    return Math.max(1, Math.round(targetWeight / pieceWeight));
+
+  // Handles navigation to the products page
+  const handleContinueShopping = () => {
+    navigate('/products'); // Use navigate for SPA-friendly routing
   };
+
+  // --- JSX (Render logic) ---
 
   if (loading) {
     return (
@@ -193,7 +253,7 @@ const CartPage = () => {
     );
   }
 
-  if (error) {
+  if (error && cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
@@ -222,7 +282,7 @@ const CartPage = () => {
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Your cart is empty</h3>
             <p className="text-gray-600 mb-6">Start shopping to add items to your cart</p>
             <button
-              onClick={() => window.location.href = '/products'}
+              onClick={handleContinueShopping}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
               Browse Products
@@ -235,6 +295,7 @@ const CartPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -247,7 +308,7 @@ const CartPage = () => {
             </div>
             {cartItems.length > 0 && (
               <button
-                onClick={handleClearCart}
+                onClick={() => handleClearCart(true)} // Pass true to show toast
                 className="text-red-600 hover:text-red-700 font-medium transition-colors"
               >
                 Clear Cart
@@ -257,233 +318,37 @@ const CartPage = () => {
         </div>
       </div>
 
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Cart Items */}
         <div className="grid gap-6">
           {cartItems.map((item) => (
-            <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-              <div className="p-6">
-                <div className="flex flex-col lg:flex-row gap-6">
-                  {/* Product Image */}
-                  <div className="flex-shrink-0">
-                    <div className="w-full lg:w-48 h-48 bg-gray-100 rounded-lg overflow-hidden">
-                      {item.productImage ? (
-                        <img 
-                          src={item.productImage} 
-                          alt={item.productName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package className="h-12 w-12 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Product Details */}
-                  <div className="flex-1">
-                    <div className="flex flex-col h-full">
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                              {item.productName}
-                            </h3>
-                            <p className="text-sm text-gray-600 mb-3">
-                              Product ID: {item.productId}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveItem(item.id)}
-                            className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-
-                        {/* Specifications Grid */}
-                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">
-                          {item.DieNo && (
-                            <div className="bg-gray-50 rounded-lg p-3">
-                              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                                <Hash className="h-4 w-4" />
-                                <span className="text-sm font-medium">Die No</span>
-                              </div>
-                              <p className="text-sm font-semibold text-gray-900">{item.DieNo}</p>
-                            </div>
-                          )}
-                          {item.diameter && (
-                            <div className="bg-gray-50 rounded-lg p-3">
-                              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                                <Ruler className="h-4 w-4" />
-                                <span className="text-sm font-medium">Diameter</span>
-                              </div>
-                              <p className="text-sm font-semibold text-gray-900">{item.diameter}mm</p>
-                            </div>
-                          )}
-                          {item.ballGauge && (
-                            <div className="bg-gray-50 rounded-lg p-3">
-                              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                                <Package className="h-4 w-4" />
-                                <span className="text-sm font-medium">Ball Gauge</span>
-                              </div>
-                              <p className="text-sm font-semibold text-gray-900">{item.ballGauge} BG</p>
-                            </div>
-                          )}
-                          {item.wireGauge && (
-                             <div className="bg-gray-50 rounded-lg p-3">
-                               <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                                 <Ruler className="h-4 w-4" />
-                                 <span className="text-sm font-medium">Wire Gauge</span>
-                               </div>
-                               <p className="text-sm font-semibold text-gray-900">{item.wireGauge} WG</p>
-                             </div>
-                          )}
-                          {item.tunch && (
-                            <div className="bg-gray-50 rounded-lg p-3">
-                              <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                                <Percent className="h-4 w-4" />
-                                <span className="text-sm font-medium">Tunch</span>
-                              </div>
-                              <p className="text-sm font-semibold text-gray-900">{item.tunch}%</p>
-                            </div>
-                          )}
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="flex items-center space-x-2 text-gray-600 mb-1">
-                              <Weight className="h-4 w-4" />
-                              <span className="text-sm font-medium">Weight</span>
-                            </div>
-                            <p className="text-sm font-semibold text-gray-900">{item.weight ? `${item.weight} g` : 'N/A'}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Quantity/Weight Controls */}
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex items-center space-x-2">
-                            <select
-                              value={quantityMode}
-                              onChange={(e) => setQuantityMode(e.target.value)}
-                              className="text-sm border border-gray-300 rounded-lg px-2 py-1"
-                            >
-                              <option value="pieces">By Pieces</option>
-                              <option value="weight">By Weight</option>
-                            </select>
-                          </div>
-                          {quantityMode === 'pieces' ? (
-                            <div className="flex items-center space-x-3">
-                              <span className="text-sm font-medium text-gray-700">Quantity:</span>
-                              <div className="flex items-center border border-gray-300 rounded-lg">
-                                <button
-                                  onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                                  disabled={item.quantity <= 1}
-                                  className="p-2 hover:bg-gray-100 disabled:opacity-50"
-                                >
-                                  <Minus className="h-4 w-4" />
-                                </button>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={customQuantity[item.id] || item.quantity}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 1;
-                                    setCustomQuantity(prev => ({ ...prev, [item.id]: val }));
-                                    handleQuantityChange(item.id, val);
-                                  }}
-                                  className="w-16 text-center border-x border-gray-300 py-2 font-medium"
-                                />
-                                <button
-                                  onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                                  className="p-2 hover:bg-gray-100"
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center space-x-3">
-                              <span className="text-sm font-medium text-gray-700">Weight (g):</span>
-                              <input
-                                type="number"
-                                min="0.001"
-                                step="0.001"
-                                value={customWeight[item.id] || (item.weight * item.quantity).toFixed(3)}
-                                onChange={(e) => {
-                                  const targetWeight = parseFloat(e.target.value) || 0;
-                                  setCustomWeight(prev => ({ ...prev, [item.id]: targetWeight }));
-                                  if (item.weight) {
-                                    const newQty = calculateQuantityFromWeight(targetWeight, item.weight);
-                                    handleQuantityChange(item.id, newQty);
-                                  }
-                                }}
-                                className="w-24 text-center border border-gray-300 rounded-lg py-2 px-3"
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-600">Total Weight</p>
-                          <p className="text-sm font-medium text-gray-900">
-                            {(item.weight * item.quantity).toFixed(3)}g
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <CartItem
+              key={item.id}
+              item={item}
+              quantityMode={quantityMode}
+              setQuantityMode={setQuantityMode}
+              onQuantityChange={handleQuantityChange}
+              onRemove={handleRemoveItem}
+              customQuantity={customQuantity}
+              setCustomQuantity={setCustomQuantity}
+              customWeight={customWeight}
+              setCustomWeight={setCustomWeight}
+            />
           ))}
         </div>
 
-        {cartData && (
-          <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Cart Summary</h3>
-                <p className="text-sm text-gray-600">
-                  Total Items: {cartData.totalItems} | Unique Products: {cartItems.length}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-600">Total Weight</p>
-                <p className="text-xl font-bold text-gray-900">
-                  {cartItems.reduce((total, item) => total + (item.weight ? item.weight * item.quantity : 0), 0).toFixed(2)} g
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <button
-            onClick={() => window.location.href = '/products'}
-            className="w-full sm:w-auto bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-          >
-            Continue Shopping
-          </button>
-          <button
-            onClick={handleEnquiryCart}
-            disabled={isEnquiring}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-blue-400 disabled:cursor-not-allowed"
-          >
-            {isEnquiring ? (
-                <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span>Submitting Enquiries...</span>
-                </>
-            ) : (
-                <>
-                    <Send className="h-5 w-5" />
-                    <span>Enquiry My Cart</span>
-                </>
-            )}
-          </button>
-        </div>
+        {/* Cart Summary and Actions */}
+        <CartSummary
+          cartData={cartData}
+          cartItems={cartItems}
+          onEnquiryCart={handleEnquiryCart}
+          isEnquiring={isEnquiring}
+          onContinueShopping={handleContinueShopping}
+        />
       </div>
     </div>
   );
 };
 
-export default CartPage;
+export default Cart;

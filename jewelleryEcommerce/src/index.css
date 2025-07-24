@@ -1,0 +1,38 @@
+/* Custom Toast Styling (Optional) */
+.custom-toast {
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.custom-toast-body {
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.custom-toast-progress {
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+}
+
+/* Success Toast */
+.Toastify__toast--success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+/* Error Toast */
+.Toastify__toast--error {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+/* Warning Toast */
+.Toastify__toast--warning {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+}
+
+/* Info Toast */
+.Toastify__toast--info {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+}
