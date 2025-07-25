@@ -961,6 +961,14 @@ export const updateCartItemTunch = (itemId, tunch, token) => {
   });
 };
 
+export const updateCartItemDieNo = (itemId, DieNo, token) => {
+  const sanitizedData = sanitizeData({ DieNo });
+  return API.patch(`/cart/item/${itemId}/dieno`, sanitizedData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+
 // Add size-related functions
 export const getSizeDetailsByDieNo = async (dieNo) => {
   try {

@@ -208,7 +208,6 @@ module.exports = {
     }
   },
 
-  // Get total quantity in cart
   async getCartTotal(userId) {
     const cart = await this.findOrCreateCart(userId);
     const connection = await getConnection();
@@ -231,8 +230,7 @@ module.exports = {
     try {
       // First verify the item belongs to user's cart
       const [cartItems] = await connection.execute(`
-        SELECT ci.* 
-        FROM cart_items ci
+        SELECT ci.* FROM cart_items ci
         JOIN carts c ON ci.cartId = c.id
         WHERE c.userId = ? AND ci.id = ?
       `, [userId, itemId]);
@@ -249,6 +247,36 @@ module.exports = {
 
       // Return updated cart
       return await this.getDetailedCart(userId);
+    } finally {
+      await connection.end();
+    }
+  },
+
+  /**
+   * NEW: Updates the DieNo for a specific item in the cart.
+   */
+  async updateItemDieNo(userId, itemId, DieNo) {
+    const connection = await getConnection();
+    
+    try {
+      // First, verify the item belongs to the user's cart
+      const [cartItems] = await connection.execute(`
+        SELECT ci.* FROM cart_items ci
+        JOIN carts c ON ci.cartId = c.id
+        WHERE c.userId = ? AND ci.id = ?
+      `, [userId, itemId]);
+
+      if (cartItems.length === 0) {
+        throw new Error('Item not found in user\'s cart');
+      }
+
+      // Update the DieNo value
+      await connection.execute(
+        'UPDATE cart_items SET DieNo = ? WHERE id = ?',
+        [DieNo, itemId]
+      );
+
+      return true; // Indicate success
     } finally {
       await connection.end();
     }

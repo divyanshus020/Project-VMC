@@ -208,3 +208,43 @@ exports.updateItemTunch = async (req, res) => {
     });
   }
 };
+
+/**
+ * NEW: Update item DieNo in cart
+ */
+exports.updateItemDieNo = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const itemId = parseInt(req.params.itemId);
+    const { DieNo } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: User ID missing'
+      });
+    }
+
+    if (!itemId || DieNo === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Item ID and DieNo are required'
+      });
+    }
+
+    // This assumes a function `updateItemDieNo` exists in your Cart model
+    await Cart.updateItemDieNo(userId, itemId, DieNo);
+    const updatedCart = await Cart.getDetailedCart(userId);
+
+    res.json({
+      success: true,
+      data: updatedCart
+    });
+  } catch (err) {
+    console.error('Error updating DieNo:', err);
+    res.status(500).json({
+      success: false,
+      message: err.message || 'Failed to update DieNo'
+    });
+  }
+};
