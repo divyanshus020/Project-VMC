@@ -1,5 +1,5 @@
 // components/ProductLayout/ProductLayout.js
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Container,
   Box,
@@ -13,36 +13,27 @@ import ProductFilters from './ProductFilters';
 import ProductGrid from './ProductGrid';
 
 const ProductLayout = ({ products = [], loading = false }) => {
-  // Fix: Extract the actual products array from the API response
+  // Helper function to safely extract the products array from various API response structures
   const getProductsArray = (productsData) => {
-    // If it's already an array, return it
-    if (Array.isArray(productsData)) {
-      return productsData;
-    }
-    // If it's an API response object with data property
-    if (productsData && productsData.data && Array.isArray(productsData.data)) {
-      return productsData.data;
-    }
-    // If it's an API response object with success and data
-    if (productsData && productsData.success && productsData.data && Array.isArray(productsData.data)) {
-      return productsData.data;
-    }
-    // Default to empty array
+    if (Array.isArray(productsData)) return productsData;
+    if (productsData?.data && Array.isArray(productsData.data)) return productsData.data;
+    if (productsData?.success && productsData.data && Array.isArray(productsData.data)) return productsData.data;
     return [];
   };
 
   const safeProducts = getProductsArray(products);
-  
-  console.log('ProductLayout received products:', products);
-  console.log('Safe products array:', safeProducts);
-  console.log('Loading state:', loading);
 
-  const [sortOption, setSortOption] = useState('default');
+  // --- STATE MANAGEMENT for filters and sorting ---
+  const [sortOption, setSortOption] = useState('nameAZ');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  
+  // Add state for the new Die No filter
+  const [selectedDieNo, setSelectedDieNo] = useState('All');
+
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Jewelry ecommerce color scheme
+  // Color scheme
   const colors = {
     primary: '#D4AF37',
     darkGray: '#333333',
@@ -51,60 +42,52 @@ const ProductLayout = ({ products = [], loading = false }) => {
     white: '#FFFFFF'
   };
 
-  // Only compute categories if products array exists and has items
-  const categories = Array.from(
-    new Set(safeProducts.map((p) => p?.category).filter(Boolean))
-  );
+  // --- FILTERING AND SORTING LOGIC ---
+  const sortedAndFilteredProducts = useMemo(() => {
+    let filtered = [...safeProducts];
 
-  // Filter products - use safeProducts instead of products
-  const filteredProducts = selectedCategory === 'All'
-    ? safeProducts
-    : safeProducts.filter((p) => p?.category === selectedCategory);
-
-  // Sort products with additional safety checks
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    if (!a || !b) return 0;
-    
-    const getPrice = (price) => {
-      if (typeof price === 'string') {
-        const parsed = parseFloat(price.replace(/[^0-9.]/g, ''));
-        return isNaN(parsed) ? 0 : parsed;
-      }
-      return typeof price === 'number' ? price : 0;
-    };
-
-    switch (sortOption) {
-      case 'priceLowHigh':
-        return getPrice(a.price) - getPrice(b.price);
-      case 'priceHighLow':
-        return getPrice(b.price) - getPrice(a.price);
-      case 'nameAZ':
-        // Fix: Use 'name' instead of 'title' based on your data structure
-        return (a.name || '').localeCompare(b.name || '');
-      case 'nameZA':
-        // Fix: Use 'name' instead of 'title' based on your data structure
-        return (b.name || '').localeCompare(a.name || '');
-      default:
-        return 0;
+    // 1. Filter by Category
+    if (selectedCategory !== 'All') {
+      filtered = filtered.filter((p) => p?.category === selectedCategory);
     }
-  });
 
-  // Log filtered and sorted products
-  console.log('Filtered products:', filteredProducts);
-  console.log('Sorted products:', sortedProducts);
+    // 2. Filter by Die No
+    if (selectedDieNo !== 'All') {
+      filtered = filtered.filter(product => 
+        product.sizes?.some(size => size.dieNo === selectedDieNo)
+      );
+    }
+    
+    // 3. Apply Sorting
+    filtered.sort((a, b) => {
+      if (!a || !b) return 0;
+      switch (sortOption) {
+        case 'priceLowHigh':
+          return (a.price || 0) - (b.price || 0);
+        case 'priceHighLow':
+          return (b.price || 0) - (a.price || 0);
+        case 'nameAZ':
+          return (a.name || '').localeCompare(b.name || '');
+        case 'nameZA':
+          return (b.name || '').localeCompare(a.name || '');
+        default:
+          return 0;
+      }
+    });
 
-  // Show loading state
+    return filtered;
+  }, [safeProducts, selectedCategory, selectedDieNo, sortOption]);
+
+
+  // Compute categories from products only. The 'All' option is hardcoded
+  // in the child Category component, so we remove it from here to prevent duplicates.
+  const categories = useMemo(() => 
+    [...new Set(safeProducts.map((p) => p?.category).filter(Boolean))]
+  , [safeProducts]);
+
   if (loading) {
     return (
-      <Box
-        sx={{
-          minHeight: '60vh',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          bgcolor: colors.lightGray
-        }}
-      >
+      <Box sx={{ minHeight: '60vh', display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: colors.lightGray }}>
         <CircularProgress sx={{ color: colors.primary }} />
       </Box>
     );
@@ -121,17 +104,9 @@ const ProductLayout = ({ products = [], loading = false }) => {
         `,
       }}
     >
-      <Container
-        maxWidth="xl"
-        sx={{
-          py: { xs: 2, md: 4 },
-          px: { xs: 2, md: 3 },
-        }}
-      >
-        {/* Header Section */}
+      <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, px: { xs: 2, md: 3 } }}>
         <ProductHeader colors={colors} />
 
-        {/* Filter and Sort Controls + Products Counter */}
         <ProductFilters
           colors={colors}
           selectedCategory={selectedCategory}
@@ -139,30 +114,22 @@ const ProductLayout = ({ products = [], loading = false }) => {
           categories={categories}
           sortOption={sortOption}
           setSortOption={setSortOption}
-          sortedProducts={sortedProducts}
+          sortedProducts={sortedAndFilteredProducts}
           loading={loading}
+          selectedDieNo={selectedDieNo}
+          setSelectedDieNo={setSelectedDieNo}
         />
 
-        {/* Products Grid */}
         <ProductGrid
           colors={colors}
-          loading={loading}
-          sortedProducts={sortedProducts}
+          sortedProducts={sortedAndFilteredProducts}
           selectedCategory={selectedCategory}
-          sortOption={sortOption}
+          // FIX: Pass the categories array to the ProductGrid component
           categories={categories}
         />
 
-        {/* Floating Action Button for Mobile Filters */}
         {isMobile && (
-          <Box
-            sx={{
-              position: 'fixed',
-              bottom: 24,
-              right: 24,
-              zIndex: 1000
-            }}
-          >
+          <Box sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000 }}>
             {/* Mobile filter FAB here */}
           </Box>
         )}

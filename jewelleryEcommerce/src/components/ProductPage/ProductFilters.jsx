@@ -2,25 +2,25 @@
 import React from 'react';
 import { Box, Paper, Stack, Typography, alpha, useTheme, useMediaQuery } from '@mui/material';
 import { motion } from 'framer-motion';
-import SortButton from '../Basic/Shorting';
 import Category from '../Basic/Cataogry';
+import DieNoFilter from '../Basic/DieNoFilter';
 
 const ProductFilters = ({ 
   colors, 
   selectedCategory, 
   setSelectedCategory, 
   categories, 
-  sortOption, 
-  setSortOption, 
   sortedProducts, 
-  loading 
+  loading,
+  selectedDieNo,
+  setSelectedDieNo
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
     <>
-      {/* Filter and Sort Controls */}
+      {/* Filter Controls */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -46,17 +46,20 @@ const ProductFilters = ({
               justifyContent: 'space-between'
             }}
           >
-            <Box sx={{ flex: 1 }}>
+            {/* Category Filter */}
+            <Box sx={{ flex: 1, minWidth: 150 }}>
               <Category
                 selectedCategory={selectedCategory}
                 setSelectedCategory={setSelectedCategory}
                 categories={categories}
               />
             </Box>
-            <Box sx={{ minWidth: { xs: 'auto', md: 200 } }}>
-              <SortButton
-                sortOption={sortOption}
-                setSortOption={setSortOption}
+            
+            {/* Die No Filter */}
+            <Box sx={{ flex: 1, minWidth: 150 }}>
+              <DieNoFilter 
+                selectedDieNo={selectedDieNo}
+                setSelectedDieNo={setSelectedDieNo}
               />
             </Box>
           </Stack>
@@ -77,7 +80,8 @@ const ProductFilters = ({
               display: 'flex',
               alignItems: 'center',
               gap: 1,
-              color: colors.mediumGray
+              color: colors.mediumGray,
+              flexWrap: 'wrap'
             }}
           >
             <Box
@@ -95,6 +99,11 @@ const ProductFilters = ({
             {selectedCategory !== 'All' && (
               <span style={{ color: colors.darkGray, fontWeight: 600 }}>
                 {` in ${selectedCategory}`}
+              </span>
+            )}
+            {selectedDieNo !== 'All' && (
+              <span style={{ color: colors.darkGray, fontWeight: 600 }}>
+                {` with Die No: ${selectedDieNo}`}
               </span>
             )}
           </Typography>
