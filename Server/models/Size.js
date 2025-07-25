@@ -1,3 +1,4 @@
+// models/Size.js
 const db = require('../config/db');
 
 // Create Sizes table WITHOUT productId
@@ -6,7 +7,7 @@ async function createSizeTable() {
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS sizes (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      dieNo INT NOT NULL,
+      dieNo VARCHAR(255) NOT NULL,
       diameter VARCHAR(50) DEFAULT '',
       ballGauge VARCHAR(50) DEFAULT '',
       wireGauge VARCHAR(50) DEFAULT '',
@@ -19,20 +20,20 @@ async function createSizeTable() {
 createSizeTable();
 
 module.exports = {
+  // ✅ Create new size (caller must supply dieNo)
   async create(size) {
     const connection = await db();
 
-    // Get the highest dieNo
-    const [maxDie] = await connection.execute(
-      `SELECT MAX(dieNo) AS maxDie FROM sizes`
-    );
-    const newDieNo = (maxDie[0].maxDie || 0) + 1;
+    // Basic required-field check
+    if (size.dieNo === undefined || size.dieNo === null) {
+      throw new Error('dieNo is required');
+    }
 
     const [result] = await connection.execute(
       `INSERT INTO sizes (dieNo, diameter, ballGauge, wireGauge, weight)
        VALUES (?, ?, ?, ?, ?)`,
       [
-        newDieNo,
+        size.dieNo,
         size.diameter,
         size.ballGauge,
         size.wireGauge,
@@ -43,11 +44,15 @@ module.exports = {
     await connection.end();
     return {
       id: result.insertId,
-      dieNo: newDieNo,
-      ...size,
+      dieNo: size.dieNo,
+      diameter: size.diameter,
+      ballGauge: size.ballGauge,
+      wireGauge: size.wireGauge,
+      weight: size.weight,
     };
   },
 
+  // ✅ Get all sizes (sorted lexicographically)
   async findAll() {
     const connection = await db();
     const [rows] = await connection.execute(`SELECT * FROM sizes ORDER BY dieNo ASC`);
@@ -55,6 +60,7 @@ module.exports = {
     return rows;
   },
 
+  // ✅ Get single size by id
   async findById(id) {
     const connection = await db();
     const [rows] = await connection.execute(`SELECT * FROM sizes WHERE id = ?`, [id]);
@@ -62,16 +68,18 @@ module.exports = {
     return rows[0] || null;
   },
 
+  // ✅ Delete size by id
   async deleteById(id) {
     const connection = await db();
     await connection.execute(`DELETE FROM sizes WHERE id = ?`, [id]);
     await connection.end();
   },
 
+  // ✅ Find size(s) by dieNo (string or number)
   async findByDieNo(dieNo) {
     const connection = await db();
     const [rows] = await connection.execute(`SELECT * FROM sizes WHERE dieNo = ?`, [dieNo]);
     await connection.end();
     return rows;
-  }
+  },
 };

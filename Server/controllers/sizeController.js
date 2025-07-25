@@ -1,22 +1,17 @@
+// controllers/sizeController.js
 const db = require('../config/db');
-
-// Auto-increment Die No. from '01', ensuring numeric sort
-async function getNextDieNo(connection) {
-  const [rows] = await connection.execute(`SELECT dieNo FROM sizes ORDER BY id DESC LIMIT 1`);
-  if (!rows.length) return '01';
-
-  const last = parseInt(rows[0].dieNo, 10);
-  const next = (last + 1).toString().padStart(2, '0');
-  return next;
-}
 
 // ✅ CREATE Size
 exports.createSize = async (req, res) => {
   let connection;
   try {
     connection = await db();
-    const dieNo = await getNextDieNo(connection);
-    const { diameter, ballGauge, wireGauge, weight } = req.body;
+    const { dieNo, diameter, ballGauge, wireGauge, weight } = req.body;
+
+    // basic required-field check
+    if (!dieNo && dieNo !== 0) {
+      return res.status(400).json({ message: 'dieNo is required' });
+    }
 
     const [result] = await connection.execute(
       `INSERT INTO sizes (dieNo, diameter, ballGauge, wireGauge, weight)
@@ -78,13 +73,43 @@ exports.getSizeById = async (req, res) => {
 exports.updateSize = async (req, res) => {
   let connection;
   try {
-    const { diameter, ballGauge, wireGauge, weight } = req.body;
+    const { dieNo, diameter, ballGauge, wireGauge, weight } = req.body;
     connection = await db();
 
+    // build dynamic SET clause
+    const fields = [];
+    const values = [];
+
+    if (dieNo !== undefined) {
+      fields.push('dieNo = ?');
+      values.push(dieNo);
+    }
+    if (diameter !== undefined) {
+      fields.push('diameter = ?');
+      values.push(diameter);
+    }
+    if (ballGauge !== undefined) {
+      fields.push('ballGauge = ?');
+      values.push(ballGauge);
+    }
+    if (wireGauge !== undefined) {
+      fields.push('wireGauge = ?');
+      values.push(wireGauge);
+    }
+    if (weight !== undefined) {
+      fields.push('weight = ?');
+      values.push(weight);
+    }
+
+    if (!fields.length) {
+      return res.status(400).json({ message: 'No fields to update' });
+    }
+
+    values.push(req.params.id);
+
     const [result] = await connection.execute(
-      `UPDATE sizes SET diameter = ?, ballGauge = ?, wireGauge = ?, weight = ?
-       WHERE id = ?`,
-      [diameter, ballGauge, wireGauge, weight, req.params.id]
+      `UPDATE sizes SET ${fields.join(', ')} WHERE id = ?`,
+      values
     );
 
     if (result.affectedRows === 0) {
@@ -118,4 +143,3 @@ exports.deleteSize = async (req, res) => {
     if (connection) await connection.end();
   }
 };
-

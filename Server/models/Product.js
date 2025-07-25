@@ -1,6 +1,7 @@
+// models/Product.js
 const db = require('../config/db');
 
-// Helper: Open DB connection
+// Helper: open DB connection
 async function getConnection() {
   return db();
 }
@@ -38,13 +39,7 @@ module.exports = {
     const [result] = await connection.execute(
       `INSERT INTO products (name, imageUrl, category, images, dieIds)
        VALUES (?, ?, ?, ?, ?)`,
-      [
-        name,
-        imageUrl,
-        category,
-        JSON.stringify(images),
-        JSON.stringify(dieIds)
-      ]
+      [name, imageUrl, category, JSON.stringify(images), JSON.stringify(dieIds)]
     );
 
     await connection.end();
@@ -62,9 +57,7 @@ module.exports = {
 
     return products.map(product => {
       const dieIds = product.dieIds ? JSON.parse(product.dieIds) : [];
-      const productSizes = sizes
-        .filter(size => dieIds.includes(size.id))
-        .sort((a, b) => a.dieNo - b.dieNo);
+      const productSizes = sizes.filter(size => dieIds.includes(size.id));
 
       return {
         ...product,
@@ -92,7 +85,7 @@ module.exports = {
     if (dieIds.length > 0) {
       const placeholders = dieIds.map(() => '?').join(',');
       const [sizeRows] = await connection.execute(
-        `SELECT * FROM sizes WHERE id IN (${placeholders}) ORDER BY dieNo ASC`,
+        `SELECT * FROM sizes WHERE id IN (${placeholders})`,
         dieIds
       );
       sizes = sizeRows;
@@ -122,14 +115,7 @@ module.exports = {
       `UPDATE products SET
         name = ?, imageUrl = ?, category = ?, images = ?, dieIds = ?, updatedAt = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [
-        name,
-        imageUrl,
-        category,
-        JSON.stringify(images),
-        JSON.stringify(dieIds),
-        id
-      ]
+      [name, imageUrl, category, JSON.stringify(images), JSON.stringify(dieIds), id]
     );
 
     await connection.end();
@@ -142,12 +128,15 @@ module.exports = {
     await connection.end();
   },
 
-  // ✅ Filter products by dieNo
+  // ✅ Filter products by dieNo (string or number)
   async filterByDieNo(dieNo) {
     const connection = await getConnection();
 
     const [products] = await connection.execute(`SELECT * FROM products ORDER BY id DESC`);
-    const [matchingSizes] = await connection.execute(`SELECT * FROM sizes WHERE dieNo = ?`, [dieNo]);
+    const [matchingSizes] = await connection.execute(
+      `SELECT * FROM sizes WHERE dieNo = ?`,
+      [dieNo] // pass as-is (string or number)
+    );
 
     const sizeMap = new Map(matchingSizes.map(size => [size.id, size]));
 
@@ -164,7 +153,7 @@ module.exports = {
           ...product,
           images: product.images ? JSON.parse(product.images) : [],
           dieIds,
-          sizes: relatedSizes.sort((a, b) => a.dieNo - b.dieNo)
+          sizes: relatedSizes
         };
       });
 

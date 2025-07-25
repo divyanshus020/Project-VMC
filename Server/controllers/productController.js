@@ -1,3 +1,4 @@
+// controllers/productController.js
 const Product = require('../models/Product');
 const cloudinary = require('../config/cloudinary');
 const fs = require('fs');
@@ -55,7 +56,7 @@ exports.createProduct = async (req, res) => {
       category: sanitizeForDB(category),
       imageUrl: finalImageUrl,
       images: uploadedImages.length ? uploadedImages : parseArrayField(images),
-      dieIds: parseArrayField(dieIds)
+      dieIds: parseArrayField(dieIds), // <— string or number, no auto-increment
     };
 
     const newProduct = await Product.create(productData);
@@ -72,12 +73,9 @@ exports.getProducts = async (req, res) => {
     const { dieNo } = req.query;
     let products;
 
-    if (dieNo) {
-      const parsedDieNo = parseInt(dieNo);
-      if (isNaN(parsedDieNo)) {
-        return res.status(400).json({ message: 'Invalid dieNo query parameter' });
-      }
-      products = await Product.filterByDieNo(parsedDieNo);
+    if (dieNo !== undefined) {
+      // pass dieNo as-is (string or number)
+      products = await Product.filterByDieNo(dieNo);
     } else {
       products = await Product.findAll();
     }
@@ -119,7 +117,7 @@ exports.updateProduct = async (req, res) => {
       });
       fs.unlinkSync(req.files.image[0].path);
       finalImageUrl = upload.secure_url;
-    } else if (imageUrl) {
+    } else if (imageUrl !== undefined) {
       finalImageUrl = imageUrl;
     }
 
@@ -142,7 +140,7 @@ exports.updateProduct = async (req, res) => {
       category: sanitizeForDB(category ?? existing.category),
       imageUrl: finalImageUrl,
       images: updatedImages,
-      dieIds: dieIds ? parseArrayField(dieIds) : existing.dieIds
+      dieIds: dieIds !== undefined ? parseArrayField(dieIds) : existing.dieIds,
     };
 
     await Product.updateById(req.params.id, updatedData);
