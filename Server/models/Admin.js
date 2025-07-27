@@ -9,19 +9,22 @@ async function getConnection() {
 // Create Admin table if not exists
 async function createAdminTable() {
   const connection = await getConnection();
-  await connection.execute(`
-    CREATE TABLE IF NOT EXISTS admins (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      email VARCHAR(255) NOT NULL UNIQUE,
-      password VARCHAR(255) NOT NULL,
-      name VARCHAR(255) DEFAULT '',
-      role ENUM('admin', 'superadmin') DEFAULT 'admin',
-      isActive BOOLEAN DEFAULT TRUE,
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )
-  `);
-  await connection.end();
+  try {
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS admins (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        name VARCHAR(255) DEFAULT '',
+        role ENUM('admin', 'superadmin') DEFAULT 'admin',
+        isActive BOOLEAN DEFAULT TRUE,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+  } finally {
+    await connection.end();
+  }
 }
 
 // Initialize table
@@ -44,7 +47,7 @@ module.exports = {
   async findAll() {
     const connection = await getConnection();
     const [rows] = await connection.execute(
-      `SELECT * FROM admins ORDER BY createdAt DESC`
+      `SELECT id, email, name, role, isActive, createdAt FROM admins ORDER BY createdAt DESC`
     );
     await connection.end();
     return rows;
@@ -71,12 +74,30 @@ module.exports = {
     await connection.end();
     return rows[0] || null;
   },
+  
+  // **NEW FUNCTION ADDED**
+  // Finds all active admins and returns their email addresses for notifications.
+  async findAllAdminEmails() {
+    const connection = await getConnection();
+    try {
+      // Selects emails only from admins who are currently active.
+      const [rows] = await connection.execute(
+        `SELECT email FROM admins WHERE isActive = TRUE`
+      );
+      // Returns a simple array of email strings, e.g., ['admin1@test.com', 'admin2@test.com']
+      return rows.map(admin => admin.email);
+    } catch (error) {
+        console.error("Error fetching admin emails:", error);
+        return []; // Return an empty array on error to prevent crashes
+    } finally {
+      await connection.end();
+    }
+  },
 
   // Update admin by ID
   async updateById(id, updateData) {
     const connection = await getConnection();
     
-    // Build dynamic update query
     const fields = [];
     const values = [];
     
@@ -118,7 +139,6 @@ module.exports = {
       values
     );
     
-    // Return updated admin
     const [rows] = await connection.execute(
       `SELECT * FROM admins WHERE id = ? LIMIT 1`,
       [id]
