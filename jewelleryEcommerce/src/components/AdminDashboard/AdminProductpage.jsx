@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { getProducts, deleteProduct } from '../../lib/api'; // Removed edit-related imports
+import { useState, useEffect, Fragment } from 'react';
+import { getProducts, deleteProduct } from '../../lib/api';
 import { Link } from 'react-router-dom';
 import AdminNavbar from '../Navbar/AdminNavbar';
-import { Dialog, Transition } from '@headlessui/react'; // For modals
-import { Fragment } from 'react'; // For Transition component
+import { Dialog, Transition } from '@headlessui/react';
+import EditProductForm from './EditProductForm'; // Import the new component
 
 // Delete Confirmation Modal Component
 function DeleteConfirmationModal({ isOpen, onClose, product, onConfirmDelete }) {
@@ -107,9 +107,11 @@ function AdminProducts() {
     const [currentPage, setCurrentPage] = useState(1);
     const [productsPerPage] = useState(10);
 
-    // State for Delete Confirmation Modal
-    const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false);
+    // State for Modals
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [productToDelete, setProductToDelete] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [productToEdit, setProductToEdit] = useState(null);
 
 
     useEffect(() => {
@@ -141,7 +143,7 @@ function AdminProducts() {
     const filteredProducts = products.filter(product =>
         product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.id?.toLowerCase().includes(searchTerm.toLowerCase()) // Allow searching by full ID
+        String(product.id).toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     // Pagination logic
@@ -149,10 +151,6 @@ function AdminProducts() {
     const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
     const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
     const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
-
-    const formatPrice = (price) => {
-        return price ? `₹${parseFloat(price).toLocaleString('en-IN')}` : 'N/A';
-    };
 
     const formatImages = (images) => {
         if (!images) return 'No images';
@@ -169,14 +167,29 @@ function AdminProducts() {
         return Array.isArray(imageArray) ? `${imageArray.length} image(s)` : 'No images';
     };
 
+    // --- NEW HANDLERS FOR EDIT MODAL ---
+    const handleEditClick = (product) => {
+        setProductToEdit(product);
+        setIsEditModalOpen(true);
+    };
+
+    const closeEditModal = () => {
+        setIsEditModalOpen(false);
+        setProductToEdit(null);
+    };
+
+    const handleProductUpdated = () => {
+        fetchProducts(); // Re-fetch products to show updated data
+    };
+
     // Handlers for Delete Confirmation Modal
     const handleDeleteClick = (product) => {
         setProductToDelete(product);
-        setIsDeleteConfirmModalOpen(true);
+        setIsDeleteModalOpen(true);
     };
 
-    const closeDeleteConfirmModal = () => {
-        setIsDeleteConfirmModalOpen(false);
+    const closeDeleteModal = () => {
+        setIsDeleteModalOpen(false);
         setProductToDelete(null);
     };
 
@@ -305,7 +318,7 @@ function AdminProducts() {
                                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                                     Images
                                                 </th>
-                                                                                               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                                     Status
                                                 </th>
                                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -343,7 +356,7 @@ function AdminProducts() {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {product.id || 'N/A'} {/* Display full ID */}
+                                                        {product.id || 'N/A'}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 shadow-sm">
@@ -363,8 +376,15 @@ function AdminProducts() {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                         <button
+                                                            onClick={() => handleEditClick(product)}
+                                                            className="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
+                                                            title="Edit Product"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        <button
                                                             onClick={() => handleDeleteClick(product)}
-                                                            className="text-red-600 hover:text-red-900 transition-colors duration-200"
+                                                            className="text-red-600 hover:text-red-900 ml-4 transition-colors duration-200"
                                                             title="Delete Product"
                                                         >
                                                             Delete
@@ -459,13 +479,21 @@ function AdminProducts() {
                 </div>
             </div>
 
-            {/* Delete Confirmation Modal */}
+            {/* Render Modals */}
             {productToDelete && (
                 <DeleteConfirmationModal
-                    isOpen={isDeleteConfirmModalOpen}
-                    onClose={closeDeleteConfirmModal}
+                    isOpen={isDeleteModalOpen}
+                    onClose={closeDeleteModal}
                     product={productToDelete}
                     onConfirmDelete={handleProductDeleted}
+                />
+            )}
+            {productToEdit && (
+                <EditProductForm
+                    isOpen={isEditModalOpen}
+                    onClose={closeEditModal}
+                    product={productToEdit}
+                    onSuccess={handleProductUpdated}
                 />
             )}
         </>
