@@ -102,7 +102,7 @@ module.exports = {
   },
 
   // ✅ Update product
-  async updateById(id, data) {
+   async updateById(id, data) {
     const connection = await getConnection();
 
     const name = data.name ?? '';

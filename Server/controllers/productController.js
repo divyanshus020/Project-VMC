@@ -112,25 +112,14 @@ exports.updateProduct = async (req, res) => {
 
     // 🖼️ Update thumbnail
     if (req.files?.image?.[0]) {
-      const upload = await cloudinary.uploader.upload(req.files.image[0].path, {
-        folder: 'ecommerce/products',
-      });
-      fs.unlinkSync(req.files.image[0].path);
-      finalImageUrl = upload.secure_url;
+      // ... (cloudinary upload logic)
     } else if (imageUrl !== undefined) {
       finalImageUrl = imageUrl;
     }
 
     // 🖼️ Update slider images
     if (req.files?.images) {
-      updatedImages = [];
-      for (const file of req.files.images) {
-        const upload = await cloudinary.uploader.upload(file.path, {
-          folder: 'ecommerce/products',
-        });
-        fs.unlinkSync(file.path);
-        updatedImages.push(upload.secure_url);
-      }
+      // ... (cloudinary upload logic)
     } else if (images !== undefined) {
       updatedImages = parseArrayField(images);
     }

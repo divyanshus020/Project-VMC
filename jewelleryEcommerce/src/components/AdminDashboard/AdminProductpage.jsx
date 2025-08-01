@@ -3,7 +3,7 @@ import { getProducts, deleteProduct } from '../../lib/api';
 import { Link } from 'react-router-dom';
 import AdminNavbar from '../Navbar/AdminNavbar';
 import { Dialog, Transition } from '@headlessui/react';
-import EditProductForm from './EditProductForm'; // Import the new component
+import EditProductForm from './EditProductForm'; // The new component for editing
 
 // Delete Confirmation Modal Component
 function DeleteConfirmationModal({ isOpen, onClose, product, onConfirmDelete }) {
@@ -156,18 +156,21 @@ function AdminProducts() {
         if (!images) return 'No images';
 
         let imageArray = images;
+        // If images is a string, try to parse it as JSON.
         if (typeof images === 'string') {
             try {
                 imageArray = JSON.parse(images);
             } catch {
-                return 'Invalid image data';
+                // If parsing fails, it might be a single URL string.
+                return '1 image(s)';
             }
         }
-
+        
+        // Return the count if it's an array.
         return Array.isArray(imageArray) ? `${imageArray.length} image(s)` : 'No images';
     };
 
-    // --- NEW HANDLERS FOR EDIT MODAL ---
+    // --- Handlers for Edit Modal ---
     const handleEditClick = (product) => {
         setProductToEdit(product);
         setIsEditModalOpen(true);
@@ -332,21 +335,15 @@ function AdminProducts() {
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center">
                                                             <div className="flex-shrink-0 h-12 w-12">
-                                                                {product.images && product.images.length > 0 ? (
-                                                                    <img
-                                                                        className="h-12 w-12 rounded-lg object-cover shadow-sm"
-                                                                        src={Array.isArray(product.images) ? product.images[0] : product.images}
-                                                                        alt={product.name}
-                                                                        onError={(e) => {
-                                                                            e.target.src = 'https://placehold.co/48x48/e0e0e0/888888?text=No+Image';
-                                                                            e.target.alt = "No Image Available";
-                                                                        }}
-                                                                    />
-                                                                ) : (
-                                                                    <div className="h-12 w-12 rounded-lg bg-gray-200 flex items-center justify-center shadow-sm">
-                                                                        <span className="text-gray-500 text-xs font-medium">No Img</span>
-                                                                    </div>
-                                                                )}
+                                                                <img
+                                                                    className="h-12 w-12 rounded-lg object-cover shadow-sm"
+                                                                    src={product.imageUrl || 'https://placehold.co/48x48/e0e0e0/888888?text=No+Image'}
+                                                                    alt={product.name}
+                                                                    onError={(e) => {
+                                                                        e.target.src = 'https://placehold.co/48x48/e0e0e0/888888?text=Error';
+                                                                        e.target.alt = "Image failed to load";
+                                                                    }}
+                                                                />
                                                             </div>
                                                             <div className="ml-4">
                                                                 <div className="text-base font-medium text-gray-900">
