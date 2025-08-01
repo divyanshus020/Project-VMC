@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const bcrypt = require('bcryptjs'); // Added for password hashing
 
 // Helper to get a MySQL connection
 async function getConnection() {
@@ -15,6 +16,7 @@ async function createUserTable() {
         email VARCHAR(255) UNIQUE,
         address VARCHAR(255),
         phoneNumber VARCHAR(20) NOT NULL UNIQUE,
+        password VARCHAR(255) NULL, -- Added password field
         otpCode VARCHAR(10),
         otpExpiresAt DATETIME,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -28,23 +30,34 @@ async function createUserTable() {
 createUserTable();
 
 module.exports = {
-  // Create a new user
+  // Create a new user (Updated to handle password)
   async create(user) {
     const connection = await getConnection();
+    
+    let hashedPassword = null;
+    // Only hash password if it's provided
+    if (user.password) {
+        const salt = await bcrypt.genSalt(10);
+        hashedPassword = await bcrypt.hash(user.password, salt);
+    }
+
     const [result] = await connection.execute(
-      `INSERT INTO users (fullName, email, address, phoneNumber, otpCode, otpExpiresAt)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (fullName, email, address, phoneNumber, password, otpCode, otpExpiresAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         user.fullName || null,
-        user.email || null,
+        user.email || null, // Handles optional email
         user.address || null,
         user.phoneNumber,
+        hashedPassword, // Handles optional password
         user.otpCode || null,
         user.otpExpiresAt || null
       ]
     );
     await connection.end();
-    return { id: result.insertId, ...user };
+    const newUser = { ...user };
+    delete newUser.password; // Do not return password
+    return { id: result.insertId, ...newUser };
   },
 
   // Find user by phone number

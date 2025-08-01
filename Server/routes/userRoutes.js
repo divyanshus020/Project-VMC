@@ -4,7 +4,7 @@ const userController = require('../controllers/userController');
 const { protect } = require('../middleware/auth');
 
 // ==============================
-// 📱 OTP AUTH ROUTES (MySQL)
+// 📱 OTP & Password AUTH ROUTES (MySQL)
 // ==============================
 
 // Check if user exists
@@ -17,6 +17,10 @@ router.post('/send-otp-register', userController.sendOTPForRegister);
 // Verify OTP routes
 router.post('/verify-otp-login', userController.verifyOTPForLogin);
 router.post('/verify-otp-register', userController.verifyOTPForRegister);
+
+// 🆕 Password-based login route
+router.post('/login-password', userController.loginWithPassword);
+
 
 // ==============================
 // 👤 USER PROFILE ROUTES (MySQL)

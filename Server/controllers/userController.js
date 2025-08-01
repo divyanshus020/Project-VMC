@@ -1,9 +1,11 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
+const bcrypt = require('bcryptjs');
 
 // In-memory OTP store (Consider Redis/DB in production)
 const otpStore = new Map();
+const OTP_COOLDOWN_SECONDS = 60; // Cooldown period for resending OTP
 
 // 🔐 Utility: Generate OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000);
@@ -45,47 +47,57 @@ exports.checkUserExists = async (req, res) => {
 };
 
 // ===============================
-// 2️⃣ Send OTP - Login
+// 2️⃣ Send OTP - Login (Updated with Cooldown)
 // ===============================
 exports.sendOTPForLogin = async (req, res) => {
-  const { phoneNumber } = req.body;
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) return res.status(400).json({ message: 'Phone number is required' });
 
-  if (!phoneNumber) return res.status(400).json({ message: 'Phone number is required' });
+    const existingOtp = otpStore.get(phoneNumber);
+    if (existingOtp && Date.now() < existingOtp.createdAt + OTP_COOLDOWN_SECONDS * 1000) {
+        const timeLeft = Math.ceil((existingOtp.createdAt + OTP_COOLDOWN_SECONDS * 1000 - Date.now()) / 1000);
+        return res.status(429).json({ message: `Please wait ${timeLeft} seconds before requesting a new OTP.` });
+    }
 
-  const user = await User.findByPhoneNumber(phoneNumber);
-  if (!user) return res.status(404).json({ message: 'User not found. Please register first.' });
+    const user = await User.findByPhoneNumber(phoneNumber);
+    if (!user) return res.status(404).json({ message: 'User not found. Please register first.' });
 
-  const otp = generateOTP();
-  otpStore.set(phoneNumber, { otp, expiresAt: Date.now() + 5 * 60 * 1000 });
+    const otp = generateOTP();
+    otpStore.set(phoneNumber, { otp, expiresAt: Date.now() + 5 * 60 * 1000, createdAt: Date.now() });
 
-  try {
-    await sendSMS(phoneNumber, otp);
-    res.status(200).json({ message: 'OTP sent for login' });
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to send OTP', error: err.message });
-  }
+    try {
+        await sendSMS(phoneNumber, otp);
+        res.status(200).json({ message: 'OTP sent for login' });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to send OTP', error: err.message });
+    }
 };
 
 // ===============================
-// 3️⃣ Send OTP - Registration
+// 3️⃣ Send OTP - Registration (Updated with Cooldown)
 // ===============================
 exports.sendOTPForRegister = async (req, res) => {
-  const { phoneNumber } = req.body;
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) return res.status(400).json({ message: 'Phone number is required' });
 
-  if (!phoneNumber) return res.status(400).json({ message: 'Phone number is required' });
+    const existingOtp = otpStore.get(phoneNumber);
+    if (existingOtp && Date.now() < existingOtp.createdAt + OTP_COOLDOWN_SECONDS * 1000) {
+        const timeLeft = Math.ceil((existingOtp.createdAt + OTP_COOLDOWN_SECONDS * 1000 - Date.now()) / 1000);
+        return res.status(429).json({ message: `Please wait ${timeLeft} seconds before requesting a new OTP.` });
+    }
+    
+    const user = await User.findByPhoneNumber(phoneNumber);
+    if (user) return res.status(400).json({ message: 'User already exists. Please log in.' });
 
-  const user = await User.findByPhoneNumber(phoneNumber);
-  if (user) return res.status(400).json({ message: 'User already exists. Please log in.' });
+    const otp = generateOTP();
+    otpStore.set(phoneNumber, { otp, expiresAt: Date.now() + 5 * 60 * 1000, createdAt: Date.now() });
 
-  const otp = generateOTP();
-  otpStore.set(phoneNumber, { otp, expiresAt: Date.now() + 5 * 60 * 1000 });
-
-  try {
-    await sendSMS(phoneNumber, otp);
-    res.status(200).json({ message: 'OTP sent for registration' });
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to send OTP', error: err.message });
-  }
+    try {
+        await sendSMS(phoneNumber, otp);
+        res.status(200).json({ message: 'OTP sent for registration' });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to send OTP', error: err.message });
+    }
 };
 
 // ===============================
@@ -108,17 +120,13 @@ exports.verifyOTPForLogin = async (req, res) => {
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     otpStore.delete(phoneNumber);
+    
+    const { password, ...userProfile } = user; // Exclude password from response
 
     res.json({
       message: 'Login successful',
       token,
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        phoneNumber: user.phoneNumber,
-        address: user.address,
-        email: user.email,
-      },
+      user: userProfile
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -126,16 +134,16 @@ exports.verifyOTPForLogin = async (req, res) => {
 };
 
 // ===============================
-// 5️⃣ Verify OTP - Register
+// 5️⃣ Verify OTP - Register (Updated for optional fields)
 // ===============================
 exports.verifyOTPForRegister = async (req, res) => {
-  const { phoneNumber, fullName, address, email, otp } = req.body;
+  const { phoneNumber, fullName, address, email, otp, password } = req.body;
 
   if (!phoneNumber || !otp)
     return res.status(400).json({ message: 'Phone number and OTP are required' });
 
-  if (!fullName || !address || !email)
-    return res.status(400).json({ message: 'Full name, address, and email are required' });
+  if (!fullName || !address)
+    return res.status(400).json({ message: 'Full name and address are required' });
 
   const record = otpStore.get(phoneNumber);
   if (!record || record.otp != otp || record.expiresAt < Date.now()) {
@@ -144,31 +152,69 @@ exports.verifyOTPForRegister = async (req, res) => {
 
   try {
     let user = await User.findByPhoneNumber(phoneNumber);
-
     if (user) return res.status(400).json({ message: 'User already exists' });
 
-    // Check for duplicate email
-    const emailExists = await User.findByEmail(email);
-    if (emailExists) return res.status(400).json({ message: 'Email already in use' });
+    if (email) {
+        const emailExists = await User.findByEmail(email);
+        if (emailExists) return res.status(400).json({ message: 'Email already in use' });
+    }
 
-    user = await User.create({ fullName, address, phoneNumber, email });
+    const newUser = {
+        fullName,
+        address,
+        phoneNumber,
+        email: email || null,
+        password: password || null,
+    };
+
+    user = await User.create(newUser);
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     otpStore.delete(phoneNumber);
+    
+    const { password: pw, ...userProfile } = user;
 
     res.json({
       message: 'Registration successful',
       token,
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        phoneNumber: user.phoneNumber,
-        address: user.address,
-        email: user.email,
-      },
+      user: userProfile
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+};
+
+
+// ===============================
+// 🆕 Login with Password (Updated to use Phone Number)
+// ===============================
+exports.loginWithPassword = async (req, res) => {
+    const { phoneNumber, password } = req.body;
+    if (!phoneNumber || !password) {
+        return res.status(400).json({ message: 'Phone number and password are required' });
+    }
+
+    try {
+        const user = await User.findByPhoneNumber(phoneNumber);
+        if (!user || !user.password) {
+            return res.status(401).json({ message: 'Invalid credentials or user does not have a password.' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Invalid credentials.' });
+        }
+
+        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const { password: pw, ...userProfile } = user;
+
+        res.json({
+            message: 'Login successful',
+            token,
+            user: userProfile,
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 };
 
 // ===============================
@@ -178,14 +224,8 @@ exports.getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
-
-    res.json({
-      id: user.id,
-      fullName: user.fullName,
-      phoneNumber: user.phoneNumber,
-      address: user.address,
-      email: user.email,
-    });
+    const { password, ...userProfile } = user;
+    res.json(userProfile);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -228,18 +268,13 @@ exports.deleteProfile = async (req, res) => {
 };
 
 // ===============================
-// 9️⃣ Get All Users - ✅ FIXED
+// 9️⃣ Get All Users
 // ===============================
 exports.getAllUsers = async (req, res) => {
   try {
-    console.log('📋 Fetching all users from database...');
-    
     const users = await User.findAll();
     const userCount = await User.getCount();
     
-    console.log(`✅ Found ${users.length} users in database`);
-    
-    // Return users with additional metadata
     res.status(200).json({
       success: true,
       data: users,
@@ -248,7 +283,6 @@ exports.getAllUsers = async (req, res) => {
     });
     
   } catch (err) {
-    console.error('❌ Error fetching users:', err);
     res.status(500).json({ 
       success: false,
       message: 'Failed to fetch users', 
@@ -280,8 +314,7 @@ exports.getUserById = async (req, res) => {
       });
     }
 
-    // Remove sensitive data
-    const { otpCode, otpExpiresAt, ...safeUser } = user;
+    const { otpCode, otpExpiresAt, password, ...safeUser } = user;
 
     res.status(200).json({
       success: true,
@@ -289,7 +322,6 @@ exports.getUserById = async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error fetching user by ID:', err);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch user', 
@@ -335,7 +367,6 @@ exports.deleteUser = async (req, res) => {
     }
 
   } catch (err) {
-    console.error('Error deleting user:', err);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to delete user', 
