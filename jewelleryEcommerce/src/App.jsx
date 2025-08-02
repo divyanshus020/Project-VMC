@@ -27,6 +27,8 @@ import AdminEnquery from './components/AdminDashboard/AdminEnquery.jsx';
 import AdminSizesPage from './components/AdminDashboard/AdminSizesPage.jsx';
 import Order from './pages/Order.jsx';
 import AdminData from './components/AdminDashboard/AdminData.jsx';
+import ForgotPassword from './components/Basic/ForgotPassword.jsx';
+import ResetPassword from './components/Basic/ResetPassword.jsx';
 
 // Create a theme to provide to the application
 const theme = createTheme({
@@ -45,14 +47,14 @@ const theme = createTheme({
 
 function AppWrapper() {
   const location = useLocation();
-  
+
   // Hide Navbar and Footer for any /admin/* route
   const hideLayout = location.pathname.toLowerCase().startsWith('/admin');
-  
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
-  
+
   return (
     <>
       {!hideLayout && <Navbar />}
@@ -67,21 +69,23 @@ function AppWrapper() {
         <Route path="/cart" element={<Cart />} />
         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path='/orders' element={<Order />} />
-        
+
         {/* Admin Login (public) */}
         <Route path="/admin/login" element={<AdminLogin />} />
-        
+
         {/* Protected Admin Routes */}
-        <Route path="/admin/dashboard" element={ <ProtectedRoute> <AdminDashboard /> </ProtectedRoute> } />
-        <Route path="/admin/users" element={ <ProtectedRoute> <Users /> </ProtectedRoute> } />
-        <Route path="/admin/add-product" element={ <ProtectedRoute> <AddProduct /> </ProtectedRoute> } />
-        <Route path="/admin/products" element={ <ProtectedRoute> <AdminProductPage /> </ProtectedRoute> } />
-        <Route path="/admin/admins" element={ <ProtectedRoute> <AdminData /> </ProtectedRoute> } />
-        <Route path="/admin/enquiry" element={ <ProtectedRoute> <AdminEnquery /> </ProtectedRoute> } />
+        <Route path="/admin/dashboard" element={<ProtectedRoute> <AdminDashboard /> </ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute> <Users /> </ProtectedRoute>} />
+        <Route path="/admin/add-product" element={<ProtectedRoute> <AddProduct /> </ProtectedRoute>} />
+        <Route path="/admin/products" element={<ProtectedRoute> <AdminProductPage /> </ProtectedRoute>} />
+        <Route path="/admin/admins" element={<ProtectedRoute> <AdminData /> </ProtectedRoute>} />
+        <Route path="/admin/enquiry" element={<ProtectedRoute> <AdminEnquery /> </ProtectedRoute>} />
         <Route path="/admin/sizes" element={<ProtectedRoute> <AdminSizesPage /> </ProtectedRoute>} />
+        <Route path="/admin/forgot-password" element={<ForgotPassword />} />
+        <Route path="/admin/reset-password" element={<ResetPassword />} />
       </Routes>
       {!hideLayout && <Footer />}
-      
+
       {/* Toast Container - Global notification system */}
       <ToastContainer
         position="top-right"

@@ -1,56 +1,70 @@
 const Admin = require("../models/Admin");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
-// Admin Registration
+// A helper function for consistent error responses
+const sendErrorResponse = (res, statusCode, message, error) => {
+  res.status(statusCode).json({
+    message,
+    // Only include detailed error in non-production environments for security
+    ...(process.env.NODE_ENV !== 'production' && error && { error: error.message }),
+  });
+};
+
+
+// --- AUTHENTICATION CONTROLLERS ---
+
+/**
+ * @desc    Register a new admin. Can also be used by a SuperAdmin to create other admins.
+ * @route   POST /api/admins/register
+ * @route   POST /api/admins/create
+ * @access  Public / SuperAdmin
+ */
 exports.adminRegister = async (req, res) => {
-  if (!req.body || Object.keys(req.body).length === 0) {
-    return res.status(400).json({ message: "Request body is required" });
-  }
-
   const { email, password, name, role, isActive } = req.body;
 
-  // Validate required fields
+  // --- Input Validation ---
   if (!email || !password) {
     return res.status(400).json({ message: "Email and password are required" });
   }
-
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res
-      .status(400)
-      .json({ message: "Please provide a valid email address" });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ message: "Please provide a valid email address" });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters long" });
   }
 
-  // Validate password length
-  if (password.length < 6) {
-    return res
-      .status(400)
-      .json({ message: "Password must be at least 6 characters long" });
+  // Sanitize and validate the role
+  let validatedRole = "admin"; // Default role
+  if (role) {
+    const lowerCaseRole = role.toLowerCase().replace("_", "");
+    if (lowerCaseRole === "superadmin") {
+      validatedRole = "superadmin";
+    } else if (lowerCaseRole !== "admin") {
+      return res.status(400).json({ message: "Invalid role. Use 'admin' or 'superadmin'." });
+    }
   }
 
   try {
-    // Check if admin already exists
     const existingAdmin = await Admin.findByEmail(email);
     if (existingAdmin) {
-      return res
-        .status(409)
-        .json({ message: "Admin with this email already exists" });
+      return res.status(409).json({ message: "Admin with this email already exists" });
     }
 
-    // Create new admin
-    const admin = await Admin.create({
+    const newAdminData = {
       email,
-      password,
+      password, // The model should handle hashing
       name: name || "",
-      role: role || "admin",
+      role: validatedRole,
       isActive: typeof isActive === "boolean" ? isActive : true,
-    });
+    };
+
+    const admin = await Admin.create(newAdminData);
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: admin.id, email: admin.email, role: admin.role },
-      process.env.JWT_SECRET || "changeme",
+      { id: admin.id, role: admin.role },
+      process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
@@ -60,16 +74,17 @@ exports.adminRegister = async (req, res) => {
       admin: Admin.sanitize(admin),
     });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error("Admin registration error:", err);
+    sendErrorResponse(res, 500, "Server error during registration.", err);
   }
 };
 
-// Admin Login
+/**
+ * @desc    Authenticate an admin and get a token
+ * @route   POST /api/admins/login
+ * @access  Public
+ */
 exports.adminLogin = async (req, res) => {
-  if (!req.body || Object.keys(req.body).length === 0) {
-    return res.status(400).json({ message: "Request body is required" });
-  }
-
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -79,17 +94,21 @@ exports.adminLogin = async (req, res) => {
   try {
     const admin = await Admin.findByEmail(email);
     if (!admin) {
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.status(401).json({ message: "Invalid credentials" }); // Generic message
+    }
+
+    if (!admin.isActive) {
+      return res.status(403).json({ message: "Account is deactivated. Please contact an administrator." });
     }
 
     const isMatch = await Admin.comparePassword(password, admin.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.status(401).json({ message: "Invalid credentials" }); // Generic message
     }
 
     const token = jwt.sign(
-      { id: admin.id, email: admin.email, role: admin.role },
-      process.env.JWT_SECRET || "changeme",
+      { id: admin.id, role: admin.role },
+      process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
@@ -99,185 +118,272 @@ exports.adminLogin = async (req, res) => {
       admin: Admin.sanitize(admin),
     });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error("Admin login error:", err);
+    sendErrorResponse(res, 500, "Server error during login.", err);
   }
 };
 
-// Get All Admins
+
+// --- PASSWORD RESET CONTROLLERS ---
+
+/**
+ * @desc    Handle forgot password request by generating a reset token
+ * @route   POST /api/admins/forgot-password
+ * @access  Public
+ */
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  try {
+    const admin = await Admin.findByEmail(email);
+    if (admin) {
+      // Generate reset token only if admin exists
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+      await Admin.saveResetToken(admin.id, resetToken, resetTokenExpiry);
+
+      // TODO: In production, send an email with the reset link.
+      // For development, we can return the token.
+      console.log(`Password reset token for ${email}: ${resetToken}`);
+    }
+    
+    // For security, always return the same message to prevent email enumeration
+    res.status(200).json({
+      message: "If an account with that email exists, password reset instructions have been sent."
+    });
+
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    sendErrorResponse(res, 500, "Server error during password reset request.", err);
+  }
+};
+
+/**
+ * @desc    Reset password using a valid token
+ * @route   POST /api/admins/reset-password
+ * @access  Public
+ */
+exports.resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ message: "Reset token and new password are required" });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters long" });
+  }
+
+  try {
+    const admin = await Admin.findByResetToken(token);
+    if (!admin || new Date() > new Date(admin.resetTokenExpiry)) {
+      return res.status(400).json({ message: "Invalid or expired reset token" });
+    }
+
+    await Admin.updatePasswordAndClearToken(admin.id, newPassword);
+
+    res.status(200).json({ message: "Password has been reset successfully. You can now log in." });
+  } catch (err) {
+    console.error("Reset password error:", err);
+    sendErrorResponse(res, 500, "Server error while resetting password.", err);
+  }
+};
+
+
+// --- ADMIN MANAGEMENT (SuperAdmin only) ---
+
+/**
+ * @desc    Get all admins
+ * @route   GET /api/admins
+ * @access  SuperAdmin
+ */
 exports.getAllAdmins = async (req, res) => {
   try {
     const admins = await Admin.findAll();
-    
     res.status(200).json({
-      message: "Admins retrieved successfully",
       count: admins.length,
       admins: admins.map(admin => Admin.sanitize(admin)),
     });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error("Get all admins error:", err);
+    sendErrorResponse(res, 500, "Server error retrieving admins.", err);
   }
 };
 
-// Get Admin by ID
+/**
+ * @desc    Get a single admin by ID
+ * @route   GET /api/admins/:id
+ * @access  SuperAdmin
+ */
 exports.getAdminById = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id) {
-      return res.status(400).json({ message: "Admin ID is required" });
-    }
-    
     const admin = await Admin.findById(id);
+
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
-    
-    res.status(200).json({
-      message: "Admin retrieved successfully",
-      admin: Admin.sanitize(admin),
-    });
+
+    res.status(200).json({ admin: Admin.sanitize(admin) });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error("Get admin by ID error:", err);
+    sendErrorResponse(res, 500, "Server error retrieving admin.", err);
   }
 };
 
-// Update Admin by ID
+/**
+ * @desc    Update an admin's details by ID
+ * @route   PUT /api/admins/:id
+ * @access  SuperAdmin
+ */
 exports.updateAdmin = async (req, res) => {
+  const { id } = req.params;
+  const { email, password, name, role, isActive } = req.body;
+  const loggedInAdminId = req.admin.id;
+
   try {
-    const { id } = req.params;
-    const { email, password, name, role, isActive } = req.body;
-
-    if (!id) {
-      return res.status(400).json({ message: "Admin ID is required" });
-    }
-
-    // Check if admin exists
-    const existingAdmin = await Admin.findById(id);
-    if (!existingAdmin) {
+    const adminToUpdate = await Admin.findById(id);
+    if (!adminToUpdate) {
       return res.status(404).json({ message: "Admin not found" });
     }
 
-    // Validate email if provided
-    if (email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res
-          .status(400)
-          .json({ message: "Please provide a valid email address" });
-      }
-      
-      const adminWithEmail = await Admin.findByEmail(email);
-      if (adminWithEmail && adminWithEmail.id !== Number(id)) {
-        return res
-          .status(409)
-          .json({ message: "Admin with this email already exists" });
-      }
+    // Prevent a superadmin from deactivating or changing their own role via this endpoint
+    if (Number(loggedInAdminId) === Number(id)) {
+        if (isActive === false || (role && role !== req.admin.role)) {
+            return res.status(400).json({ message: "You cannot change your own role or active status via this route. Use profile settings." });
+        }
     }
 
-    // Validate password if provided
-    if (password && password.length < 6) {
-      return res
-        .status(400)
-        .json({ message: "Password must be at least 6 characters long" });
-    }
-
-    // Update admin
-    const updatedAdmin = await Admin.updateById(id, { email, password, name, role, isActive });
+    const updateData = {};
     
+    // Validate and add fields to updateData if they are provided
+    if (email) {
+      const existing = await Admin.findByEmail(email);
+      if (existing && Number(existing.id) !== Number(id)) {
+        return res.status(409).json({ message: "Email is already in use by another account." });
+      }
+      updateData.email = email;
+    }
+    if (password) {
+      if (password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters long" });
+      updateData.password = password;
+    }
+    if (role) {
+      const lowerCaseRole = role.toLowerCase().replace("_", "");
+      if (!['admin', 'superadmin'].includes(lowerCaseRole)) {
+        return res.status(400).json({ message: "Invalid role specified." });
+      }
+      updateData.role = lowerCaseRole;
+    }
+    if (name !== undefined) updateData.name = name;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "No update data provided." });
+    }
+
+    const updatedAdmin = await Admin.updateById(id, updateData);
     res.status(200).json({
       message: "Admin updated successfully",
       admin: Admin.sanitize(updatedAdmin),
     });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error("Update admin error:", err);
+    sendErrorResponse(res, 500, "Server error updating admin.", err);
   }
 };
 
-// Delete Admin
+/**
+ * @desc    Delete an admin by ID
+ * @route   DELETE /api/admins/:id
+ * @access  SuperAdmin
+ */
 exports.deleteAdmin = async (req, res) => {
+  const { id } = req.params;
+  const loggedInAdminId = req.admin.id;
+
+  if (Number(id) === Number(loggedInAdminId)) {
+    return res.status(400).json({ message: "You cannot delete your own account." });
+  }
+
   try {
-    const { id } = req.params;
-    if (!id) {
-      return res.status(400).json({ message: "Admin ID is required" });
-    }
-    
     const admin = await Admin.findById(id);
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
-    
-    const deleted = await Admin.deleteById(id);
-    if (!deleted) {
-      return res.status(500).json({ message: "Failed to delete admin" });
-    }
-    
-    res.status(200).json({
-      message: "Admin deleted successfully",
-      deletedAdmin: {
-        id: admin.id,
-        email: admin.email,
-      },
-    });
+
+    await Admin.deleteById(id);
+    res.status(200).json({ message: `Admin with email ${admin.email} has been deleted.` });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error("Delete admin error:", err);
+    sendErrorResponse(res, 500, "Server error deleting admin.", err);
   }
 };
 
-// Get Current Admin Profile
+
+// --- SELF-PROFILE MANAGEMENT ---
+
+/**
+ * @desc    Get the profile of the currently logged-in admin
+ * @route   GET /api/admins/me
+ * @access  Admin, SuperAdmin
+ */
 exports.getProfile = async (req, res) => {
   try {
-    // Assuming req.admin is set by authentication middleware
+    // req.admin.id is attached by the authenticateAdmin middleware
     const admin = await Admin.findById(req.admin.id);
     if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
+      return res.status(404).json({ message: "Admin profile not found." });
     }
-    
-    res.status(200).json({
-      message: "Profile retrieved successfully",
-      admin: Admin.sanitize(admin),
-    });
+    res.status(200).json({ admin: Admin.sanitize(admin) });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error("Get profile error:", err);
+    sendErrorResponse(res, 500, "Server error retrieving profile.", err);
   }
 };
 
-// Update Current Admin Profile
+/**
+ * @desc    Update the profile of the currently logged-in admin
+ * @route   PUT /api/admins/me
+ * @access  Admin, SuperAdmin
+ */
 exports.updateProfile = async (req, res) => {
+  const { email, password, name } = req.body;
+  const adminId = req.admin.id;
+
   try {
-    const { email, password, name, role, isActive } = req.body;
-    const adminId = req.admin.id; // From authentication middleware
+    const updateData = {};
 
-    // Validate email if provided
+    // Validate and prepare data for self-update
+    // An admin cannot change their own role or active status here.
     if (email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res
-          .status(400)
-          .json({ message: "Please provide a valid email address" });
+      const existing = await Admin.findByEmail(email);
+      if (existing && Number(existing.id) !== Number(adminId)) {
+        return res.status(409).json({ message: "Email is already in use." });
       }
-      
-      const existingAdmin = await Admin.findByEmail(email);
-      if (existingAdmin && existingAdmin.id !== Number(adminId)) {
-        return res
-          .status(409)
-          .json({ message: "Admin with this email already exists" });
-      }
+      updateData.email = email;
     }
-
-    // Validate password if provided
-    if (password && password.length < 6) {
-      return res
-        .status(400)
-        .json({ message: "Password must be at least 6 characters long" });
+    if (password) {
+      if (password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters long" });
+      updateData.password = password;
     }
-
-    // Update profile
-    const updatedAdmin = await Admin.updateById(adminId, { email, password, name, role, isActive });
+    if (name !== undefined) updateData.name = name;
     
+    if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "No update data provided." });
+    }
+
+    const updatedAdmin = await Admin.updateById(adminId, updateData);
     res.status(200).json({
       message: "Profile updated successfully",
       admin: Admin.sanitize(updatedAdmin),
     });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error("Update profile error:", err);
+    sendErrorResponse(res, 500, "Server error updating profile.", err);
   }
 };

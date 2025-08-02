@@ -1,193 +1,283 @@
-
 import React, { useState } from 'react';
 import {
     Dialog,
-    DialogActions,
-    DialogContent,
-    DialogContentText,
     DialogTitle,
+    DialogContent,
+    DialogActions,
     TextField,
     Button,
-    Box,
-    CircularProgress,
-    Alert,
-    FormControl,
-    InputLabel,
     Select,
     MenuItem,
-    FormControlLabel,
+    FormControl,
+    InputLabel,
+    CircularProgress,
     Switch,
+    FormControlLabel,
+    Typography,
+    Alert,
+    Box,
+    InputAdornment,
+    IconButton
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { createAdmin, getAuthToken, getAdminPermissions } from '../../lib/api';
 import { toast } from 'react-toastify';
-import { registerAdmin, validateAdminData } from '../../lib/api';
 
 const AdminRegistrationForm = ({ open, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
-        name: '',
         email: '',
         password: '',
+        name: '',
         role: 'admin',
-        isActive: true,
+        isActive: true
     });
-    const [errors, setErrors] = useState({});
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [serverError, setServerError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+
+    // Get current admin permissions
+    const permissions = getAdminPermissions('admin');
+    const canCreateSuperAdmin = permissions?.isSuperAdmin || false;
 
     const handleChange = (event) => {
         const { name, value, type, checked } = event.target;
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value,
+            [name]: type === 'checkbox' ? checked : value
         }));
+        
+        // Clear error when user starts typing
+        if (error) setError('');
     };
 
-    const handleSubmit = async (event) => {
-        event.preventDefault();
-        setServerError('');
-        setErrors({});
+    const togglePasswordVisibility = () => {
+        setShowPassword(!showPassword);
+    };
 
-        // Frontend validation
-        const { isValid, errors: validationErrors } = validateAdminData(formData);
-        if (!isValid) {
-            setErrors(validationErrors);
-            return;
+    const validateForm = () => {
+        if (!formData.email) {
+            setError('Email is required');
+            return false;
         }
 
-        setIsSubmitting(true);
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email)) {
+            setError('Please provide a valid email address');
+            return false;
+        }
+
+        if (!formData.password) {
+            setError('Password is required');
+            return false;
+        }
+
+        if (formData.password.length < 6) {
+            setError('Password must be at least 6 characters long');
+            return false;
+        }
+
+        return true;
+    };
+
+    const handleSubmit = async () => {
+        if (!validateForm()) return;
+
+        setLoading(true);
+        setError('');
+
         try {
-            const response = await registerAdmin(formData);
+            const token = getAuthToken('admin');
+            if (!token) {
+                throw new Error("Authentication token not found. Please login again.");
+            }
+
+            // Map role for backend
+            const roleForBackend = formData.role === 'super_admin' ? 'superadmin' : 'admin';
+
+            const adminData = {
+                email: formData.email,
+                password: formData.password,
+                name: formData.name,
+                role: roleForBackend,
+                isActive: formData.isActive
+            };
+
+            console.log('Creating admin with role:', roleForBackend);
+
+            const response = await createAdmin(adminData, token);
+            
             if (response.success) {
-                toast.success(response.message || 'Admin registered successfully!');
-                onSuccess(); // This will trigger a refetch in the parent
-                handleClose(); // Close the form
+                toast.success(`Admin "${formData.name || formData.email}" created successfully!`);
+                
+                // Reset form
+                setFormData({
+                    email: '',
+                    password: '',
+                    name: '',
+                    role: 'admin',
+                    isActive: true
+                });
+                
+                onSuccess(); // Refresh the admin list
+                onClose();   // Close the modal
             } else {
-                setServerError(response.error || 'An unknown error occurred.');
-                toast.error(response.error || 'Failed to register admin.');
+                // Handle specific errors
+                if (response.error.includes('insufficient privileges') || response.insufficientPrivileges) {
+                    setError('You do not have permission to create admin accounts. SuperAdmin access required.');
+                } else if (response.error.includes('already exists')) {
+                    setError('An admin with this email already exists.');
+                } else {
+                    setError(response.error || 'Failed to create admin account.');
+                }
+                toast.error(response.error || 'Failed to create admin account.');
             }
         } catch (err) {
-            const errorMessage = err.response?.data?.message || err.message || 'An unexpected error occurred.';
-            setServerError(errorMessage);
+            const errorMessage = err.message || 'An unexpected error occurred.';
+            setError(errorMessage);
             toast.error(errorMessage);
         } finally {
-            setIsSubmitting(false);
+            setLoading(false);
         }
     };
 
     const handleClose = () => {
-        // Reset form state on close
-        setFormData({
-            name: '',
-            email: '',
-            password: '',
-            role: 'admin',
-            isActive: true,
-        });
-        setErrors({});
-        setServerError('');
-        onClose();
+        if (!loading) {
+            setFormData({
+                email: '',
+                password: '',
+                name: '',
+                role: 'admin',
+                isActive: true
+            });
+            setError('');
+            onClose();
+        }
     };
 
     return (
         <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-            <DialogTitle fontWeight="bold">Register New Administrator</DialogTitle>
-            <DialogContent>
-                <DialogContentText sx={{ mb: 2 }}>
-                    Fill out the details below to create a new administrator account.
-                </DialogContentText>
+            <DialogTitle sx={{ borderBottom: '1px solid #ddd' }}>
+                Create New Administrator
+            </DialogTitle>
+            <DialogContent sx={{ pt: '20px !important' }}>
+                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
                 
-                {serverError && <Alert severity="error" sx={{ mb: 2 }}>{serverError}</Alert>}
+                {!permissions?.canManageAdmins && (
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        You may not have sufficient privileges to create admin accounts.
+                    </Alert>
+                )}
 
-                <Box component="form" noValidate onSubmit={handleSubmit}>
-                    <TextField
-                        margin="normal"
-                        required
-                        fullWidth
-                        id="name"
-                        label="Full Name"
-                        name="name"
-                        autoComplete="name"
-                        value={formData.name}
+                <TextField
+                    margin="dense"
+                    label="Email Address"
+                    type="email"
+                    fullWidth
+                    variant="outlined"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    disabled={loading}
+                />
+
+                <TextField
+                    margin="dense"
+                    label="Password"
+                    type={showPassword ? 'text' : 'password'}
+                    fullWidth
+                    variant="outlined"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    disabled={loading}
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <IconButton
+                                    aria-label="toggle password visibility"
+                                    onClick={togglePasswordVisibility}
+                                    edge="end"
+                                    disabled={loading}
+                                >
+                                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                                </IconButton>
+                            </InputAdornment>
+                        ),
+                    }}
+                />
+
+                <TextField
+                    margin="dense"
+                    label="Full Name"
+                    type="text"
+                    fullWidth
+                    variant="outlined"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    disabled={loading}
+                />
+
+                <FormControl fullWidth margin="dense">
+                    <InputLabel id="role-select-label">Role</InputLabel>
+                    <Select
+                        labelId="role-select-label"
+                        name="role"
+                        value={formData.role}
                         onChange={handleChange}
-                        error={!!errors.name}
-                        helperText={errors.name}
-                    />
-                    <TextField
-                        margin="normal"
-                        required
-                        fullWidth
-                        id="email"
-                        label="Email Address"
-                        name="email"
-                        autoComplete="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        error={!!errors.email}
-                        helperText={errors.email}
-                    />
-                    <TextField
-                        margin="normal"
-                        required
-                        fullWidth
-                        name="password"
-                        label="Password"
-                        type="password"
-                        id="password"
-                        autoComplete="new-password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        error={!!errors.password}
-                        helperText={errors.password}
-                    />
-                    <FormControl fullWidth margin="normal">
-                        <InputLabel id="role-select-label">Role</InputLabel>
-                        <Select
-                            labelId="role-select-label"
-                            id="role"
-                            name="role"
-                            value={formData.role}
-                            label="Role"
+                        label="Role"
+                        disabled={loading}
+                    >
+                        <MenuItem value="admin">Administrator</MenuItem>
+                        {canCreateSuperAdmin && (
+                            <MenuItem value="super_admin">Super Administrator</MenuItem>
+                        )}
+                    </Select>
+                    {!canCreateSuperAdmin && (
+                        <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+                            Only SuperAdmins can create other SuperAdmin accounts
+                        </Typography>
+                    )}
+                </FormControl>
+
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={formData.isActive}
                             onChange={handleChange}
-                        >
-                            <MenuItem value="admin">Admin</MenuItem>
-                            <MenuItem value="super_admin">Super Admin</MenuItem>
-                            <MenuItem value="moderator">Moderator</MenuItem>
-                        </Select>
-                    </FormControl>
-                    <FormControlLabel
-                        control={
-                            <Switch
-                                checked={formData.isActive}
-                                onChange={handleChange}
-                                name="isActive"
-                                color="primary"
-                            />
-                        }
-                        label="Account Active"
-                        sx={{ mt: 1 }}
-                    />
+                            name="isActive"
+                            disabled={loading}
+                            color="primary"
+                        />
+                    }
+                    label={formData.isActive ? "Account Active" : "Account Inactive"}
+                    sx={{ mt: 1, display: 'block' }}
+                />
+
+                <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" color="textSecondary">
+                        <strong>Role Permissions:</strong>
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary" component="div">
+                        • <strong>Administrator:</strong> Can manage products, view basic dashboard
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary" component="div">
+                        • <strong>Super Administrator:</strong> Can manage admins, view enquiries, full system access
+                    </Typography>
                 </Box>
             </DialogContent>
-            <DialogActions sx={{ p: '0 24px 20px' }}>
-                <Button onClick={handleClose} color="inherit">Cancel</Button>
+            <DialogActions sx={{ p: '16px 24px', borderTop: '1px solid #ddd' }}>
+                <Button onClick={handleClose} color="secondary" disabled={loading}>
+                    Cancel
+                </Button>
                 <Button 
                     onClick={handleSubmit} 
                     variant="contained" 
-                    disabled={isSubmitting}
-                    sx={{ position: 'relative' }}
+                    disabled={loading || !formData.email || !formData.password}
                 >
-                    {isSubmitting ? 'Registering...' : 'Register Admin'}
-                    {isSubmitting && (
-                        <CircularProgress
-                            size={24}
-                            sx={{
-                                position: 'absolute',
-                                top: '50%',
-                                left: '50%',
-                                marginTop: '-12px',
-                                marginLeft: '-12px',
-                            }}
-                        />
-                    )}
+                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Admin'}
                 </Button>
             </DialogActions>
         </Dialog>

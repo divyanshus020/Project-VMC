@@ -162,6 +162,460 @@ export const validateEnquiryUpdateData = (data) => {
   };
 };
 
+
+// ============================
+// 🔐 PASSWORD RESET APIs
+// ============================
+
+// Forgot Password - Send reset email
+export const forgotPassword = async (data) => {
+  try {
+    if (!data.email) {
+      throw new Error("Email is required");
+    }
+
+    const sanitizedData = sanitizeData({ email: data.email });
+    const response = await API.post("/admin/forgot-password", sanitizedData);
+
+    return {
+      success: true,
+      message: response.data.message,
+      // Remove these in production - only for testing
+      resetToken: response.data.resetToken,
+      resetUrl: response.data.resetUrl
+    };
+  } catch (error) {
+    console.error("Error sending forgot password request:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || "Failed to send reset instructions",
+      status: error.response?.status,
+    };
+  }
+};
+
+// Reset Password - Using reset token
+export const resetPassword = async (data) => {
+  try {
+    if (!data.token || !data.newPassword) {
+      throw new Error("Reset token and new password are required");
+    }
+
+    if (data.newPassword.length < 6) {
+      throw new Error("Password must be at least 6 characters long");
+    }
+
+    const sanitizedData = sanitizeData({
+      token: data.token,
+      newPassword: data.newPassword
+    });
+
+    const response = await API.post("/admin/reset-password", sanitizedData);
+
+    return {
+      success: true,
+      message: response.data.message || "Password reset successfully"
+    };
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || "Failed to reset password",
+      status: error.response?.status,
+    };
+  }
+};
+
+// ============================
+// 🛡️ ENHANCED ADMIN APIs
+// ============================
+
+// Create Admin (SuperAdmin only) - Updated to handle superadmin creation
+export const createAdmin = async (data, token) => {
+  try {
+    if (!token) {
+      throw new Error("Authentication token is required");
+    }
+
+    // Validate required fields
+    if (!data.email || !data.password) {
+      throw new Error("Email and password are required");
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      throw new Error("Please provide a valid email address");
+    }
+
+    // Validate password length
+    if (data.password.length < 6) {
+      throw new Error("Password must be at least 6 characters long");
+    }
+
+    // Map frontend role values to backend values
+    let role = "admin"; // default
+    if (data.role === "super_admin" || data.role === "superadmin") {
+      role = "superadmin";
+    } else if (data.role === "admin") {
+      role = "admin";
+    }
+
+    const sanitizedData = sanitizeData({
+      email: data.email,
+      password: data.password,
+      name: data.name || "",
+      role: role,
+      isActive: typeof data.isActive === "boolean" ? data.isActive : true,
+    });
+
+    console.log("Creating admin with role:", role);
+
+    const response = await API.post("/admin/create", sanitizedData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    return {
+      success: true,
+      message: response.data.message,
+      admin: response.data.admin,
+    };
+  } catch (error) {
+    console.error("Error creating admin:", error);
+
+    if (error.response) {
+      return {
+        success: false,
+        error: error.response.data?.message || "Failed to create admin",
+        status: error.response.status,
+      };
+    } else if (error.message) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    } else {
+      return {
+        success: false,
+        error: "Network error or server unavailable",
+      };
+    }
+  }
+};
+
+// Update existing registerAdmin function to use the new createAdmin for protected creation
+export const registerAdminProtected = createAdmin;
+
+
+// ============================
+// 🔍 ENHANCED ROLE VALIDATION
+// ============================
+
+// Validate admin role
+export const validateAdminRole = (role) => {
+  const validRoles = ["admin", "superadmin", "super_admin"]; // Accept both formats
+  return validRoles.includes(role);
+};
+
+// Map frontend role to backend role
+export const mapRoleForBackend = (frontendRole) => {
+  if (frontendRole === "super_admin" || frontendRole === "superadmin") {
+    return "superadmin";
+  }
+  return "admin";
+};
+
+// Map backend role to frontend role
+export const mapRoleForFrontend = (backendRole) => {
+  if (backendRole === "superadmin") {
+    return "super_admin"; // or keep as "superadmin" based on your UI needs
+  }
+  return "admin";
+};
+
+// ============================
+// 🛠️ ENHANCED ERROR HANDLING
+// ============================
+
+// Enhanced error handler for admin operations
+export const handleAdminError = (error) => {
+  console.error("Admin operation error:", error);
+
+  // Handle specific admin errors
+  if (error.response?.data?.error) {
+    switch (error.response.data.error) {
+      case 'ADMIN_AUTH_REQUIRED':
+        removeAuthToken('admin');
+        return {
+          success: false,
+          error: "Admin authentication required. Please login again.",
+          requiresLogin: true
+        };
+      
+      case 'INSUFFICIENT_PRIVILEGES':
+        return {
+          success: false,
+          error: "You don't have sufficient privileges for this action. SuperAdmin access required.",
+          insufficientPrivileges: true
+        };
+      
+      case 'ADMIN_NOT_FOUND':
+        return {
+          success: false,
+          error: "Admin account not found. Please contact system administrator.",
+          accountNotFound: true
+        };
+      
+      case 'ADMIN_DEACTIVATED':
+        removeAuthToken('admin');
+        return {
+          success: false,
+          error: "Your admin account has been deactivated. Please contact system administrator.",
+          accountDeactivated: true
+        };
+      
+      case 'ADMIN_TOKEN_EXPIRED':
+        removeAuthToken('admin');
+        return {
+          success: false,
+          error: "Your session has expired. Please login again.",
+          tokenExpired: true
+        };
+      
+      default:
+        return {
+          success: false,
+          error: error.response.data.message || "An admin operation error occurred"
+        };
+    }
+  }
+
+  return {
+    success: false,
+    error: error.response?.data?.message || error.message || "An unexpected error occurred"
+  };
+};
+
+
+// ============================
+// 🔐 ENHANCED TOKEN VALIDATION
+// ============================
+
+// Check if admin has specific role
+export const checkAdminRole = (requiredRole, type = "admin") => {
+  const user = getUserFromToken(type);
+  if (!user) return false;
+
+  if (requiredRole === "superadmin") {
+    return user.role === "superadmin";
+  }
+  
+  if (requiredRole === "admin") {
+    return ["admin", "superadmin"].includes(user.role);
+  }
+
+  return false;
+};
+
+// Require SuperAdmin role with proper error handling
+export const requireSuperAdminRole = (redirectPath = "/admin/dashboard") => {
+  const isValid = requireAuth("admin");
+  if (!isValid) return false;
+
+  if (!checkAdminRole("superadmin", "admin")) {
+    console.warn("Insufficient privileges - SuperAdmin required");
+    // Don't redirect, just show error message
+    return false;
+  }
+
+  return true;
+};
+
+// Get admin permissions based on role
+export const getAdminPermissions = (type = "admin") => {
+  const user = getUserFromToken(type);
+  if (!user) return null;
+
+  return {
+    isSuperAdmin: user.role === "superadmin",
+    isAdmin: user.role === "admin",
+    canManageAdmins: user.role === "superadmin",
+    canViewEnquiries: user.role === "superadmin",
+    canManageProducts: ["admin", "superadmin"].includes(user.role),
+    canCreateProducts: ["admin", "superadmin"].includes(user.role),
+    canDeleteProducts: user.role === "superadmin",
+  };
+};
+
+
+// ============================
+// 📊 ADMIN STATISTICS
+// ============================
+
+// Get admin statistics
+export const getAdminStats = async (token) => {
+  try {
+    if (!token) {
+      throw new Error("Authentication token is required");
+    }
+
+    const response = await API.get("/admin/stats", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    console.error("Error fetching admin statistics:", error);
+    return handleAdminError(error);
+  }
+};
+
+// Update the existing response interceptor to handle admin-specific errors
+const originalResponseInterceptor = API.interceptors.response.handlers[0];
+
+// Remove the existing interceptor and add enhanced one
+API.interceptors.response.eject(originalResponseInterceptor);
+
+API.interceptors.response.use(
+  (response) => {
+    if (import.meta.env.DEV) {
+      console.log(
+        `✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`,
+        {
+          status: response.status,
+          data: response.data,
+        }
+      );
+    }
+    return response;
+  },
+  (error) => {
+    console.error("❌ API Error:", {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      message: error.response?.data?.message || error.message,
+      errorCode: error.response?.data?.error,
+    });
+
+    // Handle admin-specific authentication errors
+    if (error.response?.status === 401) {
+      const errorCode = error.response?.data?.error;
+      const currentPath = window.location.pathname;
+      const isAdminRoute = currentPath.includes("/admin");
+
+      if (isAdminRoute && errorCode) {
+        switch (errorCode) {
+          case 'ADMIN_AUTH_REQUIRED':
+          case 'ADMIN_NOT_FOUND':
+          case 'ADMIN_TOKEN_EXPIRED':
+          case 'INVALID_ADMIN_TOKEN':
+          case 'ADMIN_DEACTIVATED':
+            console.warn(`Admin auth error: ${errorCode}`);
+            removeAuthToken("admin");
+            
+            if (!currentPath.includes("/login")) {
+              console.warn("Redirecting to admin login...");
+              window.location.href = "/admin/login";
+            }
+            break;
+        }
+      } else if (!isAdminRoute) {
+        localStorage.removeItem("userToken");
+      }
+    }
+
+    // Handle insufficient privileges (403)
+    if (error.response?.status === 403) {
+      const errorCode = error.response?.data?.error;
+      if (errorCode === 'INSUFFICIENT_PRIVILEGES') {
+        console.warn("Insufficient privileges - access denied");
+        // You could show a toast notification here instead of redirecting
+        // toast.error("You don't have sufficient privileges for this action");
+      }
+    }
+
+    if (error.response?.status >= 500) {
+      console.error("Server error - please try again later");
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+
+// ============================
+// 🎯 ROLE-BASED UI HELPERS
+// ============================
+
+// Check if current admin can perform specific actions
+export const canPerformAction = (action, type = "admin") => {
+  const permissions = getAdminPermissions(type);
+  if (!permissions) return false;
+
+  const actionMap = {
+    'view_enquiries': permissions.canViewEnquiries,
+    'manage_admins': permissions.canManageAdmins,
+    'create_products': permissions.canCreateProducts,
+    'delete_products': permissions.canDeleteProducts,
+    'manage_products': permissions.canManageProducts,
+  };
+
+  return actionMap[action] || false;
+};
+
+// Get role display name
+export const getRoleDisplayName = (role) => {
+  const roleMap = {
+    'admin': 'Administrator',
+    'superadmin': 'Super Administrator',
+    'super_admin': 'Super Administrator'
+  };
+  return roleMap[role] || role;
+};
+
+// Get role color for UI
+export const getRoleColor = (role) => {
+  const colorMap = {
+    'admin': 'primary',
+    'superadmin': 'secondary',
+    'super_admin': 'secondary'
+  };
+  return colorMap[role] || 'default';
+};
+
+// Export enhanced validation functions
+export const enhancedValidateAdminData = (data) => {
+  const errors = {};
+
+  if (!data.email) {
+    errors.email = "Email is required";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+    errors.email = "Please provide a valid email address";
+  }
+
+  if (!data.password) {
+    errors.password = "Password is required";
+  } else if (data.password.length < 6) {
+    errors.password = "Password must be at least 6 characters long";
+  }
+
+  if (data.role && !validateAdminRole(data.role)) {
+    errors.role = "Invalid role specified";
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  };
+};
+
+console.log("🔐 Enhanced Admin API functions loaded with role-based access control");
+
+
 // ===============================
 // 📦 PRODUCT APIs
 // ===============================
