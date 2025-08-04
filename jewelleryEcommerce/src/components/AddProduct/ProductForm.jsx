@@ -1,21 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { 
-  getSizes, 
-  createProduct, 
-  getProducts, 
-  sanitizeFormData,
-  uploadMultipleImages,
-  uploadSingleImage 
-} from '../../lib/api';
+import { getSizes, createProduct, getProducts, sanitizeFormData } from '../../lib/api';
 import Select from 'react-select';
 import axios from 'axios';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const ProductForm = () => {
+  // State hooks remain the same
   const [category, setCategory] = useState('');
   const [designName, setDesignName] = useState('');
   const [dieNos, setDieNos] = useState([]);
-  const [imageUrl, setImageUrl] = useState(null);
-  const [images, setImages] = useState([]);
+  const [imageUrl, setImageUrl] = useState(null); // This will hold the file object
+  const [images, setImages] = useState([]); // This will hold the file list
   const [sizeOptions, setSizeOptions] = useState([]);
   const [categoryOptions, setCategoryOptions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,18 +23,17 @@ const ProductForm = () => {
   const singleImageRef = useRef();
   const multiImageRef = useRef();
 
+  // useEffect for fetching initial data remains the same
   useEffect(() => {
     const fetchInitialData = async () => {
       setIsInitializing(true);
       setInitError(null);
 
       try {
-        // Fetch sizes first
         const sizeRes = await getSizes();
         if (!sizeRes.success) {
           throw new Error(sizeRes.error || 'Failed to fetch sizes');
         }
-
         const sizes = Array.isArray(sizeRes.data) ? sizeRes.data : [];
         setSizeOptions(
           sizes.map(size => ({
@@ -48,48 +43,21 @@ const ProductForm = () => {
           }))
         );
 
-        // Then fetch products for categories
         const productRes = await getProducts();
-        
-        // Extract categories even if product fetch fails
         const products = Array.isArray(productRes.data) ? productRes.data : [];
         let categories = [];
-
         if (products.length > 0) {
-          // Get unique categories
           categories = [...new Set(products.map(p => p.category).filter(Boolean))];
         }
 
-        // Always include default categories if needed
-        // const defaultCategories = ['Gold', 'Silver', 'Platinum']; // Add your default categories
-        // categories = [...new Set([...categories, ...defaultCategories])];
-
-        // Create category options
-        const categoryOpts = categories.map(cat => ({ 
-          label: cat, 
-          value: cat 
-        }));
-
-        // Always add the "Add New" option
-        categoryOpts.push({ 
-          label: '+ Add New Category', 
-          value: '__add_new__' 
-        });
-
+        const categoryOpts = categories.map(cat => ({ label: cat, value: cat }));
+        categoryOpts.push({ label: '+ Add New Category', value: '__add_new__' });
         setCategoryOptions(categoryOpts);
 
       } catch (error) {
         console.error('Initialization error:', error);
         setInitError(error.message || 'Failed to load initial data');
-        
-        // Set fallback options
-        setSizeOptions([]);
-        setCategoryOptions([
-          // { label: 'Gold', value: 'Gold' },
-          // { label: 'Silver', value: 'Silver' },
-          // { label: 'Platinum', value: 'Platinum' },
-          { label: '+ Add New Category', value: '__add_new__' }
-        ]);
+        setCategoryOptions([{ label: '+ Add New Category', value: '__add_new__' }]);
       } finally {
         setIsInitializing(false);
       }
@@ -98,43 +66,34 @@ const ProductForm = () => {
     fetchInitialData();
   }, []);
 
+  // validateImageFile function remains the same
   const validateImageFile = (file) => {
     const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
     if (!validTypes.includes(file.type)) {
-      throw new Error('Invalid file type. Please upload JPG, PNG or GIF');
+      throw new Error('Invalid file type. Please upload JPG, PNG, GIF, or WebP');
     }
-    
+
     if (file.size > MAX_SIZE) {
       throw new Error('File too large. Maximum size is 5MB');
     }
-    
+
     return true;
   };
 
+  // handleImageUpload (for multiple files) remains largely the same
   const handleImageUpload = async (files) => {
     try {
-      // Validate all files first
       [...files].forEach(validateImageFile);
-
       const uploads = await Promise.all(
         [...files].map(async (file) => {
           const formData = new FormData();
           formData.append('file', file);
           formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
-
           const res = await axios.post(
             `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
-            formData,
-            {
-              onUploadProgress: (progressEvent) => {
-                const percentCompleted = Math.round(
-                  (progressEvent.loaded * 100) / progressEvent.total
-                );
-                console.log('Upload progress:', percentCompleted);
-              }
-            }
+            formData
           );
           return res.data.secure_url;
         })
@@ -142,46 +101,42 @@ const ProductForm = () => {
       return uploads;
     } catch (err) {
       console.error('Multiple image upload failed:', err);
+      // The error will be caught by the handleSubmit's catch block and shown as a toast
       throw new Error(err.message || 'Error uploading multiple images');
     }
   };
 
+  // handleSingleImageUpload remains largely the same
   const handleSingleImageUpload = async (file) => {
     try {
-      // Validate file
       validateImageFile(file);
-
       const formData = new FormData();
       formData.append('file', file);
       formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
-
       const res = await axios.post(
         `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
         formData,
         {
           onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            console.log('Upload progress:', percentCompleted);
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(prev => Math.max(prev, 70 + (percentCompleted * 0.15))); // Progress from 70% to 85%
           }
         }
       );
       return res.data.secure_url;
     } catch (err) {
       console.error('Single image upload failed:', err);
+      // The error will be caught by the handleSubmit's catch block and shown as a toast
       throw new Error(err.message || 'Error uploading single image');
     }
   };
 
-  const handleSelectAllSizes = () => {
-    setDieNos(sizeOptions);
-  };
 
-  const handleClearAllSizes = () => {
-    setDieNos([]);
-  };
+  // Helper functions for size selection remain the same
+  const handleSelectAllSizes = () => setDieNos(sizeOptions);
+  const handleClearAllSizes = () => setDieNos([]);
 
+  // handleCategoryChange remains the same
   const handleCategoryChange = (selectedOption) => {
     if (selectedOption?.value === '__add_new__') {
       setShowCustomCategory(true);
@@ -192,11 +147,19 @@ const ProductForm = () => {
     }
   };
 
+  // *** UPDATED handleSubmit function ***
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // --- Enhanced Validation ---
     if (!category || !designName || dieNos.length === 0) {
-      alert('Please fill all required fields');
+      toast.warn('Please fill all required fields marked with *');
       return;
+    }
+    // --- Key Change: Check if the main image file is selected ---
+    if (!imageUrl) {
+      toast.warn('A main product image is required.');
+      return; // This prevents the API call and the 400 error
     }
 
     setIsLoading(true);
@@ -206,48 +169,36 @@ const ProductForm = () => {
       let uploadedImages = [];
       let uploadedSingleImage = '';
 
-      // Upload multiple images if any
+      // --- Upload single image (main image) ---
+      setUploadProgress(10);
+      toast.info('Uploading main image...');
+      uploadedSingleImage = await handleSingleImageUpload(imageUrl);
+      setUploadProgress(50);
+      
+      // --- Upload multiple images if any ---
       if (images && images.length > 0) {
-        setUploadProgress(25);
+        toast.info('Uploading additional images...');
         uploadedImages = await handleImageUpload(images);
-        setUploadProgress(50);
       }
+      setUploadProgress(70);
 
-      // Upload single image if selected
-      if (imageUrl) {
-        setUploadProgress(60);
-        uploadedSingleImage = await handleSingleImageUpload(imageUrl);
-        setUploadProgress(70);
-      }
-
-      // Create FormData with sanitization
+      // --- Prepare data for backend ---
+      // The error indicates that the API expects a FormData object, not a plain JS object.
       const formData = new FormData();
       formData.append('name', designName);
       formData.append('category', category);
-
-      // Add single image URL if available
-      if (uploadedSingleImage) {
-        formData.append('imageUrl', uploadedSingleImage);
-      }
-
-      // Add die IDs as JSON string array
-      if (dieNos.length > 0) {
-        formData.append('dieIds', JSON.stringify(dieNos.map(d => d.value)));
-      }
-
-      // Add multiple images as JSON string array
-      if (uploadedImages.length > 0) {
-        formData.append('images', JSON.stringify(uploadedImages));
-      }
-
-      // Sanitize form data
-      const sanitizedFormData = sanitizeFormData(formData);
-
+      formData.append('imageUrl', uploadedSingleImage);
+      // Stringify arrays before appending to FormData
+      formData.append('dieIds', JSON.stringify(dieNos.map(d => d.value)));
+      formData.append('images', JSON.stringify(uploadedImages));
+      
       setUploadProgress(85);
-      const response = await createProduct(sanitizedFormData);
+      toast.info('Finalizing product creation...');
+      // Pass the FormData object to the createProduct function
+      const response = await createProduct(formData);
       setUploadProgress(100);
 
-      // Reset form
+      // --- Reset form on success ---
       setCategory('');
       setDesignName('');
       setDieNos([]);
@@ -257,273 +208,128 @@ const ProductForm = () => {
       if (singleImageRef.current) singleImageRef.current.value = '';
       if (multiImageRef.current) multiImageRef.current.value = '';
 
-      alert('Product created successfully!');
+      toast.success('Product created successfully!');
+
     } catch (error) {
       console.error('Error creating product:', error);
-      alert(error.message || 'Failed to create product');
+      // Display a user-friendly error from the caught exception
+      toast.error(error.message || 'Failed to create product. Please check your inputs and try again.');
     } finally {
       setIsLoading(false);
       setUploadProgress(0);
     }
   };
 
+  // Custom styles for react-select remain the same
   const customSelectStyles = {
-    control: (styles) => ({
-      ...styles,
-      minHeight: '48px',
-      borderColor: '#e5e7eb',
-      borderRadius: '12px',
-      boxShadow: 'none',
-      '&:hover': { borderColor: '#6366f1' },
-      '&:focus-within': {
-        borderColor: '#6366f1',
-        boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)',
-      },
-    }),
-    multiValue: (styles) => ({
-      ...styles,
-      backgroundColor: '#f3f4f6',
-      borderRadius: '8px',
-    }),
+    control: (styles) => ({ ...styles, minHeight: '48px', borderColor: '#e5e7eb', borderRadius: '12px', boxShadow: 'none', '&:hover': { borderColor: '#6366f1' }, '&:focus-within': { borderColor: '#6366f1', boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)' } }),
+    multiValue: (styles) => ({ ...styles, backgroundColor: '#f3f4f6', borderRadius: '8px' }),
     multiValueLabel: (styles) => ({ ...styles, color: '#374151' }),
-    multiValueRemove: (styles) => ({
-      ...styles,
-      color: '#6b7280',
-      '&:hover': { backgroundColor: '#ef4444', color: 'white' },
-    }),
-    option: (styles, { data }) => ({
-      ...styles,
-      color: data.value === '__add_new__' ? '#6366f1' : styles.color,
-      fontWeight: data.value === '__add_new__' ? '600' : styles.fontWeight,
-    }),
+    multiValueRemove: (styles) => ({ ...styles, color: '#6b7280', '&:hover': { backgroundColor: '#ef4444', color: 'white' } }),
+    option: (styles, { data }) => ({ ...styles, color: data.value === '__add_new__' ? '#6366f1' : styles.color, fontWeight: data.value === '__add_new__' ? '600' : styles.fontWeight }),
   };
 
+  // Loading state JSX remains the same
   if (isInitializing) {
     return (
       <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Product</h1>
-            <p className="text-gray-600">Loading initial data, please wait...</p>
-          </div>
+        <div className="max-w-2xl mx-auto text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Product</h1>
+          <p className="text-gray-600">Loading initial data, please wait...</p>
         </div>
       </div>
     );
   }
 
+  // --- Main component return with ToastContainer ---
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      {/* Add ToastContainer at the top level of your component */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+      />
+
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Product</h1>
           <p className="text-gray-600">Fill in the details to add a new product to your catalog</p>
         </div>
 
-        {/* Form Container */}
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error Message */}
             {initError && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
-                <div className="flex items-center space-x-3">
-                  <svg 
-                    className="h-5 w-5 text-red-500" 
-                    viewBox="0 0 20 20" 
-                    fill="currentColor"
-                  >
-                    <path 
-                      fillRule="evenodd" 
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" 
-                      clipRule="evenodd" 
-                    />
-                  </svg>
-                  <div>
-                    <h3 className="text-sm font-medium text-red-800">
-                      Error Loading Form Data
-                    </h3>
-                    <p className="mt-1 text-sm text-red-700">
-                      {initError}. Using default options.
-                    </p>
-                  </div>
-                </div>
+                <p className="text-sm text-red-700">{initError}. Using default options.</p>
               </div>
             )}
 
             {/* Category Field */}
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700">
-                Category <span className="text-red-500">*</span>
-              </label>
-              
+              <label className="block text-sm font-semibold text-gray-700">Category <span className="text-red-500">*</span></label>
               {!showCustomCategory ? (
-                <Select
-                  options={categoryOptions}
-                  onChange={handleCategoryChange}
-                  styles={customSelectStyles}
-                  placeholder="Select a category or add new..."
-                  className="text-sm"
-                  isClearable
-                />
+                <Select options={categoryOptions} onChange={handleCategoryChange} styles={customSelectStyles} placeholder="Select a category or add new..." className="text-sm" isClearable />
               ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder-gray-400"
-                      placeholder="Enter new category name"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCustomCategory(false);
-                        setCategory('');
-                      }}
-                      className="px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <input type="text" className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter new category name" value={category} onChange={(e) => setCategory(e.target.value)} required />
+                  <button type="button" onClick={() => { setShowCustomCategory(false); setCategory(''); }} className="px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200">Cancel</button>
                 </div>
               )}
             </div>
 
             {/* Design Name Field */}
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700">
-                Design Name <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">  
-                <input
-                  type="text"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder-gray-400"
-                  placeholder="Enter design name"
-                  value={designName}
-                  onChange={(e) => setDesignName(e.target.value)}
-                  required
-                />
-              </div>
+                <label className="block text-sm font-semibold text-gray-700">Design Name <span className="text-red-500">*</span></label>
+                <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter design name" value={designName} onChange={(e) => setDesignName(e.target.value)} required />
             </div>
 
-            {/* Size Selection with Select All Button */}
+            {/* Size Selection */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-semibold text-gray-700">
-                  Size Die Numbers <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSelectAllSizes}
-                    className="text-sm bg-indigo-100 text-indigo-700 px-3 py-1 rounded-md hover:bg-indigo-200 transition-colors duration-200 font-medium"
-                  >
-                    Select All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleClearAllSizes}
-                    className="text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-200 transition-colors duration-200 font-medium"
-                  >
-                    Clear All
-                  </button>
+                <div className="flex items-center justify-between">
+                    <label className="block text-sm font-semibold text-gray-700">Size Die Numbers <span className="text-red-500">*</span></label>
+                    <div className="flex gap-2">
+                        <button type="button" onClick={handleSelectAllSizes} className="text-sm bg-indigo-100 text-indigo-700 px-3 py-1 rounded-md hover:bg-indigo-200 font-medium">Select All</button>
+                        <button type="button" onClick={handleClearAllSizes} className="text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-200 font-medium">Clear All</button>
+                    </div>
                 </div>
-              </div>
-              <Select
-                isMulti
-                options={sizeOptions}
-                value={dieNos}
-                onChange={setDieNos}
-                styles={customSelectStyles}
-                placeholder="Select size die numbers..."
-                className="text-sm"
-              />
-              <div className="text-sm text-gray-500">
-                {dieNos.length} of {sizeOptions.length} sizes selected
-              </div>
+                <Select isMulti options={sizeOptions} value={dieNos} onChange={setDieNos} styles={customSelectStyles} placeholder="Select size die numbers..." className="text-sm" />
+                <div className="text-sm text-gray-500">{dieNos.length} of {sizeOptions.length} sizes selected</div>
             </div>
 
-            {/* Single Image Upload */}
+            {/* Single Image Upload (Main Image) */}
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700">
-                Main Product Image
-              </label>
-              <div className="relative">
-                <input
-                  ref={singleImageRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setImageUrl(e.target.files?.[0] || null)}
-                  className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                />
-                <div className="mt-2 text-sm text-gray-500">
-                  Upload a main product image (JPG, PNG, GIF). Maximum 5MB.
-                </div>
-              </div>
+              <label className="block text-sm font-semibold text-gray-700">Main Product Image <span className="text-red-500">*</span></label>
+              <input ref={singleImageRef} type="file" accept="image/*" onChange={(e) => setImageUrl(e.target.files?.[0] || null)} className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+              <div className="mt-2 text-sm text-gray-500">This image is required. Max 5MB.</div>
             </div>
 
             {/* Multiple Images Upload */}
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700">
-                Additional Images (Optional)
-              </label>
-              <div className="relative">
-                <input
-                  ref={multiImageRef}
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => setImages(e.target.files)}
-                  className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                />
-                <div className="mt-2 text-sm text-gray-500">
-                  Upload additional product images. Supported formats: JPG, PNG, GIF. Maximum 5MB per image.
-                </div>
-              </div>
+              <label className="block text-sm font-semibold text-gray-700">Additional Images (Optional)</label>
+              <input ref={multiImageRef} type="file" multiple accept="image/*" onChange={(e) => setImages(e.target.files)} className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
             </div>
 
-            {/* Progress Bar */}
+            {/* Progress Bar and Submit Button */}
             {isLoading && (
               <div className="space-y-2">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Uploading...</span>
-                  <span>{uploadProgress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  ></div>
-                </div>
+                <div className="flex justify-between text-sm text-gray-600"><span>Uploading...</span><span>{uploadProgress}%</span></div>
+                <div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-indigo-600 h-2 rounded-full" style={{ width: `${uploadProgress}%` }}></div></div>
               </div>
             )}
-
-            {/* Submit Button */}
             <div className="pt-4">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
-              >
-                {isLoading ? (
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span>Creating Product...</span>
-                  </div>
-                ) : (
-                  'Create Product'
-                )}
+              <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02]">
+                {isLoading ? 'Creating Product...' : 'Create Product'}
               </button>
             </div>
           </form>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center mt-8 text-sm text-gray-500">
-          Make sure all required fields are filled before submitting
         </div>
       </div>
     </div>

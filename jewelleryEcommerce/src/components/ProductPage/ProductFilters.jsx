@@ -18,6 +18,23 @@ const ProductFilters = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  // Determine if filters are active
+  const isCategoryFilterActive = selectedCategory !== 'All';
+  const isDieNoFilterActive = selectedDieNo !== 'All';
+
+  // Style for the indicator dot
+  const indicatorStyle = {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 10,
+    height: 10,
+    borderRadius: '50%',
+    bgcolor: colors.primary,
+    boxShadow: `0 0 10px ${alpha(colors.primary, 0.7)}`,
+    zIndex: 2, // Ensure it's above the filter input
+  };
+
   return (
     <>
       {/* Filter Controls */}
@@ -47,7 +64,8 @@ const ProductFilters = ({
             }}
           >
             {/* Category Filter */}
-            <Box sx={{ flex: 1, minWidth: 150 }}>
+            <Box sx={{ flex: 1, minWidth: 150, position: 'relative' }}>
+              {isCategoryFilterActive && <Box component="span" sx={indicatorStyle} />}
               <Category
                 selectedCategory={selectedCategory}
                 setSelectedCategory={setSelectedCategory}
@@ -56,7 +74,8 @@ const ProductFilters = ({
             </Box>
             
             {/* Die No Filter */}
-            <Box sx={{ flex: 1, minWidth: 150 }}>
+            <Box sx={{ flex: 1, minWidth: 150, position: 'relative' }}>
+              {isDieNoFilterActive && <Box component="span" sx={indicatorStyle} />}
               <DieNoFilter 
                 selectedDieNo={selectedDieNo}
                 setSelectedDieNo={setSelectedDieNo}
