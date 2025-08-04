@@ -68,7 +68,7 @@ const RegisterForm = () => {
   };
 
   const isFormComplete = formData.fullName.trim() !== '' &&
-                         formData.email.trim() !== '' &&
+                         
                          formData.address.trim() !== '' &&
                          formData.phoneNumber.trim() !== '' &&
                          formData.password.trim() !== '' &&
@@ -145,6 +145,7 @@ const RegisterForm = () => {
         setOtpVerified(true);
         alert('OTP verified. Registration successful!');
         localStorage.setItem('token', res.token);
+         localStorage.setItem('user', JSON.stringify(res.user));
         navigate('/profile'); // Redirect the user to the profile page
         window.location.reload(); // Reload to ensure app state is updated
       } else {
@@ -165,7 +166,7 @@ const RegisterForm = () => {
       </Typography>
 
       <TextField fullWidth label="Full Name" name="fullName" value={formData.fullName} onChange={handleChange} variant="outlined" margin="normal" disabled={otpSent}/>
-      <TextField fullWidth label="Email" name="email" type="email" value={formData.email} onChange={handleChange} variant="outlined" margin="normal" disabled={otpSent}/>
+      <TextField fullWidth label="Email (optional)" name="email" type="email" value={formData.email} onChange={handleChange} variant="outlined" margin="normal" disabled={otpSent}/>
       <TextField fullWidth label="Address" name="address" value={formData.address} onChange={handleChange} variant="outlined" margin="normal" disabled={otpSent}/>
       <TextField fullWidth label="Phone Number" name="phoneNumber" type="tel" value={formData.phoneNumber} onChange={handleChange} variant="outlined" margin="normal" disabled={otpSent} />
       <TextField fullWidth label="Password" name="password" type="password" value={formData.password} onChange={handleChange} variant="outlined" margin="normal" disabled={otpSent}/>

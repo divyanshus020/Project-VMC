@@ -58,6 +58,7 @@ const LoginForm = () => {
 
   const handleSendOtp = async () => {
     const trimmedPhone = phoneNumber.trim();
+    
     if (!trimmedPhone) return alert('Please enter your phone number.');
     if (!captchaToken) return alert('Please complete the CAPTCHA.');
 
@@ -134,6 +135,8 @@ const LoginForm = () => {
           if (!response?.token) throw new Error('No authentication token received');
           
           localStorage.setItem('token', response.token);
+      localStorage.setItem('user', JSON.stringify(response.user));
+
           alert('Login successful!');
           navigate('/profile');
           window.location.reload();
