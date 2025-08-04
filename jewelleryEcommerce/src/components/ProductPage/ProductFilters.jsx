@@ -22,17 +22,20 @@ const ProductFilters = ({
   const isCategoryFilterActive = selectedCategory !== 'All';
   const isDieNoFilterActive = selectedDieNo !== 'All';
 
-  // Style for the indicator dot
-  const indicatorStyle = {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    width: 10,
-    height: 10,
-    borderRadius: '50%',
-    bgcolor: colors.primary,
-    boxShadow: `0 0 10px ${alpha(colors.primary, 0.7)}`,
-    zIndex: 2, // Ensure it's above the filter input
+  // Base style for the filter control's wrapper
+  const filterWrapperStyle = {
+    flex: 1,
+    minWidth: 150,
+    p: 1,
+    borderRadius: 3, // Should be slightly larger than the inner component's border-radius
+    border: '1px solid transparent', // Placeholder for stable layout
+    transition: 'background-color 0.3s ease, border-color 0.3s ease',
+  };
+
+  // Style to apply when a filter is active
+  const activeFilterHighlight = {
+    backgroundColor: alpha(colors.primary, 0.08),
+    borderColor: alpha(colors.primary, 0.4),
   };
 
   return (
@@ -64,8 +67,10 @@ const ProductFilters = ({
             }}
           >
             {/* Category Filter */}
-            <Box sx={{ flex: 1, minWidth: 150, position: 'relative' }}>
-              {isCategoryFilterActive && <Box component="span" sx={indicatorStyle} />}
+            <Box sx={{
+              ...filterWrapperStyle,
+              ...(isCategoryFilterActive && activeFilterHighlight)
+            }}>
               <Category
                 selectedCategory={selectedCategory}
                 setSelectedCategory={setSelectedCategory}
@@ -74,8 +79,10 @@ const ProductFilters = ({
             </Box>
             
             {/* Die No Filter */}
-            <Box sx={{ flex: 1, minWidth: 150, position: 'relative' }}>
-              {isDieNoFilterActive && <Box component="span" sx={indicatorStyle} />}
+            <Box sx={{
+              ...filterWrapperStyle,
+              ...(isDieNoFilterActive && activeFilterHighlight)
+            }}>
               <DieNoFilter 
                 selectedDieNo={selectedDieNo}
                 setSelectedDieNo={setSelectedDieNo}
