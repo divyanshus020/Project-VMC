@@ -7,6 +7,9 @@ function AdminNavbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Get user info from localStorage or state management
+const userInfo = JSON.parse(localStorage.getItem('adminData'));
+
   const handleLogout = () => {
     setShowLogoutModal(true);
   };
@@ -73,7 +76,19 @@ function AdminNavbar() {
                 </Link>
               ))}
               
-              <div className="ml-4 pl-4 border-l border-gray-300">
+              <div className="ml-4 pl-4 border-l border-gray-300 flex items-center space-x-4">
+                {/* User Info */}
+                <div className="flex items-center space-x-3 px-4 py-2 bg-white/60 backdrop-blur-sm rounded-lg border border-blue-200 shadow-sm">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-bold text-white">{userInfo.name.charAt(0).toUpperCase()}</span>
+                  </div>
+                  <div className="text-sm">
+                    <div className="font-semibold text-gray-800">{userInfo.name}</div>
+                    <div className="text-xs text-gray-600">{userInfo.role}</div>
+                  </div>
+                </div>
+
+                {/* Logout Button */}
                 <button
                   onClick={handleLogout}
                   className="bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 px-6 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-red-200 flex items-center space-x-2 text-white"
@@ -109,6 +124,17 @@ function AdminNavbar() {
             menuOpen ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'
           }`}>
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 space-y-2 border border-blue-200 shadow-lg">
+              {/* Mobile User Info */}
+              <div className="flex items-center space-x-3 px-4 py-3 bg-blue-50 rounded-lg border border-blue-200 mb-2">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full flex items-center justify-center">
+                  <span className="text-sm font-bold text-white">{userInfo.name.charAt(0).toUpperCase()}</span>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-800">{userInfo.name}</div>
+                  <div className="text-sm text-gray-600">{userInfo.role}</div>
+                </div>
+              </div>
+
               {navLinks.map((link, index) => (
                 <Link
                   key={link.to}

@@ -6,6 +6,9 @@ import MobileDrawerMenu from './MobileDrawerMenu';
 const Navbar = () => {
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const user = JSON.parse(localStorage.getItem('user'));
+
+  console.log(user)
 
   // Check login status on component mount
   useEffect(() => {
@@ -80,6 +83,7 @@ const Navbar = () => {
         onMobileMenuToggle={handleMobileMenuToggle}
         isLoggedIn={isLoggedIn}
         onLogout={handleLogout}
+        user={user}
       />
       <MobileDrawerMenu 
         isOpen={mobileMenuVisible}

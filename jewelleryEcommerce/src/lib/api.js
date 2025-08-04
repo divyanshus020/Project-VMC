@@ -903,6 +903,8 @@ export const verifyOtpForLogin = async (phoneNumber, otp) => {
       phoneNumber, 
       otp 
     });
+
+    console.log(response)
     
     // Return just the data
     return response.data;
@@ -1083,6 +1085,8 @@ export const loginAdmin = async (data) => {
     console.log("Admin login attempt for:", data.email);
 
     const response = await API.post("/admin/login", sanitizedData);
+
+    // console.log("before return response :", response)
 
     // Return structured response
     return {

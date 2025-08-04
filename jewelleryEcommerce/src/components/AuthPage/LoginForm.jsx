@@ -102,10 +102,14 @@ const LoginForm = () => {
       setLoading(true);
       const response = await verifyOtpForLogin(phoneNumber.trim(), otp.trim());
 
+      console.log(response)
+
       if (!response?.token) throw new Error('No authentication token received');
       
       clearSessionState();
       localStorage.setItem('token', response.token);
+      console.log(response.user)
+      localStorage.setItem('user', JSON.stringify(response.user));
       alert('Login successful!');
       navigate('/profile');
       window.location.reload();
