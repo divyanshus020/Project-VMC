@@ -9,16 +9,16 @@ exports.addToCart = async (req, res) => {
   const userId = getUserId(req);
 
   if (!userId) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       success: false,
-      message: 'Unauthorized: User ID missing' 
+      message: 'Unauthorized: User ID missing'
     });
   }
 
   if (!productId || !quantity) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       success: false,
-      message: 'Product ID and quantity are required' 
+      message: 'Product ID and quantity are required'
     });
   }
 
@@ -39,9 +39,9 @@ exports.addToCart = async (req, res) => {
     });
   } catch (err) {
     console.error('Error adding to cart:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message || 'Failed to add to cart' 
+      message: err.message || 'Failed to add to cart'
     });
   }
 };
@@ -49,7 +49,6 @@ exports.addToCart = async (req, res) => {
 // Get user's cart
 exports.getCart = async (req, res) => {
   const userId = getUserId(req);
-
   if (!userId) {
     return res.status(401).json({ message: 'Unauthorized: User ID missing' });
   }
@@ -65,11 +64,10 @@ exports.getCart = async (req, res) => {
 // Get detailed cart with product information
 exports.getDetailedCart = async (req, res) => {
   const userId = getUserId(req);
-
   if (!userId) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       success: false,
-      message: 'Unauthorized: User ID missing' 
+      message: 'Unauthorized: User ID missing'
     });
   }
 
@@ -81,9 +79,9 @@ exports.getDetailedCart = async (req, res) => {
     });
   } catch (err) {
     console.error('Error fetching detailed cart:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message || 'Failed to fetch detailed cart' 
+      message: err.message || 'Failed to fetch detailed cart'
     });
   }
 };
@@ -150,7 +148,6 @@ exports.removeItem = async (req, res) => {
 // Clear entire cart
 exports.clearCart = async (req, res) => {
   const userId = getUserId(req);
-
   if (!userId) {
     return res.status(401).json({ message: 'Unauthorized: User ID missing' });
   }
@@ -166,7 +163,6 @@ exports.clearCart = async (req, res) => {
 // Get cart total (number of items)
 exports.getCartTotal = async (req, res) => {
   const userId = getUserId(req);
-
   if (!userId) {
     return res.status(401).json({ message: 'Unauthorized: User ID missing' });
   }
@@ -179,12 +175,19 @@ exports.getCartTotal = async (req, res) => {
   }
 };
 
-// Update item tunch in cart
+// Update item tunch in cart - FIXED
 exports.updateItemTunch = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = getUserId(req); // Fixed: Use getUserId instead of req.user.id
     const itemId = parseInt(req.params.itemId);
     const { tunch } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: User ID missing'
+      });
+    }
 
     if (!itemId || tunch === undefined) {
       return res.status(400).json({
@@ -209,9 +212,7 @@ exports.updateItemTunch = async (req, res) => {
   }
 };
 
-/**
- * NEW: Update item DieNo in cart
- */
+// Update item DieNo in cart
 exports.updateItemDieNo = async (req, res) => {
   try {
     const userId = getUserId(req);
@@ -232,7 +233,6 @@ exports.updateItemDieNo = async (req, res) => {
       });
     }
 
-    // This assumes a function `updateItemDieNo` exists in your Cart model
     await Cart.updateItemDieNo(userId, itemId, DieNo);
     const updatedCart = await Cart.getDetailedCart(userId);
 

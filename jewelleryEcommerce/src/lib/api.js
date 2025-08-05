@@ -1416,6 +1416,7 @@ export const updateCartItemQuantity = (itemId, quantity, token) => {
   });
 };
 
+
 export const removeCartItem = (itemId, token) =>
   // Fix the route path
   API.delete(`/cart/item/${itemId}`, {
@@ -1430,8 +1431,8 @@ export const clearCart = (token) =>
 // Add new tunch-related functions
 export const updateCartItemTunch = (itemId, tunch, token) => {
   const sanitizedData = sanitizeData({ tunch: parseFloat(tunch) });
-  // Update the route path to match backend
-  return API.patch(`/cart/items/${itemId}/tunch`, sanitizedData, {
+  // Fix the route path to match your backend route
+  return API.patch(`/cart/item/${itemId}/tunch`, sanitizedData, {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
