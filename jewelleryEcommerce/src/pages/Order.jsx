@@ -2,10 +2,13 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Typography, Box, Alert, CircularProgress, Chip, Snackbar,
-  TextField, InputAdornment, FormControl, InputLabel, Select, MenuItem, TablePagination
+  TextField, InputAdornment, FormControl, InputLabel, Select, MenuItem, TablePagination,
+  Collapse, IconButton
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { getMyEnquiries, ENQUIRY_STATUS_LABELS, decodeToken } from '../lib/api';
 import io from 'socket.io-client';
 
@@ -24,8 +27,9 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
   '&:nth-of-type(odd)': {
     backgroundColor: theme.palette.action.hover,
   },
-  '&:last-child td, &:last-child th': {
-    border: 0,
+  // Hide the last border
+  '& > *': {
+    borderBottom: 'unset',
   },
 }));
 
@@ -43,6 +47,100 @@ const StatusChip = styled(Chip)(({ theme, status }) => ({
   ),
   fontWeight: 'bold',
 }));
+
+// A component for a single row, which can be a group or a single item
+const OrderRow = ({ row }) => {
+    const [open, setOpen] = useState(false);
+
+    if (!row.isGroup) {
+        // Render a simple row for single-item enquiries
+        const order = row;
+        return (
+            <StyledTableRow>
+                <StyledTableCell />
+                <StyledTableCell component="th" scope="row">
+                    <Typography variant="body2" fontWeight="bold">{order.productName}</Typography>
+                </StyledTableCell>
+                <StyledTableCell>{order.category}</StyledTableCell>
+                <StyledTableCell>{order.dieNo}</StyledTableCell>
+                <StyledTableCell>{order.quantity}</StyledTableCell>
+                <StyledTableCell>
+                    <StatusChip
+                        label={ENQUIRY_STATUS_LABELS[order.status] || order.status}
+                        status={order.status}
+                        size="small"
+                    />
+                </StyledTableCell>
+                <StyledTableCell>{new Date(order.createdAt).toLocaleString()}</StyledTableCell>
+            </StyledTableRow>
+        );
+    }
+    
+    // Render an expandable row for multi-item enquiries
+    return (
+        <React.Fragment>
+            <StyledTableRow>
+                <TableCell>
+                    <IconButton aria-label="expand row" size="small" onClick={() => setOpen(!open)}>
+                        {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                    </IconButton>
+                </TableCell>
+                <StyledTableCell component="th" scope="row">
+                     <Typography variant="body2" fontWeight="bold">Multi-item Order</Typography>
+                </StyledTableCell>
+                <StyledTableCell colSpan={3}>
+                    <Chip label={`${row.items.length} items`} size="small" />
+                </StyledTableCell>
+                 <StyledTableCell>
+                    <StatusChip
+                        label={ENQUIRY_STATUS_LABELS[row.overallStatus] || row.overallStatus}
+                        status={row.overallStatus}
+                        size="small"
+                    />
+                </StyledTableCell>
+                <StyledTableCell>{new Date(row.createdAt).toLocaleString()}</StyledTableCell>
+            </StyledTableRow>
+            <TableRow>
+                <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={7}>
+                    <Collapse in={open} timeout="auto" unmountOnExit>
+                        <Box sx={{ margin: 1 }}>
+                            <Typography variant="h6" gutterBottom component="div">
+                                Items in this Order
+                            </Typography>
+                            <Table size="small" aria-label="purchases">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Product Name</TableCell>
+                                        <TableCell>Size Specs</TableCell>
+                                        <TableCell align="right">Status</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {row.items.map((item) => (
+                                        <TableRow key={item.enquiryID}>
+                                            <TableCell component="th" scope="row">{item.productName}</TableCell>
+                                            <TableCell>
+                                                Die: {item.dieNo}, Qty: {item.quantity}, Tunch: {item.tunch}%
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <StatusChip
+                                                    label={ENQUIRY_STATUS_LABELS[item.status] || item.status}
+                                                    status={item.status}
+                                                    size="small"
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </Box>
+                    </Collapse>
+                </TableCell>
+            </TableRow>
+        </React.Fragment>
+    );
+};
+
 
 const Order = () => {
   const token = localStorage.getItem('userToken') || localStorage.getItem('token');
@@ -69,7 +167,7 @@ const Order = () => {
         setLoading(true);
         const response = await getMyEnquiries(token);
         if (response.success && Array.isArray(response.data)) {
-          setOrders(response.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+          setOrders(response.data);
           setError(null);
         } else {
           setError(response.error || "Failed to fetch orders.");
@@ -88,7 +186,6 @@ const Order = () => {
     if (token) {
       const socket = io('http://localhost:5000');
       socket.on('connect', () => {
-        console.log('✅ Connected to WebSocket server with ID:', socket.id);
         const userInfo = decodeToken(token);
         if (userInfo && (userInfo.id || userInfo.userId)) {
           socket.emit('joinUserRoom', userInfo.id || userInfo.userId);
@@ -96,10 +193,9 @@ const Order = () => {
       });
 
       socket.on('enquiryStatusUpdated', (updatedEnquiry) => {
-        console.log('✅ Real-time update received:', updatedEnquiry);
         setOrders(prevOrders =>
           prevOrders.map(order =>
-            (order.enquiryID === updatedEnquiry.enquiryID) ? updatedEnquiry : order
+            (order.enquiryID === updatedEnquiry.enquiryID) ? { ...order, ...updatedEnquiry } : order
           )
         );
         setNotification({
@@ -113,18 +209,54 @@ const Order = () => {
     }
   }, [token]);
 
+  // Group orders by cartId or createdAt timestamp
+  const groupedOrders = useMemo(() => {
+    const groups = new Map();
+    orders.forEach(order => {
+        const key = order.cartId || order.createdAt;
+        if (!groups.has(key)) {
+            groups.set(key, {
+                key: key,
+                createdAt: order.createdAt,
+                items: [],
+            });
+        }
+        groups.get(key).items.push(order);
+    });
+    
+    return Array.from(groups.values()).map(group => {
+        if (group.items.length === 1) {
+            return { ...group.items[0], isGroup: false };
+        } else {
+            const statuses = new Set(group.items.map(i => i.status));
+            let overallStatus = 'pending';
+            if (statuses.size === 1) {
+                overallStatus = statuses.values().next().value;
+            } else {
+                overallStatus = 'mixed';
+            }
+            return { ...group, isGroup: true, overallStatus };
+        }
+    }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [orders]);
+
+
   // Memoized filtered and searched orders
   const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
-      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    return groupedOrders.filter(order => {
+      const itemsToSearch = order.isGroup ? order.items : [order];
+      
+      const matchesStatus = statusFilter === 'all' || itemsToSearch.some(item => item.status === statusFilter);
+      
       const searchTermLower = searchTerm.toLowerCase();
-      const matchesSearch = !searchTerm ||
-        (String(order.enquiryID) || '').toLowerCase().includes(searchTermLower) ||
-        (order.productName || order.product?.name || '').toLowerCase().includes(searchTermLower) ||
-        (order.category || order.product?.category || '').toLowerCase().includes(searchTermLower);
+      const matchesSearch = !searchTerm || itemsToSearch.some(item => 
+        (item.productName || '').toLowerCase().includes(searchTermLower) ||
+        (item.category || '').toLowerCase().includes(searchTermLower)
+      );
+
       return matchesStatus && matchesSearch;
     });
-  }, [orders, searchTerm, statusFilter]);
+  }, [groupedOrders, searchTerm, statusFilter]);
 
   const handleCloseNotification = () => setNotification({ open: false, message: '' });
   const handleChangePage = (event, newPage) => setPage(newPage);
@@ -132,9 +264,6 @@ const Order = () => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
-  
-  const formatValue = (value) => value || 'N/A';
-  const getOrderId = (order) => order.enquiryID || 'N/A';
 
   if (loading) {
     return (
@@ -193,52 +322,25 @@ const Order = () => {
       ) : (
         <Paper sx={{ mt: 2, overflow: 'hidden' }}>
           <TableContainer>
-            <Table sx={{ minWidth: 700 }} aria-label="orders table">
+            <Table aria-label="collapsible orders table">
               <TableHead>
                 <TableRow>
-                  <StyledTableCell>Order ID</StyledTableCell>
-                  <StyledTableCell>Product Name</StyledTableCell>
+                  <StyledTableCell />
+                  <StyledTableCell>Product</StyledTableCell>
                   <StyledTableCell>Category</StyledTableCell>
                   <StyledTableCell>Die No</StyledTableCell>
-                  <StyledTableCell>Weight</StyledTableCell>
                   <StyledTableCell>Quantity</StyledTableCell>
                   <StyledTableCell>Status</StyledTableCell>
-                  <StyledTableCell>Created</StyledTableCell>
+                  <StyledTableCell>Date & Time</StyledTableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {(rowsPerPage > 0
                   ? filteredOrders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                   : filteredOrders
-                ).map((order) => {
-                  const orderId = getOrderId(order);
-                  return (
-                    <StyledTableRow key={orderId}>
-                      <StyledTableCell component="th" scope="row">
-                        <Typography variant="body2" fontWeight="bold">#{orderId}</Typography>
-                      </StyledTableCell>
-                      <StyledTableCell>{formatValue(order.productName || order.product?.name)}</StyledTableCell>
-                      <StyledTableCell>{formatValue(order.category || order.product?.category)}</StyledTableCell>
-                      <StyledTableCell>{formatValue(order.dieNo || order.die?.dieNo)}</StyledTableCell>
-                      <StyledTableCell>{formatValue(order.weight || order.size?.weight)}</StyledTableCell>
-                      <StyledTableCell>
-                        <Typography variant="body2" fontWeight="bold">{formatValue(order.quantity)}</Typography>
-                      </StyledTableCell>
-                      <StyledTableCell>
-                        <StatusChip
-                          label={ENQUIRY_STATUS_LABELS[order.status] || order.status || 'Pending'}
-                          status={order.status || 'pending'}
-                          size="small"
-                        />
-                      </StyledTableCell>
-                      <StyledTableCell>
-                        <Typography variant="body2" color="textSecondary">
-                          {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
-                        </Typography>
-                      </StyledTableCell>
-                    </StyledTableRow>
-                  );
-                })}
+                ).map((row) => (
+                    <OrderRow key={row.key} row={row} />
+                ))}
               </TableBody>
             </Table>
           </TableContainer>

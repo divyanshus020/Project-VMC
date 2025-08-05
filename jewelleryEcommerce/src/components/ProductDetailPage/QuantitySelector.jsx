@@ -12,12 +12,13 @@ const QuantitySelector = ({
   // Calculates the number of pieces from a target weight and the weight of a single piece.
   const calculateQuantityFromWeight = (targetWeight, pieceWeight) => {
     if (!pieceWeight || pieceWeight <= 0) return 1;
+    // Use Math.round to find the nearest whole number of pieces
     return Math.max(1, Math.round(targetWeight / pieceWeight));
   };
 
   // Calculates the total weight from a quantity and the weight of a single piece.
   const calculateWeightFromQuantity = (pieceCount, pieceWeight) => {
-    if (!pieceWeight || pieceWeight <= 0) return 0;
+    if (!pieceWeight || pieceWeight <= 0) return '0.000';
     return (pieceCount * pieceWeight).toFixed(3);
   };
 
@@ -31,15 +32,33 @@ const QuantitySelector = ({
     }
   };
 
-  // Handles changes to the weight input.
-  const handleWeightChange = (newWeight) => {
-    const targetWeight = newWeight >= 0 ? newWeight : 0;
-    setCustomWeight(targetWeight.toString());
-    if (selectedSize?.weight) {
-      const newQuantity = calculateQuantityFromWeight(targetWeight, selectedSize.weight);
-      setQuantity(newQuantity);
-    }
+  // Handles typing in the weight input.
+  const handleWeightInputChange = (e) => {
+    // Allow user to type freely, update the state to reflect input
+    setCustomWeight(e.target.value);
   };
+
+  // Handles the "blur" event (when the user clicks away from the weight input).
+  // This is where the "snapping" logic happens.
+  const handleWeightInputBlur = () => {
+    const targetWeight = parseFloat(customWeight);
+    if (isNaN(targetWeight) || targetWeight <= 0 || !selectedSize?.weight) {
+      // If input is invalid, reset to the weight of 1 piece
+      handleQuantityChange(1);
+      return;
+    }
+
+    // Calculate the quantity based on the nearest whole piece
+    const newQuantity = calculateQuantityFromWeight(targetWeight, selectedSize.weight);
+    
+    // Update the quantity state
+    setQuantity(newQuantity);
+    
+    // Update the weight to the "snapped" value that corresponds to the whole piece count
+    const snappedWeight = calculateWeightFromQuantity(newQuantity, selectedSize.weight);
+    setCustomWeight(snappedWeight);
+  };
+
 
   return (
     <div className="space-y-4">
@@ -121,7 +140,8 @@ const QuantitySelector = ({
               min="0"
               step="0.1"
               value={customWeight}
-              onChange={(e) => handleWeightChange(parseFloat(e.target.value))}
+              onChange={handleWeightInputChange}
+              onBlur={handleWeightInputBlur} // This triggers the snapping logic
               placeholder="Enter total weight"
               disabled={quantityMode !== 'weight'}
               className="w-full px-4 py-3 border-2 rounded-xl font-medium transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed border-gray-200 focus:border-amber-500"
