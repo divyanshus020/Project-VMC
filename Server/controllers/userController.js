@@ -240,9 +240,11 @@ exports.updateProfile = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const { address, fullName, email } = req.body;
-    await User.updateProfile(user.id, { fullName, address, email });
+     await User.updateProfile(user.id, { fullName, address, email });
 
-    res.json({ message: 'Profile updated successfully' });
+    const { password, ...userProfile } = await User.findById(req.user.userId);
+
+    res.json({user: userProfile, message: 'Profile updated successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

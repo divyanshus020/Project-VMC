@@ -60,11 +60,14 @@ const Account = () => {
 
   const handleSaveEdit = async () => {
     try {
+      console.log(editedUser)
       const res = await updateProfile(editedUser, token);
-      setUser(res.data);
-      setMessage('✅ Profile updated successfully!');
+      console.log(res)
+      setUser(res.data.user);
+       setMessage('✅ Profile updated successfully!');
       setOpenEdit(false);
-      setTimeout(() => setMessage(''), 3000);
+       setTimeout(() => setMessage(''), 3000);
+      
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update profile.');
     }

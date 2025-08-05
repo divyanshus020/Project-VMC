@@ -107,8 +107,8 @@ module.exports = {
   async updateProfile(id, data) {
     const connection = await getConnection();
     await connection.execute(
-      `UPDATE users SET fullName = ?, email = ?, address = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
-      [data.fullName, data.email, data.address, id]
+      `UPDATE users SET email = ?, address = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
+      [data.email, data.address, id]
     );
     await connection.end();
   },
