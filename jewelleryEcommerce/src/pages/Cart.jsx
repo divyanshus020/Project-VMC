@@ -182,58 +182,55 @@ const Cart = () => {
 
   // Handles submitting the cart as an enquiry
   const handleEnquiryCart = async () => {
-    const token = getValidToken();
-    if (!token || !cartData?.userId || cartItems.length === 0) {
-      toast.error("Cannot submit enquiry. Cart is empty or user is not identified.");
-      return;
+  const token = getValidToken();
+  if (!token || !cartData?.userId || cartItems.length === 0) {
+    toast.error("Cannot submit enquiry. Cart is empty or user is not identified.");
+    return;
+  }
+
+  setIsEnquiring(true);
+  const toastId = toast.loading("Submitting your enquiry...");
+
+  try {
+    const enquiries = cartItems.map(item => ({
+      productID: item.productId,
+      userID: cartData.userId,
+      quantity: item.quantity,
+      sizeID: item.sizeId,
+      tunch: item.tunch
+    }));
+
+    // ✅ Send all enquiries together
+    const result = await createEnquiry({ enquiries }, token);
+
+    if (!result.success) {
+      throw new Error(result.message || "Some enquiries failed.");
     }
 
-    setIsEnquiring(true);
-    const toastId = toast.loading("Submitting your enquiry...");
+    toast.update(toastId, {
+      render: 'Enquiry submitted successfully!',
+      type: 'success',
+      isLoading: false,
+      autoClose: 4000
+    });
 
-    try {
-      const enquiryPromises = cartItems.map(item => {
-        const enquiryData = {
-          productID: item.productId,
-          userID: cartData.userId,
-          quantity: item.quantity,
-          sizeID: item.sizeId,
-          tunch: item.tunch
-        };
-        return createEnquiry(enquiryData, token);
-      });
+    await handleClearCart(false);
+    navigate('/orders');
 
-      const results = await Promise.all(enquiryPromises);
-      const failedEnquiries = results.filter(res => !res.success);
+  } catch (err) {
+    const errorMessage = err.message || "An unexpected error occurred.";
+    setError(errorMessage);
+    toast.update(toastId, {
+      render: errorMessage,
+      type: 'error',
+      isLoading: false,
+      autoClose: 4000
+    });
+  } finally {
+    setIsEnquiring(false);
+  }
+};
 
-      if (failedEnquiries.length > 0) {
-        throw new Error(`Could not submit ${failedEnquiries.length} item(s). Please try again.`);
-      }
-      
-      // Update loading toast to success
-      toast.update(toastId, {
-        render: 'Enquiry submitted successfully!',
-        type: 'success',
-        isLoading: false,
-        autoClose: 4000
-      });
-      
-      await handleClearCart(false); // Clear cart without showing another toast
-      navigate('/orders'); // Navigate to orders page
-
-    } catch (err) {
-      const errorMessage = err.message || "An unexpected error occurred.";
-      setError(errorMessage);
-      toast.update(toastId, {
-        render: errorMessage,
-        type: 'error',
-        isLoading: false,
-        autoClose: 4000
-      });
-    } finally {
-      setIsEnquiring(false);
-    }
-  };
 
   // Handles navigation to the products page
   const handleContinueShopping = () => {

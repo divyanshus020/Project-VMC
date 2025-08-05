@@ -3,83 +3,118 @@ const adminModel = require('../models/Admin'); // Import the admin model
 const nodemailer = require('nodemailer');
 
 // Helper function to send email notification to ALL admins
-async function sendEnquiryNotification(enquiryDetails) {
-    try {
-        // 1. Fetch all active admin email addresses from the database
-        const adminEmails = await adminModel.findAllAdminEmails();
-
-        if (!adminEmails || adminEmails.length === 0) {
-            console.warn('No active admin emails found. Cannot send notification email.');
-            return; // Stop if no admins are found
-        }
-
-        // 2. Nodemailer transporter setup using environment variables
-        const transporter = nodemailer.createTransport({
-            host: process.env.EMAIL_HOST,
-            port: process.env.EMAIL_PORT,
-            secure: false, // Typically false for port 587
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
-        });
-
-        // 3. Create mail options, sending to all fetched admin emails
-        const mailOptions = {
-            from: `"Vimla Jewellers" <${process.env.EMAIL_USER}>`,
-            to: adminEmails.join(', '), // Nodemailer can handle a comma-separated string of recipients
-            subject: 'New Customer Enquiry Received!',
-            html: `
-                <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-                    <h2>New Enquiry Notification</h2>
-                    <p>A new enquiry has been submitted on the website. Please review the details below:</p>
-                    <hr>
-                    <h3>Enquiry Details:</h3>
-                    <ul>
-                        <li><strong>Enquiry ID:</strong> ${enquiryDetails.enquiryID}</li>
-                        <li><strong>User ID:</strong> ${enquiryDetails.userID}</li>
-                        <li><strong>Product ID:</strong> ${enquiryDetails.productID}</li>
-                        <li><strong>Size ID:</strong> ${enquiryDetails.sizeID}</li>
-                        <li><strong>Quantity:</strong> ${enquiryDetails.quantity}</li>
-                        <li><strong>Tunch:</strong> ${enquiryDetails.tunch || 'N/A'}</li>
-                    </ul>
-                    <p>Please log in to the admin dashboard to manage this enquiry.</p>
-                </div>
-            `,
-        };
-
-        // 4. Send the email
-        const info = await transporter.sendMail(mailOptions);
-        console.log('✅ Email notification sent successfully to all admins:', info.messageId);
-
-    } catch (emailError) {
-        // Log the error, but don't let it crash the API request
-        console.error('❌ Failed to send enquiry notification email:', emailError);
+async function sendEnquiryNotification(enquiryList) {
+  try {
+    if (!Array.isArray(enquiryList) || enquiryList.length === 0) {
+      console.warn('❌ No enquiry data provided.');
+      return;
     }
+
+    // 1. Fetch all active admin email addresses from the database
+    const adminEmails = await adminModel.findAllAdminEmails();
+
+    if (!adminEmails || adminEmails.length === 0) {
+      console.warn('❌ No active admin emails found. Cannot send notification email.');
+      return;
+    }
+
+    // 2. Nodemailer transporter setup
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: process.env.EMAIL_PORT,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // 3. Build enquiry details HTML for all enquiries
+    let enquiriesHtml = enquiryList
+      .map((enquiry, index) => {
+        return `
+          <h4>Enquiry #${index + 1}</h4>
+          <ul>
+            <li><strong>Enquiry ID:</strong> ${enquiry.enquiryID}</li>
+            <li><strong>User ID:</strong> ${enquiry.userID}</li>
+            <li><strong>Product ID:</strong> ${enquiry.productID}</li>
+            <li><strong>Size ID:</strong> ${enquiry.sizeID}</li>
+            <li><strong>Quantity:</strong> ${enquiry.quantity}</li>
+            <li><strong>Tunch:</strong> ${enquiry.tunch || 'N/A'}</li>
+          </ul>
+          <hr>
+        `;
+      })
+      .join("");
+
+    // 4. Email body
+    const mailOptions = {
+      from: `"Vimla Jewellers" <${process.env.EMAIL_USER}>`,
+      to: adminEmails.join(', '),
+      subject: 'New Customer Enquiries Received!',
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+          <h2>New Enquiries Notification</h2>
+          <p>The following enquiries were submitted:</p>
+          ${enquiriesHtml}
+          <p>Please log in to the admin dashboard to manage these enquiries.</p>
+        </div>
+      `,
+    };
+
+    // 5. Send the email
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email sent with multiple enquiries:', info.messageId);
+
+  } catch (emailError) {
+    console.error('❌ Failed to send enquiry notification email:', emailError);
+  }
 }
+
 
 
 // Create a new enquiry and trigger the email notification
 exports.createEnquiry = async (req, res) => {
   try {
-    const { productID, userID, quantity, sizeID, tunch } = req.body;
-    if (!productID || !userID || !quantity || !sizeID) {
-      return res.status(400).json({ error: "Missing required fields" });
+    const { enquiries } = req.body;
+
+    if (!Array.isArray(enquiries) || enquiries.length === 0) {
+      return res.status(400).json({ error: "No enquiries provided" });
     }
 
-    // 1. Save the new enquiry to the database
-    const newEnquiry = await enquiryModel.create({ productID, userID, quantity, sizeID, tunch });
+    const createdEnquiries = [];
 
-    // 2. Send the email notification in the background (fire-and-forget)
-    sendEnquiryNotification(newEnquiry);
+    for (const enquiry of enquiries) {
+      const { productID, userID, quantity, sizeID, tunch } = enquiry;
 
-    // 3. Respond to the user immediately without waiting for the email to send
-    res.status(201).json({ message: "Enquiry submitted successfully", enquiry: newEnquiry });
+      if (!productID || !userID || !quantity || !sizeID) {
+        return res.status(400).json({ error: "Missing required fields in an enquiry" });
+      }
+
+      const newEnquiry = await enquiryModel.create({
+        productID,
+        userID,
+        quantity,
+        sizeID,
+        tunch,
+      });
+
+      createdEnquiries.push(newEnquiry);
+    }
+
+    // Send one email for all enquiries
+    sendEnquiryNotification(createdEnquiries);
+
+    res.status(201).json({
+      message: "All enquiries submitted successfully",
+      enquiries: createdEnquiries,
+    });
   } catch (err) {
-    console.error("Error creating enquiry:", err);
+    console.error("Error creating enquiries:", err);
     res.status(500).json({ error: err.message });
   }
 };
+
 
 
 // --- All other controller functions remain unchanged ---

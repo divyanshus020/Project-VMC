@@ -1502,22 +1502,26 @@ export const FIXED_TUNCH_VALUES = ["92.5", "90", "88.5", "84.5"];
 // Continue from createEnquiry function
 export const createEnquiry = async (data, token) => {
   try {
-    const sanitizedData = sanitizeData({
-      productID: parseInt(data.productID),
-      userID: parseInt(data.userID),
-      quantity: parseInt(data.quantity),
-      sizeID: parseInt(data.sizeID),
-      tunch: data.tunch ? data.tunch.toString() : null,
-    });
+    // data.enquiries hona chahiye — ek array
+    const sanitizedEnquiries = data.enquiries.map(enquiry => sanitizeData({
+      productID: parseInt(enquiry.productID),
+      userID: parseInt(enquiry.userID),
+      quantity: parseInt(enquiry.quantity),
+      sizeID: parseInt(enquiry.sizeID),
+      tunch: enquiry.tunch ? enquiry.tunch.toString() : null,
+    }));
 
-    const response = await API.post("/enquiries", sanitizedData, {
+    console.log("Sending enquiries:", sanitizedEnquiries);
+
+    // ✅ Actual API call — backend must accept { enquiries: [...] }
+    const response = await API.post("/enquiries", { enquiries: sanitizedEnquiries }, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     return {
       success: true,
-      data: response.data.enquiry,
-      message: response.data.message || "Enquiry created successfully",
+      data: response.data.enquiries || [], // assuming backend returns array
+      message: response.data.message || "Enquiries submitted successfully",
     };
   } catch (error) {
     console.error("Error creating enquiry:", error);
@@ -1526,10 +1530,11 @@ export const createEnquiry = async (data, token) => {
       error:
         error.response?.data?.error ||
         error.response?.data?.message ||
-        "Failed to create enquiry",
+        "Failed to create enquiries",
     };
   }
 };
+
 
 // Get all enquiries (Admin only) - Updated with better error handling
 export const getAllEnquiries = async (token) => {
