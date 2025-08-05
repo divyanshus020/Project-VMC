@@ -27,7 +27,6 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
   '&:nth-of-type(odd)': {
     backgroundColor: theme.palette.action.hover,
   },
-  // Hide the last border
   '& > *': {
     borderBottom: 'unset',
   },
@@ -209,35 +208,50 @@ const Order = () => {
     }
   }, [token]);
 
-  // Group orders by cartId or createdAt timestamp
+  // **FIXED**: Group orders by cartId or treat as single items to ensure unique keys.
   const groupedOrders = useMemo(() => {
-    const groups = new Map();
+    const cartGroups = new Map();
+    const singleOrders = [];
+
     orders.forEach(order => {
-        const key = order.cartId || order.createdAt;
-        if (!groups.has(key)) {
-            groups.set(key, {
-                key: key,
-                createdAt: order.createdAt,
-                items: [],
-            });
+      // If an order has a cartId, it belongs in a group.
+      if (order.cartId) {
+        if (!cartGroups.has(order.cartId)) {
+          cartGroups.set(order.cartId, {
+            key: order.cartId, // The key is the unique cartId
+            createdAt: order.createdAt,
+            items: [],
+            isGroup: true,
+          });
         }
-        groups.get(key).items.push(order);
+        cartGroups.get(order.cartId).items.push(order);
+      } else {
+        // If no cartId, it's a single order.
+        singleOrders.push({
+          ...order,
+          key: order.enquiryID, // The key is the unique enquiryID
+          isGroup: false,
+        });
+      }
     });
-    
-    return Array.from(groups.values()).map(group => {
-        if (group.items.length === 1) {
-            return { ...group.items[0], isGroup: false };
-        } else {
-            const statuses = new Set(group.items.map(i => i.status));
-            let overallStatus = 'pending';
-            if (statuses.size === 1) {
-                overallStatus = statuses.values().next().value;
-            } else {
-                overallStatus = 'mixed';
-            }
-            return { ...group, isGroup: true, overallStatus };
-        }
-    }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // Process the cart groups to add overall status etc.
+    const processedGroups = Array.from(cartGroups.values()).map(group => {
+      const statuses = new Set(group.items.map(i => i.status));
+      let overallStatus = 'pending';
+      if (statuses.size === 1) {
+        overallStatus = statuses.values().next().value;
+      } else {
+        overallStatus = 'mixed';
+      }
+      return { ...group, overallStatus };
+    });
+
+    // Combine single orders and cart groups
+    const combined = [...processedGroups, ...singleOrders];
+
+    // Sort everything by date
+    return combined.sort((a, b) => new Date(b.createdAt || b.items[0].createdAt) - new Date(a.createdAt || a.items[0].createdAt));
   }, [orders]);
 
 

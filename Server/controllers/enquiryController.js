@@ -29,6 +29,10 @@ async function sendEnquiryNotification(enquiryList) {
       },
     });
 
+    const isSingleEnquiry = enquiryList.length === 1;
+    const subject = isSingleEnquiry ? 'New Customer Enquiry Received!' : 'New Customer Enquiries Received!';
+    const title = isSingleEnquiry ? 'New Enquiry Notification' : 'New Enquiries Notification';
+
     // 3. Build enquiry details HTML for all enquiries
     let enquiriesHtml = enquiryList
       .map((enquiry, index) => {
@@ -36,9 +40,9 @@ async function sendEnquiryNotification(enquiryList) {
           <h4>Enquiry #${index + 1}</h4>
           <ul>
             <li><strong>Enquiry ID:</strong> ${enquiry.enquiryID}</li>
-            <li><strong>User ID:</strong> ${enquiry.userID}</li>
-            <li><strong>Product ID:</strong> ${enquiry.productID}</li>
-            <li><strong>Size ID:</strong> ${enquiry.sizeID}</li>
+            <li><strong>User:</strong> ${enquiry.fullName || `ID: ${enquiry.userID}`}</li>
+            <li><strong>Product:</strong> ${enquiry.productName || `ID: ${enquiry.productID}`}</li>
+            <li><strong>Die No:</strong> ${enquiry.dieNo || 'N/A'}</li>
             <li><strong>Quantity:</strong> ${enquiry.quantity}</li>
             <li><strong>Tunch:</strong> ${enquiry.tunch || 'N/A'}</li>
           </ul>
@@ -47,14 +51,14 @@ async function sendEnquiryNotification(enquiryList) {
       })
       .join("");
 
-    // 4. Email body
+    // 4. Email body with dynamic subject and title
     const mailOptions = {
       from: `"Vimla Jewellers" <${process.env.EMAIL_USER}>`,
       to: adminEmails.join(', '),
-      subject: 'New Customer Enquiries Received!',
+      subject: subject,
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2>New Enquiries Notification</h2>
+          <h2>${title}</h2>
           <p>The following enquiries were submitted:</p>
           ${enquiriesHtml}
           <p>Please log in to the admin dashboard to manage these enquiries.</p>
@@ -64,7 +68,7 @@ async function sendEnquiryNotification(enquiryList) {
 
     // 5. Send the email
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email sent with multiple enquiries:', info.messageId);
+    console.log('✅ Email sent successfully:', info.messageId);
 
   } catch (emailError) {
     console.error('❌ Failed to send enquiry notification email:', emailError);
@@ -76,42 +80,58 @@ async function sendEnquiryNotification(enquiryList) {
 // Create a new enquiry and trigger the email notification
 exports.createEnquiry = async (req, res) => {
   try {
-    const { enquiries } = req.body;
+    const { enquiries, userID, items, productID } = req.body;
+    let enquiriesToProcess = [];
 
-    if (!Array.isArray(enquiries) || enquiries.length === 0) {
-      return res.status(400).json({ error: "No enquiries provided" });
+    // **FIXED**: Handle different payload formats from the frontend
+    if (Array.isArray(enquiries) && enquiries.length > 0) {
+      // Handles format from old cart: { enquiries: [item1, item2] }
+      enquiriesToProcess = enquiries;
+    } else if (userID && Array.isArray(items) && items.length > 0) {
+      // Handles format from new cart: { userID: 1, items: [item1, item2] }
+      enquiriesToProcess = items.map(item => ({ ...item, userID }));
+    } else if (productID && userID) {
+      // Handles format from ProductInfo page (single item): { productID, userID, ... }
+      enquiriesToProcess = [req.body];
+    } else {
+      // If no format matches, it's a bad request
+      return res.status(400).json({ success: false, error: "Invalid request format. Expected 'enquiries' array, 'items' array, or a single enquiry object." });
     }
 
-    const createdEnquiries = [];
+    const detailedCreatedEnquiries = [];
+    for (const enquiry of enquiriesToProcess) {
+      const { productID, userID: currentUserID, quantity, sizeID, tunch } = enquiry;
 
-    for (const enquiry of enquiries) {
-      const { productID, userID, quantity, sizeID, tunch } = enquiry;
-
-      if (!productID || !userID || !quantity || !sizeID) {
-        return res.status(400).json({ error: "Missing required fields in an enquiry" });
+      if (!productID || !currentUserID || !quantity || !sizeID) {
+        console.warn("Skipping enquiry with missing fields:", enquiry);
+        continue;
       }
 
-      const newEnquiry = await enquiryModel.create({
-        productID,
-        userID,
-        quantity,
-        sizeID,
-        tunch,
-      });
-
-      createdEnquiries.push(newEnquiry);
+      const newEnquiry = await enquiryModel.create({ productID, userID: currentUserID, quantity, sizeID, tunch });
+      
+      // **FIXED**: After creating, fetch the full details of that specific enquiry
+      // This uses a function that we know exists in the model.
+      const detailedEnquiry = await enquiryModel.findWithDetailsById(newEnquiry.enquiryID);
+      if(detailedEnquiry) {
+        detailedCreatedEnquiries.push(detailedEnquiry);
+      }
     }
 
-    // Send one email for all enquiries
-    sendEnquiryNotification(createdEnquiries);
+    if (detailedCreatedEnquiries.length === 0) {
+        return res.status(400).json({ success: false, error: "No valid enquiries were processed." });
+    }
+
+    // Send one email for all processed enquiries
+    sendEnquiryNotification(detailedCreatedEnquiries);
 
     res.status(201).json({
-      message: "All enquiries submitted successfully",
-      enquiries: createdEnquiries,
+      success: true,
+      message: `${detailedCreatedEnquiries.length} enquiry/enquiries submitted successfully`,
+      enquiries: detailedCreatedEnquiries,
     });
   } catch (err) {
     console.error("Error creating enquiries:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 };
 
