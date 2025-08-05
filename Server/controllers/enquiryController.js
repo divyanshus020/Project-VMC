@@ -1,6 +1,7 @@
 const enquiryModel = require('../models/enquiryModel');
 const adminModel = require('../models/Admin'); // Import the admin model
 const nodemailer = require('nodemailer');
+const { v4: uuidv4 } = require('uuid'); // Use a robust ID generator for cartId
 
 // Helper function to send email notification to ALL admins
 async function sendEnquiryNotification(enquiryList) {
@@ -30,45 +31,67 @@ async function sendEnquiryNotification(enquiryList) {
     });
 
     const isSingleEnquiry = enquiryList.length === 1;
-    const subject = isSingleEnquiry ? 'New Customer Enquiry Received!' : 'New Customer Enquiries Received!';
-    const title = isSingleEnquiry ? 'New Enquiry Notification' : 'New Enquiries Notification';
+    const firstEnquiry = enquiryList[0];
+    const subject = isSingleEnquiry ? `New Enquiry from ${firstEnquiry.fullName}` : `New Multi-Item Enquiry from ${firstEnquiry.fullName}`;
+    
+    // --- NEW DETAILED HTML TEMPLATE ---
 
-    // 3. Build enquiry details HTML for all enquiries
-    let enquiriesHtml = enquiryList
-      .map((enquiry, index) => {
-        return `
-          <h4>Enquiry #${index + 1}</h4>
-          <ul>
-            <li><strong>Enquiry ID:</strong> ${enquiry.enquiryID}</li>
-            <li><strong>User:</strong> ${enquiry.fullName || `ID: ${enquiry.userID}`}</li>
-            <li><strong>Product:</strong> ${enquiry.productName || `ID: ${enquiry.productID}`}</li>
-            <li><strong>Die No:</strong> ${enquiry.dieNo || 'N/A'}</li>
-            <li><strong>Quantity:</strong> ${enquiry.quantity}</li>
-            <li><strong>Tunch:</strong> ${enquiry.tunch || 'N/A'}</li>
-          </ul>
-          <hr>
-        `;
-      })
-      .join("");
+    // 1. Extract common details from the first enquiry item
+    const userDetailsHtml = `
+        <p><strong>Name:</strong> ${firstEnquiry.fullName}<br>
+        <strong>Email:</strong> ${firstEnquiry.email}<br>
+        <strong>Phone:</strong> ${firstEnquiry.phoneNumber}</p>
+    `;
+    const enquiryDetailsHtml = `
+        <p><strong>Enquiry Date:</strong> ${new Date(firstEnquiry.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}<br>
+        <strong>Cart/Enquiry No:</strong> ${firstEnquiry.cartId || firstEnquiry.enquiryID}</p>
+    `;
 
-    // 4. Email body with dynamic subject and title
+    // 2. Build an HTML table for all the items
+    const itemsTableHtml = `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Design</th>
+                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Die No.</th>
+                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center;">Quantity</th>
+                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center;">Tunch</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${enquiryList.map(item => `
+                    <tr>
+                        <td style="padding: 12px; border: 1px solid #ddd;">${item.productName}</td>
+                        <td style="padding: 12px; border: 1px solid #ddd;">${item.dieNo}</td>
+                        <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
+                        <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${item.tunch}%</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+
+    // 3. Assemble the final email body
     const mailOptions = {
       from: `"Vimla Jewellers" <${process.env.EMAIL_USER}>`,
       to: adminEmails.join(', '),
       subject: subject,
       html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2>${title}</h2>
-          <p>The following enquiries were submitted:</p>
-          ${enquiriesHtml}
-          <p>Please log in to the admin dashboard to manage these enquiries.</p>
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <h2>New Enquiry Notification</h2>
+          <hr>
+          <h3>User Details:</h3>
+          ${userDetailsHtml}
+          <h3>Enquiry Details:</h3>
+          ${enquiryDetailsHtml}
+          ${itemsTableHtml}
+          <p style="margin-top: 20px;">Please log in to the admin dashboard to manage this enquiry.</p>
         </div>
       `,
     };
 
-    // 5. Send the email
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email sent successfully:', info.messageId);
+    console.log('✅ Detailed email sent successfully:', info.messageId);
 
   } catch (emailError) {
     console.error('❌ Failed to send enquiry notification email:', emailError);
@@ -82,52 +105,54 @@ exports.createEnquiry = async (req, res) => {
   try {
     const { enquiries, userID, items, productID } = req.body;
     let enquiriesToProcess = [];
+    let cartId = null; // Initialize cartId
 
-    // **FIXED**: Handle different payload formats from the frontend
-    if (Array.isArray(enquiries) && enquiries.length > 0) {
-      // Handles format from old cart: { enquiries: [item1, item2] }
-      enquiriesToProcess = enquiries;
-    } else if (userID && Array.isArray(items) && items.length > 0) {
-      // Handles format from new cart: { userID: 1, items: [item1, item2] }
-      enquiriesToProcess = items.map(item => ({ ...item, userID }));
+    if (userID && Array.isArray(items) && items.length > 0) {
+      // This is a cart submission
+      cartId = uuidv4(); // Generate a single cartId for the transaction
+      enquiriesToProcess = items.map(item => ({ ...item, userID, cartId }));
+    } else if (Array.isArray(enquiries) && enquiries.length > 0) {
+      // This handles single or multiple items wrapped in an 'enquiries' array
+      if (enquiries.length > 1) {
+        cartId = uuidv4();
+      }
+      enquiriesToProcess = enquiries.map(e => ({...e, cartId}));
     } else if (productID && userID) {
-      // Handles format from ProductInfo page (single item): { productID, userID, ... }
+      // This handles a single item enquiry from the product page
       enquiriesToProcess = [req.body];
     } else {
-      // If no format matches, it's a bad request
-      return res.status(400).json({ success: false, error: "Invalid request format. Expected 'enquiries' array, 'items' array, or a single enquiry object." });
+      return res.status(400).json({ success: false, error: "Invalid request format." });
     }
 
-    const detailedCreatedEnquiries = [];
+    const createdEnquiryIds = [];
     for (const enquiry of enquiriesToProcess) {
-      const { productID, userID: currentUserID, quantity, sizeID, tunch } = enquiry;
+      const { productID, userID: currentUserID, quantity, sizeID, tunch, cartId: currentCartId } = enquiry;
 
       if (!productID || !currentUserID || !quantity || !sizeID) {
         console.warn("Skipping enquiry with missing fields:", enquiry);
         continue;
       }
 
-      const newEnquiry = await enquiryModel.create({ productID, userID: currentUserID, quantity, sizeID, tunch });
-      
-      // **FIXED**: After creating, fetch the full details of that specific enquiry
-      // This uses a function that we know exists in the model.
-      const detailedEnquiry = await enquiryModel.findWithDetailsById(newEnquiry.enquiryID);
-      if(detailedEnquiry) {
-        detailedCreatedEnquiries.push(detailedEnquiry);
-      }
+      const newEnquiry = await enquiryModel.create({ productID, userID: currentUserID, quantity, sizeID, tunch, cartId: currentCartId });
+      createdEnquiryIds.push(newEnquiry.enquiryID);
     }
 
-    if (detailedCreatedEnquiries.length === 0) {
+    if (createdEnquiryIds.length === 0) {
         return res.status(400).json({ success: false, error: "No valid enquiries were processed." });
     }
 
+    // Fetch the full details of the newly created enquiries for the email notification
+    const detailedCreatedEnquiries = await enquiryModel.findMultipleByIds(createdEnquiryIds);
+
     // Send one email for all processed enquiries
-    sendEnquiryNotification(detailedCreatedEnquiries);
+    if (detailedCreatedEnquiries.length > 0) {
+        sendEnquiryNotification(detailedCreatedEnquiries);
+    }
 
     res.status(201).json({
       success: true,
-      message: `${detailedCreatedEnquiries.length} enquiry/enquiries submitted successfully`,
-      enquiries: detailedCreatedEnquiries,
+      message: `${createdEnquiryIds.length} enquiry/enquiries submitted successfully`,
+      enquiryIDs: createdEnquiryIds,
     });
   } catch (err) {
     console.error("Error creating enquiries:", err);
@@ -141,7 +166,7 @@ exports.createEnquiry = async (req, res) => {
 
 exports.getAllEnquiries = async (req, res) => {
   try {
-    const enquiries = await enquiryModel.findAllWithDetails(); // Using detailed find for consistency
+    const enquiries = await enquiryModel.findAllWithDetails();
     res.json(enquiries);
   } catch (err) {
     console.error("Error getting all enquiries:", err);

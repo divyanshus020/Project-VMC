@@ -2,13 +2,30 @@ const db = require('../config/db');
 
 // Helper to get a MySQL connection from the pool
 async function getConnection() {
-  return db(); // Assumes db() returns a promise that resolves to a connection
+  // Your database connection logic might be different.
+  // This assumes db() returns a promise that resolves to a connection.
+  return db(); 
 }
 
-// Create Enquiry table if not exists, now with a 'status' column
+// **FIXED**: This function now includes the 'cartId' column in the table schema.
+// It will automatically add the column to your existing table when the server starts.
 async function createEnquiryTable() {
   const connection = await getConnection();
   try {
+    // First, check if the cartId column exists
+    const [columns] = await connection.execute(
+      `SHOW COLUMNS FROM enquiries LIKE 'cartId'`
+    );
+
+    // If the column does not exist, add it
+    if (columns.length === 0) {
+        await connection.execute(
+            `ALTER TABLE enquiries ADD COLUMN cartId VARCHAR(255) NULL DEFAULT NULL AFTER status`
+        );
+        console.log("✅ 'cartId' column added to 'enquiries' table.");
+    }
+
+    // The rest of the table creation logic remains for initial setup
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS enquiries (
         enquiryID INT AUTO_INCREMENT PRIMARY KEY,
@@ -18,6 +35,7 @@ async function createEnquiryTable() {
         sizeID INT,
         tunch VARCHAR(255),
         status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        cartId VARCHAR(255) NULL,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (productID) REFERENCES products(id) ON DELETE SET NULL,
@@ -27,26 +45,30 @@ async function createEnquiryTable() {
     `);
     console.log("✅ 'enquiries' table checked/created successfully.");
   } catch (error) {
-    console.error("❌ Error creating 'enquiries' table:", error);
+    console.error("❌ Error updating 'enquiries' table:", error);
   } finally {
-    await connection.end();
+    if (connection && connection.end) {
+        await connection.end();
+    }
   }
 }
 // Run this once on application startup
 createEnquiryTable();
 
 module.exports = {
-  // Create a new enquiry
-  async create({ productID, userID, quantity, sizeID, tunch }) {
+  // Create a new enquiry, now including cartId
+  async create({ productID, userID, quantity, sizeID, tunch, cartId = null }) {
     const connection = await getConnection();
     try {
       const [result] = await connection.execute(
-        `INSERT INTO enquiries (productID, userID, quantity, sizeID, tunch) VALUES (?, ?, ?, ?, ?)`,
-        [productID, userID, quantity, sizeID, tunch]
+        `INSERT INTO enquiries (productID, userID, quantity, sizeID, tunch, cartId) VALUES (?, ?, ?, ?, ?, ?)`,
+        [productID, userID, quantity, sizeID, tunch, cartId]
       );
-      return { enquiryID: result.insertId, productID, userID, quantity, sizeID, tunch };
+      return { enquiryID: result.insertId, productID, userID, quantity, sizeID, tunch, cartId };
     } finally {
-      await connection.end();
+      if (connection && connection.end) {
+        await connection.end();
+      }
     }
   },
 
@@ -68,7 +90,9 @@ module.exports = {
       `);
       return rows;
     } finally {
-      await connection.end();
+      if (connection && connection.end) {
+        await connection.end();
+      }
     }
   },
 
@@ -90,7 +114,38 @@ module.exports = {
         `, [enquiryID]);
         return rows[0] || null;
     } finally {
+        if (connection && connection.end) {
+            await connection.end();
+        }
+    }
+  },
+
+  // Finds multiple enquiries by their IDs and joins with related tables for full details.
+  async findMultipleByIds(ids) {
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+    const connection = await getConnection();
+    try {
+      const query = `
+        SELECT
+          e.enquiryID, e.productID, e.userID, e.quantity, e.sizeID, e.tunch, e.status, e.createdAt, e.updatedAt, e.cartId,
+          p.name as productName, p.category,
+          s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight,
+          u.fullName, u.email, u.phoneNumber
+        FROM enquiries e
+        LEFT JOIN products p ON e.productID = p.id
+        LEFT JOIN sizes s ON e.sizeID = s.id
+        LEFT JOIN users u ON e.userID = u.id
+        WHERE e.enquiryID IN (?)
+        ORDER BY e.createdAt DESC;
+      `;
+      const [rows] = await connection.query(query, [ids]);
+      return rows;
+    } finally {
+      if (connection && connection.end) {
         await connection.end();
+      }
     }
   },
 
@@ -112,7 +167,9 @@ module.exports = {
         const [result] = await connection.execute(sql, [...values, enquiryID]);
         return result;
     } finally {
-        await connection.end();
+        if (connection && connection.end) {
+            await connection.end();
+        }
     }
   },
 
@@ -123,7 +180,9 @@ module.exports = {
       const [result] = await connection.execute(`DELETE FROM enquiries WHERE enquiryID = ?`, [enquiryID]);
       return result;
     } finally {
-      await connection.end();
+      if (connection && connection.end) {
+        await connection.end();
+      }
     }
   },
 
@@ -133,9 +192,9 @@ module.exports = {
     try {
       const [rows] = await connection.execute(
         `SELECT 
-            e.*, 
-            p.name as productName, p.category, 
-            s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight
+           e.*, 
+           p.name as productName, p.category, 
+           s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight
          FROM enquiries e
          LEFT JOIN products p ON e.productID = p.id
          LEFT JOIN sizes s ON e.sizeID = s.id
@@ -145,7 +204,9 @@ module.exports = {
       );
       return rows;
     } finally {
-      await connection.end();
+      if (connection && connection.end) {
+        await connection.end();
+      }
     }
   }
 };
