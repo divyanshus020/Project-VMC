@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 const ImageSlider = ({ images }) => {
   const [selectedImage, setSelectedImage] = useState(0);
@@ -246,25 +247,43 @@ const ImageSlider = ({ images }) => {
       </div>
 
       {/* Fullscreen Modal */}
-      {isFullscreen && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center animate-fade-in">
-          <div className="relative w-full max-w-3xl h-[80vh] flex items-center justify-center">
+      {isFullscreen && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999] bg-black flex items-center justify-center animate-fade-in"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999,
+            backgroundColor: 'rgba(0, 0, 0, 0.95)'
+          }}
+          onClick={toggleFullscreen}
+        >
+          <div 
+            className="relative w-full h-full flex items-center justify-center p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <img
               src={images[selectedImage]}
               alt={`Product fullscreen ${selectedImage + 1}`}
-              className="w-full h-full object-contain rounded-2xl shadow-2xl"
+              className="max-w-full max-h-full object-contain shadow-2xl"
+              style={{ maxWidth: '90vw', maxHeight: '90vh' }}
             />
+
             {/* Close Button */}
             <button
               onClick={toggleFullscreen}
-              className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg hover:shadow-xl hover:scale-110 border border-gray-200"
+              className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg hover:shadow-xl hover:scale-110 border border-gray-200"
               aria-label="Close fullscreen"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            {/* Navigation Arrows in Fullscreen */}
+
+            {/* Navigation Arrows */}
             {images.length > 1 && (
               <>
                 <button
@@ -287,17 +306,18 @@ const ImageSlider = ({ images }) => {
                 </button>
               </>
             )}
-            {/* Image Counter in Fullscreen */}
-            {images.length > 1 && (
-              <div className="absolute bottom-6 right-6 bg-black/80 text-white px-4 py-1 rounded-full text-base font-semibold shadow-lg">
-                {selectedImage + 1} / {images.length}
-              </div>
-            )}
+
+            {/* Image Counter */}
+            <div className="absolute bottom-6 right-6 bg-black/80 text-white px-4 py-2 rounded-full text-base font-semibold shadow-lg">
+              {selectedImage + 1} / {images.length}
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
     </>
   );
 };
 
-export default ImageSlider;
+export default ImageSlider
