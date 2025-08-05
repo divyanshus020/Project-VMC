@@ -11,10 +11,10 @@ import {
     message,
     Typography,
     Alert,
+    Divider,
 } from 'antd';
 import { ReloadOutlined, CheckOutlined, CloseOutlined, DeleteOutlined, LoginOutlined } from '@ant-design/icons';
 import {
-    getAllEnquiries,
     getDetailedEnquiries,
     updateEnquiry,
     deleteEnquiry,
@@ -28,7 +28,7 @@ import AdminNavbar from '../Navbar/AdminNavbar';
 
 const { Search } = Input;
 const { Option } = Select;
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const AdminEnquery = () => {
     const [enquiries, setEnquiries] = useState([]);
@@ -65,10 +65,7 @@ const AdminEnquery = () => {
         try {
             setLoading(true);
             const token = getAuthToken('admin');
-            if (!token || !isTokenValid(token)) {
-                setAuthError(true);
-                return;
-            }
+            if (!token) { setAuthError(true); return; }
 
             const [enquiriesRes, productsRes, usersRes, sizesRes] = await Promise.all([
                 getDetailedEnquiries(token),
@@ -94,7 +91,7 @@ const AdminEnquery = () => {
             setLoading(false);
         }
     };
-
+    
     const enhancedEnquiries = useMemo(() => 
         Array.isArray(enquiries) ? enquiries.map(enquiry => {
             if (!enquiry) return null;
@@ -107,16 +104,56 @@ const AdminEnquery = () => {
         }).filter(Boolean) : []
     , [enquiries, users, products, sizes]);
 
+    // This hook now creates a mixed list of single items and multi-item "cart" groups.
+    const tableDataSource = useMemo(() => {
+        const transactionGroups = new Map();
+
+        // Group enquiries by a composite key of userID and the exact creation timestamp.
+        enhancedEnquiries.forEach(enquiry => {
+            const groupKey = `${enquiry.userID}-${enquiry.createdAt}`;
+
+            if (!transactionGroups.has(groupKey)) {
+                transactionGroups.set(groupKey, {
+                    key: groupKey,
+                    user: enquiry.user,
+                    items: [],
+                    lastActivity: enquiry.createdAt,
+                });
+            }
+            transactionGroups.get(groupKey).items.push(enquiry);
+        });
+
+        const processedData = [];
+        transactionGroups.forEach(group => {
+            // If a group only has one item, treat it as a single enquiry.
+            if (group.items.length === 1) {
+                const singleItem = group.items[0];
+                processedData.push({
+                    ...singleItem,
+                    key: singleItem.enquiryID, // Use the unique enquiryID as the key
+                    isGroup: false,
+                });
+            } else {
+                // Otherwise, it's a multi-item cart that should be expandable.
+                processedData.push({
+                    ...group,
+                    isGroup: true,
+                });
+            }
+        });
+        
+        return processedData.sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity));
+
+    }, [enhancedEnquiries]);
+
     const handleStatusUpdate = async (enquiryID, status) => {
         setActionLoading(prev => ({ ...prev, [enquiryID]: true }));
         try {
             const token = getAuthToken('admin');
-            const enquiryToUpdate = enhancedEnquiries.find(e => e.enquiryID === enquiryID);
-            const updateData = { ...enquiryToUpdate, status, updatedAt: new Date().toISOString() };
-            const res = await updateEnquiry(enquiryID, updateData, token);
+            const res = await updateEnquiry(enquiryID, { status }, token);
             if (res.success) {
-                message.success(`Enquiry ${status} successfully`);
-                fetchAllData(); // Re-fetch to ensure data consistency
+                message.success(`Enquiry item status updated to ${status}.`);
+                fetchAllData();
             } else {
                 throw new Error(res.error);
             }
@@ -126,15 +163,15 @@ const AdminEnquery = () => {
             setActionLoading(prev => ({ ...prev, [enquiryID]: false }));
         }
     };
-
+    
     const handleDelete = async (enquiryID) => {
         setActionLoading(prev => ({ ...prev, [enquiryID]: true }));
         try {
             const token = getAuthToken('admin');
             const res = await deleteEnquiry(enquiryID, token);
             if (res.success) {
-                message.success('Enquiry deleted successfully');
-                fetchAllData(); // Re-fetch for data consistency
+                message.success('Enquiry item deleted successfully');
+                fetchAllData();
             } else {
                 throw new Error(res.error);
             }
@@ -144,107 +181,170 @@ const AdminEnquery = () => {
             setActionLoading(prev => ({ ...prev, [enquiryID]: false }));
         }
     };
-
-    const filtered = useMemo(() => 
-        enhancedEnquiries.filter((e) => {
-            if (!e) return false;
-            const query = searchTerm.toLowerCase();
-
-            const matchSearch = !query || (
-                e.user?.fullName?.toLowerCase().includes(query) ||
-                e.product?.name?.toLowerCase().includes(query) ||
-                e.user?.phoneNumber?.includes(query) ||
-                e.user?.email?.toLowerCase().includes(query) ||
-                String(e.size?.dieNo || '').toLowerCase().includes(query) ||
-                String(e.size?.ballGauge || '').toLowerCase().includes(query) ||
-                String(e.size?.wireGauge || '').toLowerCase().includes(query) ||
-                String(e.quantity || '').includes(query) ||
-                String(e.tunch || '').includes(query)
-            );
-
-            const matchStatus = statusFilter === 'all' || e.status === statusFilter;
-            const matchProduct = productFilter === 'all' || String(e.productID) === productFilter;
-            return matchSearch && matchStatus && matchProduct;
-        })
-    , [enhancedEnquiries, searchTerm, statusFilter, productFilter]);
     
-    const columns = [
-        {
-            title: 'User Details',
-            dataIndex: 'user',
-            width: 200,
-            render: (user, record) => (
-                <div>
-                    <div><strong>{user?.fullName || 'Unknown User'}</strong></div>
-                    <div style={{ fontSize: '12px', color: '#888' }}>📧 {user?.email || 'N/A'}</div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>📱 {user?.phoneNumber || 'N/A'}</div>
-                    <div style={{ fontSize: '10px', color: '#999' }}>Enquiry ID: {record.enquiryID || 'N/A'}</div>
-                </div>
-            ),
-        },
+    // Filtering logic now works on the mixed data source.
+    const filteredData = useMemo(() => 
+        tableDataSource.filter((record) => {
+            const query = searchTerm.toLowerCase();
+            
+            const itemsToSearch = record.isGroup ? record.items : [record];
+
+            const matchSearch = !query ||
+                record.user?.fullName?.toLowerCase().includes(query) ||
+                record.user?.email?.toLowerCase().includes(query) ||
+                record.user?.phoneNumber?.includes(query) ||
+                itemsToSearch.some(item => 
+                    item.product?.name?.toLowerCase().includes(query) ||
+                    String(item.size?.dieNo || '').toLowerCase().includes(query)
+                );
+
+            // A record is included if it matches the search term AND has at least one item
+            // that satisfies all other active filters (status and product).
+            const hasMatchingItem = itemsToSearch.some(item => {
+                const matchStatus = statusFilter === 'all' || item.status === statusFilter;
+                const matchProduct = productFilter === 'all' || String(item.productID) === productFilter;
+                return matchStatus && matchProduct;
+            });
+            
+            return matchSearch && hasMatchingItem;
+        })
+    , [tableDataSource, searchTerm, statusFilter, productFilter]);
+    
+    const getStatusTag = (status) => {
+      const colorMap = { approved: 'green', rejected: 'red', pending: 'orange', cancelled: 'gray', mixed: 'geekblue' };
+      return <Tag color={colorMap[status] || 'default'}>{status || 'pending'}</Tag>;
+    };
+
+    // Columns for the nested table (for multi-item carts)
+    const nestedColumns = [
         {
             title: 'Product Details',
-            dataIndex: 'product',
-            width: 200,
-            render: (product, record) => (
+            render: (_, item) => (
                 <div>
-                    <div><strong>{product?.name || 'Unknown Product'}</strong></div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>📂 Category: {product?.category || 'N/A'}</div>
-                    <div style={{ fontSize: '10px', color: '#999' }}>Product ID: {record.productID || 'N/A'}</div>
+                    <Text strong>{item.product?.name}</Text>
+                    <br />
+                    <Text type="secondary" copyable style={{ fontSize: 10 }}>ID: {item.enquiryID}</Text>
                 </div>
-            ),
+            )
         },
         {
-            title: 'Size Specifications',
-            dataIndex: 'size',
-            width: 220,
-            render: (size) => (
-                <div>
-                    <div style={{ fontSize: '12px', color: '#888' }}><strong>Die No:</strong> {size?.dieNo || 'N/A'}</div>
-                    <div style={{ fontSize: '12px', color: '#888' }}><strong>Weight:</strong> {size?.weight ? `${size.weight}g` : 'N/A'}</div>
-                    <div style={{ fontSize: '12px', color: '#888' }}><strong>Ball Gauge:</strong> {size?.ballGauge || 'N/A'}</div>
-                    <div style={{ fontSize: '12px', color: '#888' }}><strong>Wire Gauge:</strong> {size?.wireGauge || 'N/A'}</div>
+            title: 'Size & Specs',
+            render: (_, item) => (
+                <div style={{fontSize: 12}}>
+                    <Text type="secondary"><strong>Die:</strong> {item.size?.dieNo || 'N/A'}, <strong>Qty:</strong> {item.quantity}</Text><br/>
+                    <Text type="secondary"><strong>Weight:</strong> {item.size?.weight || 'N/A'}g</Text><br/>
+                    <Text type="secondary"><strong>Ball:</strong> {item.size?.ballGauge || 'N/A'}</Text><br/>
+                    <Text type="secondary"><strong>Wire:</strong> {item.size?.wireGauge || 'N/A'}</Text><br/>
+                    <Text type="secondary"><strong>Tunch:</strong> {item.tunch || 'N/A'}%</Text>
                 </div>
-            ),
-        },
-        {
-            title: 'Order Details',
-            width: 150,
-            render: (_, record) => (
-                <div>
-                    <div><strong>Quantity:</strong> {record.quantity || 'N/A'}</div>
-                    <div style={{ fontSize: '12px', color: '#888' }}><strong>Tunch:</strong> {record.tunch ? `${record.tunch}%` : 'N/A'}</div>
-                    <div style={{ fontSize: '12px', color: '#666' }}><strong>Date:</strong> {record.createdAt ? new Date(record.createdAt).toLocaleDateString() : 'N/A'}</div>
-                </div>
-            ),
+            )
         },
         {
             title: 'Status',
             dataIndex: 'status',
-            width: 100,
-            render: (status) => {
-                const colorMap = { approved: 'green', rejected: 'red', pending: 'orange', cancelled: 'gray' };
-                return <Tag color={colorMap[status] || 'default'}>{status || 'pending'}</Tag>;
-            },
+            render: (status) => getStatusTag(status),
         },
         {
             title: 'Actions',
-            width: 200,
-            fixed: 'right',
-            render: (_, record) => (
-                <Space direction="vertical" size="small">
-                    {(!record.status || record.status === 'pending') && (
-                        <Space>
-                            <Button type="primary" icon={<CheckOutlined />} size="small" loading={actionLoading[record.enquiryID]} onClick={() => handleStatusUpdate(record.enquiryID, 'approved')}>Approve</Button>
-                            <Button danger icon={<CloseOutlined />} size="small" loading={actionLoading[record.enquiryID]} onClick={() => handleStatusUpdate(record.enquiryID, 'rejected')}>Reject</Button>
-                        </Space>
+            key: 'actions',
+            render: (_, item) => (
+                <Space>
+                    {item.status === 'pending' ? (
+                        <>
+                            <Button title="Approve" size="small" type="primary" icon={<CheckOutlined />} onClick={() => handleStatusUpdate(item.enquiryID, 'approved')} loading={actionLoading[item.enquiryID]} />
+                            <Button title="Reject" size="small" danger icon={<CloseOutlined />} onClick={() => handleStatusUpdate(item.enquiryID, 'rejected')} loading={actionLoading[item.enquiryID]} />
+                        </>
+                    ) : (
+                        <Button title="Revert to Pending" size="small" onClick={() => handleStatusUpdate(item.enquiryID, 'pending')} loading={actionLoading[item.enquiryID]}>Revert</Button>
                     )}
-                    <Popconfirm title="Are you sure?" onConfirm={() => handleDelete(record.enquiryID)}>
-                        <Button type="default" icon={<DeleteOutlined />} danger size="small" loading={actionLoading[record.enquiryID]} block>Delete</Button>
+                    <Popconfirm title="Delete this item?" onConfirm={() => handleDelete(item.enquiryID)}>
+                        <Button title="Delete" size="small" type="text" danger icon={<DeleteOutlined />} loading={actionLoading[item.enquiryID]} />
                     </Popconfirm>
                 </Space>
+            )
+        }
+    ];
+
+    // Main columns now render differently for groups vs. single items.
+    const mainColumns = [
+        {
+            title: 'Customer',
+            dataIndex: 'user',
+            render: (user) => (
+                <div>
+                    <Text strong>{user?.fullName || 'Unknown User'}</Text>
+                    <br />
+                    <Text type="secondary">{user?.email || 'N/A'}</Text>
+                    <br />
+                    <Text type="secondary">📱 {user?.phoneNumber || 'N/A'}</Text>
+                </div>
             ),
         },
+        {
+            title: 'Enquiry Details',
+            render: (_, record) => {
+                if (record.isGroup) {
+                    return <Tag color="blue">{record.items.length} items in cart</Tag>;
+                }
+                // Render details directly for single items
+                return (
+                     <div>
+                        <Text strong>{record.product?.name}</Text>
+                        <br />
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            Die: {record.size?.dieNo}, Qty: {record.quantity}, Tunch: {record.tunch}%
+                        </Text>
+                        <br/>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            Weight: {record.size?.weight}g, Ball: {record.size?.ballGauge}, Wire: {record.size?.wireGauge}
+                        </Text>
+                    </div>
+                );
+            }
+        },
+        {
+            title: 'Status',
+            render: (_, record) => {
+                let status;
+                if (record.isGroup) {
+                    const statuses = new Set(record.items.map(i => i.status));
+                    if (statuses.size === 1) {
+                        status = statuses.values().next().value;
+                    } else {
+                        status = 'mixed';
+                    }
+                } else {
+                    status = record.status;
+                }
+                return getStatusTag(status);
+            }
+        },
+        {
+            title: 'Actions',
+            key: 'actions',
+            render: (_, record) => {
+                // Only show actions here for single items. Group actions are in the dropdown.
+                if (record.isGroup) {
+                    return <Text type="secondary">Expand for actions</Text>; 
+                }
+                const item = record;
+                return (
+                    <Space>
+                        {item.status === 'pending' ? (
+                            <>
+                                <Button title="Approve" size="small" type="primary" icon={<CheckOutlined />} onClick={() => handleStatusUpdate(item.enquiryID, 'approved')} loading={actionLoading[item.enquiryID]} />
+                                <Button title="Reject" size="small" danger icon={<CloseOutlined />} onClick={() => handleStatusUpdate(item.enquiryID, 'rejected')} loading={actionLoading[item.enquiryID]} />
+                            </>
+                        ) : (
+                            <Button title="Revert to Pending" size="small" onClick={() => handleStatusUpdate(item.enquiryID, 'pending')} loading={actionLoading[item.enquiryID]}>Revert</Button>
+                        )}
+                        <Popconfirm title="Delete this item?" onConfirm={() => handleDelete(item.enquiryID)}>
+                            <Button title="Delete" size="small" type="text" danger icon={<DeleteOutlined />} loading={actionLoading[item.enquiryID]} />
+                        </Popconfirm>
+                    </Space>
+                );
+            }
+        }
     ];
 
     if (authError) {
@@ -252,13 +352,7 @@ const AdminEnquery = () => {
             <>
                 <AdminNavbar />
                 <div style={{ padding: 20 }}>
-                    <Alert
-                        message="Authentication Required"
-                        description="Please login as an admin to continue."
-                        type="error"
-                        showIcon
-                        action={<Button type="primary" icon={<LoginOutlined />} onClick={() => window.location.href = '/admin/login'}>Login</Button>}
-                    />
+                    <Alert message="Authentication Required" description="Please login as an admin to continue." type="error" showIcon action={<Button type="primary" icon={<LoginOutlined />} onClick={() => window.location.href = '/admin/login'}>Login</Button>} />
                 </div>
             </>
         );
@@ -269,51 +363,53 @@ const AdminEnquery = () => {
             <AdminNavbar />
             <div style={{ padding: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                    <Title level={3}>Customer Enquiries ({filtered.length})</Title>
+                    <Title level={3}>Customer Enquiries ({filteredData.length} Events)</Title>
                     <Button icon={<ReloadOutlined />} onClick={fetchAllData} loading={loading}>Refresh</Button>
                 </div>
 
                 <Space style={{ marginBottom: 16 }} wrap>
-                    <Search
-                        placeholder="Search anything..."
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        allowClear
-                        style={{ width: 400 }}
-                    />
+                    <Search placeholder="Search customer or product..." onChange={(e) => setSearchTerm(e.target.value)} allowClear style={{ width: 400 }} />
                     <Select value={statusFilter} onChange={setStatusFilter} style={{ width: 150 }}>
                         <Option value="all">All Status</Option>
                         <Option value="pending">Pending</Option>
                         <Option value="approved">Approved</Option>
                         <Option value="rejected">Rejected</Option>
-                        <Option value="cancelled">Cancelled</Option>
                     </Select>
-                    <Select value={productFilter} onChange={setProductFilter} style={{ width: 200 }} showSearch optionFilterProp="children">
+                    <Select value={productFilter} onChange={setProductFilter} style={{ width: 200 }} showSearch optionFilterProp="children" placeholder="Filter by product">
                         <Option value="all">All Products</Option>
-                        {products.map(product => (
-                            <Option key={product.id} value={String(product.id)}>{product.name}</Option>
-                        ))}
+                        {products.map(product => (<Option key={product.id} value={String(product.id)}>{product.name}</Option>))}
                     </Select>
                 </Space>
-
-                {/* Data Summary Dashboard */}
-                <div style={{ marginBottom: 16, padding: 16, backgroundColor: '#f5f5f5', borderRadius: 8, border: '1px solid #d9d9d9' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
-                        <div><strong>Total Enquiries:</strong> <Tag color="blue">{enquiries.length}</Tag></div>
-                        <div><strong>Pending:</strong> <Tag color="orange">{enhancedEnquiries.filter(e => e.status === 'pending').length}</Tag></div>
-                        <div><strong>Approved:</strong> <Tag color="green">{enhancedEnquiries.filter(e => e.status === 'approved').length}</Tag></div>
-                        <div><strong>Rejected:</strong> <Tag color="red">{enhancedEnquiries.filter(e => e.status === 'rejected').length}</Tag></div>
-                    </div>
-                </div>
-
+                
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: 50 }}><Spin size="large" /></div>
                 ) : (
                     <Table
-                        columns={columns}
-                        dataSource={filtered}
-                        rowKey="enquiryID"
-                        pagination={{ current: currentPage, pageSize, total: filtered.length, onChange: setCurrentPage, onShowSizeChange: (c, s) => setPageSize(s) }}
-                        scroll={{ x: 1200 }}
+                        columns={mainColumns}
+                        dataSource={filteredData}
+                        rowKey="key"
+                        expandable={{
+                            expandedRowRender: record => (
+                                <Table 
+                                    columns={nestedColumns} 
+                                    dataSource={record.items} 
+                                    pagination={false} 
+                                    rowKey="enquiryID" 
+                                    size="small" 
+                                />
+                            ),
+                            // Only show the expand icon for actual groups (multi-item carts).
+                            rowExpandable: record => record.isGroup,
+                        }}
+                        pagination={{ 
+                            current: currentPage, 
+                            pageSize, 
+                            total: filteredData.length, 
+                            onChange: setCurrentPage, 
+                            onShowSizeChange: (c, s) => setPageSize(s),
+                            showSizeChanger: true,
+                        }}
+                        scroll={{ x: 1000 }}
                     />
                 )}
             </div>
