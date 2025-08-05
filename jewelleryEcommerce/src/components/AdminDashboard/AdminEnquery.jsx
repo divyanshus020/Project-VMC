@@ -320,6 +320,18 @@ const AdminEnquery = () => {
             }
         },
         {
+            title: 'Date & Time',
+            dataIndex: 'lastActivity',
+            render: (date) => (
+                <div>
+                    <Text>{new Date(date).toLocaleDateString()}</Text>
+                    <br />
+                    <Text type="secondary">{new Date(date).toLocaleTimeString()}</Text>
+                </div>
+            ),
+            sorter: (a, b) => new Date(a.lastActivity) - new Date(b.lastActivity),
+        },
+        {
             title: 'Actions',
             key: 'actions',
             render: (_, record) => {
