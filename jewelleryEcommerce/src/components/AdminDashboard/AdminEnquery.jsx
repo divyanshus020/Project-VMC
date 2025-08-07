@@ -23,6 +23,8 @@ import {
     getSizes,
     isTokenValid,
     getAuthToken,
+    checkAdminRole,
+    getUserFromToken,
 } from '../../lib/api';
 import AdminNavbar from '../Navbar/AdminNavbar';
 
@@ -43,6 +45,7 @@ const AdminEnquery = () => {
     const [pageSize, setPageSize] = useState(10);
     const [actionLoading, setActionLoading] = useState({});
     const [authError, setAuthError] = useState(false);
+    const [accessDenied, setAccessDenied] = useState(false);
 
     useEffect(() => {
         const checkAuth = () => {
@@ -53,6 +56,24 @@ const AdminEnquery = () => {
                 return false;
             }
             setAuthError(false);
+            
+            // Check if user is super admin
+            const userFromToken = getUserFromToken('admin');
+            console.log("User from token:", userFromToken);
+            console.log("User role:", userFromToken?.role);
+            
+            const isSuperAdmin = checkAdminRole('superadmin', 'admin');
+            console.log("Is super admin:", isSuperAdmin);
+            console.log('hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
+            
+            if (!isSuperAdmin) {
+                setAccessDenied(true);
+                setLoading(false);
+                message.warning('Access Denied: Only Super Admins can view enquiries');
+                return false;
+            }
+            setAccessDenied(false);
+            
             return true;
         };
 
@@ -150,6 +171,7 @@ const AdminEnquery = () => {
         setActionLoading(prev => ({ ...prev, [enquiryID]: true }));
         try {
             const token = getAuthToken('admin');
+            console.log(token)
             const res = await updateEnquiry(enquiryID, { status }, token);
             if (res.success) {
                 message.success(`Enquiry item status updated to ${status}.`);
@@ -365,6 +387,35 @@ const AdminEnquery = () => {
                 <AdminNavbar />
                 <div style={{ padding: 20 }}>
                     <Alert message="Authentication Required" description="Please login as an admin to continue." type="error" showIcon action={<Button type="primary" icon={<LoginOutlined />} onClick={() => window.location.href = '/admin/login'}>Login</Button>} />
+                </div>
+            </>
+        );
+    }
+
+    if (accessDenied) {
+        return (
+            <>
+                <AdminNavbar />
+                <div style={{ padding: 20 }}>
+                    <Alert 
+                        message="Access Denied" 
+                        description="Only Super Administrators can view customer enquiries. Please contact your system administrator for access." 
+                        type="warning" 
+                        showIcon 
+                        style={{ marginBottom: 20 }}
+                    />
+                    <div style={{ 
+                        textAlign: 'center', 
+                        padding: 40, 
+                        backgroundColor: '#fafafa', 
+                        borderRadius: 8,
+                        border: '1px dashed #d9d9d9'
+                    }}>
+                        <Title level={4} type="secondary">Enquiries Access Restricted</Title>
+                        <Text type="secondary">
+                            This section contains sensitive customer information and is limited to Super Admin access only.
+                        </Text>
+                    </div>
                 </div>
             </>
         );

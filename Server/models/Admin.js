@@ -77,10 +77,12 @@ module.exports = {
   async findById(id) {
     const connection = await getConnection();
     try {
+      // console.log("superadmin id:", id)
       const [rows] = await connection.execute(
         `SELECT * FROM admins WHERE id = ? LIMIT 1`,
         [id]
       );
+      // console.log(rows)
       return rows[0] || null;
     } catch (error) {
       console.error(`❌ Error finding admin by ID ${id}:`, error);

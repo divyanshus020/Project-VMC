@@ -1709,7 +1709,9 @@ export const updateEnquiry = async (id, data, token) => {
     console.log(`Updating enquiry ${id} with sanitized data:`, sanitizedData);
 
     const response = await API.put(`/enquiries/${id}`, sanitizedData, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`,
+                 type: "superadmin"
+     },
     });
 
     return {
@@ -1855,8 +1857,11 @@ export const getDetailedEnquiries = async (token) => {
 
     console.log("🔄 Fetching detailed enquiries with valid token...");
 
+    console.log(token)
     const response = await API.get("/enquiries/detailed", {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`,
+                 type: "superadmin",
+     }, 
     });
 
     console.log("📋 Detailed enquiries API response:", response.data);
@@ -2073,7 +2078,7 @@ API.interceptors.response.use(
         // Only redirect if not already on login page
         if (!currentPath.includes("/login")) {
           console.warn("Redirecting to admin login...");
-          window.location.href = "/admin/login";
+          //window.location.href = "/admin/login";
         }
       } else if (!isAdminRoute) {
         // Handle user token

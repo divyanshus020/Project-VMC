@@ -115,12 +115,14 @@ module.exports = {
 
   // Get user by ID
   async findById(id) {
+    console.log("mmmmmmmmmmm",id)
     const connection = await getConnection();
     const [rows] = await connection.execute(
       `SELECT * FROM users WHERE id = ? LIMIT 1`,
       [id]
     );
     await connection.end();
+    console.log(rows)
     return rows[0] || null;
   },
 

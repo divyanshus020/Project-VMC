@@ -10,32 +10,37 @@ const Admin = require('../models/Admin');
 exports.protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    const adminType = req.headers.type;
 
-    // Check if the Authorization header exists and has the 'Bearer ' prefix
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ message: 'Unauthorized: No token provided' });
     }
 
-    // Extract the token from the header (e.g., "Bearer <token>")
     const token = authHeader.split(' ')[1];
-
-    // Verify the token using the secret key
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Look for the user ID using multiple possible keys
     const id = decoded.id || decoded.userId || decoded.adminId;
 
     if (!id) {
-        return res.status(401).json({ message: 'Unauthorized: Invalid token payload (missing user ID)' });
+      return res.status(401).json({ message: 'Unauthorized: Invalid token payload (missing user ID)' });
     }
 
-    // Find the user in the database using the extracted ID
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(401).json({ message: 'Unauthorized: User not found' });
+    let user;
+
+    if (adminType === "superadmin") {
+      user = await Admin.findById(id);
+
+      console.log(user)
+      if (!user) {
+        return res.status(401).json({ message: 'Unauthorized: Superadmin not found' });
+      }
+    } else {
+      user = await User.findById(id);
+      if (!user) {
+        return res.status(401).json({ message: 'Unauthorized: User not found' });
+      }
     }
 
-    // Attach the user information to the request object
+    // Attach user info (merged with token payload) to request
     req.user = { ...decoded, ...user };
     
     next();
@@ -44,6 +49,7 @@ exports.protect = async (req, res, next) => {
     return res.status(401).json({ message: 'Unauthorized: Invalid or expired token' });
   }
 };
+
 
 /**
  * Middleware to protect admin routes by verifying an admin JWT token.
