@@ -165,7 +165,7 @@ function AdminProducts() {
                 return '1 image(s)';
             }
         }
-        
+
         // Return the count if it's an array.
         return Array.isArray(imageArray) ? `${imageArray.length} image(s)` : 'No images';
     };
@@ -213,7 +213,7 @@ function AdminProducts() {
 
     return (
         <>
-            <AdminNavbar/>
+            <AdminNavbar />
             <div className="min-h-screen bg-gray-50 py-8 font-sans">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {/* Header Section */}
@@ -365,27 +365,29 @@ function AdminProducts() {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm ${product.isActive !== false
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : 'bg-red-100 text-red-800'
+                                                            ? 'bg-green-100 text-green-800'
+                                                            : 'bg-red-100 text-red-800'
                                                             }`}>
                                                             {product.isActive !== false ? 'Active' : 'Inactive'}
                                                         </span>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                        <button
-                                                            onClick={() => handleEditClick(product)}
-                                                            className="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
-                                                            title="Edit Product"
-                                                        >
-                                                            Edit
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteClick(product)}
-                                                            className="text-red-600 hover:text-red-900 ml-4 transition-colors duration-200"
-                                                            title="Delete Product"
-                                                        >
-                                                            Delete
-                                                        </button>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                        <div className="flex items-center justify-end gap-x-4">
+                                                            <button
+                                                                onClick={() => handleEditClick(product)}
+                                                                className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                                                title="Edit Product"
+                                                            >
+                                                                Edit
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteClick(product)}
+                                                                className="inline-flex items-center justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                                                                title="Delete Product"
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -448,7 +450,7 @@ function AdminProducts() {
                                                                 className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium transition-colors duration-200 ${currentPage === pageNumber
                                                                     ? 'z-10 bg-blue-600 border-blue-600 text-white hover:bg-blue-700'
                                                                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'
-                                                                }`}
+                                                                    }`}
                                                             >
                                                                 {pageNumber}
                                                             </button>
