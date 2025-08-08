@@ -14,13 +14,17 @@ import {
     Chip,
     Button,
     TextField,
+    IconButton,
+    Tooltip,
 } from '@mui/material';
+import { Edit as EditIcon } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { getAllAdmins, getAuthToken } from '../../lib/api';
 import AdminNavbar from '../Navbar/AdminNavbar';
-import AdminRegistrationForm from './AdminRegistrationForm'; // Import the new form component
+import AdminRegistrationForm from './AdminRegistrationForm';
+import EditAdminModal from './EditAdminModal';
 
-// Styled components (no changes here)
+// Styled components
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     [`&.${'MuiTableCell-head'}`]: {
         backgroundColor: theme.palette.primary.dark,
@@ -53,8 +57,9 @@ const AdminData = () => {
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [showRegisterForm, setShowRegisterForm] = useState(false);
-    
-    // Moved the fetch logic into a memoized function for reuse
+    const [editingAdmin, setEditingAdmin] = useState(null);
+    const [editModalOpen, setEditModalOpen] = useState(false); // NEW: state for Edit modal
+
     const fetchAdmins = async () => {
         const token = getAuthToken('admin');
         if (!token) {
@@ -94,8 +99,32 @@ const AdminData = () => {
     }, []);
 
     const handleRegistrationSuccess = () => {
-        // When a new admin is added, close the form and refetch the data
         setShowRegisterForm(false);
+        setEditingAdmin(null);
+        fetchAdmins();
+    };
+
+    // UPDATED: Modal open logic
+    const handleEditAdmin = (admin) => {
+        const currentAdmin = JSON.parse(localStorage.getItem("adminData"));
+        console.log(currentAdmin);
+        setEditingAdmin(admin);
+        setEditModalOpen(true);
+    };
+
+    const handleCloseForm = () => {
+        setShowRegisterForm(false);
+        setEditingAdmin(null);
+    };
+
+    const handleCloseEditModal = () => {
+        setEditModalOpen(false);
+        setEditingAdmin(null);
+    };
+
+    const handleEditSuccess = () => {
+        setEditModalOpen(false);
+        setEditingAdmin(null);
         fetchAdmins();
     };
 
@@ -129,7 +158,10 @@ const AdminData = () => {
                     <Button
                         variant="contained"
                         color="primary"
-                        onClick={() => setShowRegisterForm(true)} // This opens the modal
+                        onClick={() => {
+                            setEditingAdmin(null);
+                            setShowRegisterForm(true);
+                        }}
                     >
                         Add New Admin
                     </Button>
@@ -159,6 +191,7 @@ const AdminData = () => {
                                 <StyledTableCell>Email</StyledTableCell>
                                 <StyledTableCell>Role</StyledTableCell>
                                 <StyledTableCell align="center">Status</StyledTableCell>
+                                <StyledTableCell align="center">Actions</StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -185,6 +218,17 @@ const AdminData = () => {
                                             size="small"
                                         />
                                     </StyledTableCell>
+                                    <StyledTableCell align="center">
+                                        <Tooltip title="Edit Admin">
+                                            <IconButton
+                                                color="primary"
+                                                onClick={() => handleEditAdmin(admin)}
+                                                size="small"
+                                            >
+                                                <EditIcon />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </StyledTableCell>
                                 </StyledTableRow>
                             ))}
                         </TableBody>
@@ -200,11 +244,22 @@ const AdminData = () => {
                 )}
             </Box>
 
-            {/* Render the registration form modal */}
+            {/* Registration form modal */}
             <AdminRegistrationForm
                 open={showRegisterForm}
-                onClose={() => setShowRegisterForm(false)}
+                onClose={handleCloseForm}
                 onSuccess={handleRegistrationSuccess}
+                editingAdmin={editingAdmin}
+                isEditing={!!editingAdmin}
+            />
+
+            {/* Edit admin modal */}
+            <EditAdminModal
+                open={editModalOpen}
+                onClose={handleCloseEditModal}
+                admin={editingAdmin}
+                onSuccess={handleEditSuccess}
+                currentAdmin={JSON.parse(localStorage.getItem("adminData"))}
             />
         </>
     );

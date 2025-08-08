@@ -20,29 +20,33 @@ import { updateAdmin, getAuthToken } from '../../lib/api';
 import { toast } from 'react-toastify';
 
 const EditAdminModal = ({ open, onClose, admin, onSuccess, currentAdmin }) => {
-    const [formData, setFormData] = useState({ name: '', role: 'admin', isActive: true });
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        role: 'admin',
+        isActive: true,
+        password: ''
+    });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // This effect runs when the 'admin' prop changes, populating the form.
     useEffect(() => {
         if (admin) {
             setFormData({
                 name: admin.name || '',
+                email: admin.email || '',
                 role: admin.role || 'admin',
-                // Ensure isActive has a boolean value, defaulting to true.
                 isActive: typeof admin.isActive === 'boolean' ? admin.isActive : true,
+                password: ''
             });
         }
     }, [admin]);
 
-    // This effect resets the error state whenever the modal is opened or closed.
     useEffect(() => {
         if (!open) {
             setError('');
         }
     }, [open]);
-
 
     if (!admin) return null;
 
@@ -59,18 +63,20 @@ const EditAdminModal = ({ open, onClose, admin, onSuccess, currentAdmin }) => {
         setError('');
         try {
             const token = getAuthToken('admin');
-            if (!token) {
-                throw new Error("Authentication token not found.");
+            if (!token) throw new Error("Authentication token not found.");
+
+            const payload = { ...formData };
+            if (!payload.password.trim()) {
+                delete payload.password;
             }
-            
-            const response = await updateAdmin(admin.id, formData, token);
-            
+
+            const response = await updateAdmin(admin.id, payload, token);
+
             if (response.success) {
                 toast.success(`Admin "${formData.name || admin.email}" updated successfully!`);
-                onSuccess(); // Refresh the admin list on the parent component
-                onClose();   // Close the modal
+                onSuccess();
+                onClose();
             } else {
-                // Set error from API response if available
                 setError(response.error || 'Failed to update admin.');
                 toast.error(response.error || 'Failed to update admin.');
             }
@@ -82,8 +88,7 @@ const EditAdminModal = ({ open, onClose, admin, onSuccess, currentAdmin }) => {
             setLoading(false);
         }
     };
-    
-    // A superadmin cannot edit their own role or status to prevent self-lockout.
+
     const isEditingSelf = currentAdmin?.id === admin.id;
 
     return (
@@ -93,6 +98,8 @@ const EditAdminModal = ({ open, onClose, admin, onSuccess, currentAdmin }) => {
             </DialogTitle>
             <DialogContent sx={{ pt: '20px !important' }}>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+                {/* Name */}
                 <TextField
                     margin="dense"
                     label="Name"
@@ -103,6 +110,33 @@ const EditAdminModal = ({ open, onClose, admin, onSuccess, currentAdmin }) => {
                     value={formData.name}
                     onChange={handleChange}
                 />
+
+                {/* Email */}
+                <TextField
+                    margin="dense"
+                    label="Email"
+                    type="email"
+                    fullWidth
+                    variant="outlined"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                />
+
+                {/* Password */}
+                <TextField
+                    margin="dense"
+                    label="Change Password"
+                    type="password"
+                    fullWidth
+                    variant="outlined"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Leave blank to keep current password"
+                />
+
+                {/* Role */}
                 <FormControl fullWidth margin="dense" disabled={isEditingSelf}>
                     <InputLabel id="role-select-label">Role</InputLabel>
                     <Select
@@ -116,6 +150,8 @@ const EditAdminModal = ({ open, onClose, admin, onSuccess, currentAdmin }) => {
                         <MenuItem value="superadmin">Superadmin</MenuItem>
                     </Select>
                 </FormControl>
+
+                {/* Active Status */}
                 <FormControlLabel
                     control={
                         <Switch
@@ -129,11 +165,12 @@ const EditAdminModal = ({ open, onClose, admin, onSuccess, currentAdmin }) => {
                     label={formData.isActive ? "Account Active" : "Account Inactive"}
                     sx={{ mt: 1, display: 'block' }}
                 />
-                 {isEditingSelf && (
+
+                {isEditingSelf && (
                     <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
                         You cannot change your own role or active status.
                     </Typography>
-                 )}
+                )}
             </DialogContent>
             <DialogActions sx={{ p: '16px 24px', borderTop: '1px solid #ddd' }}>
                 <Button onClick={onClose} color="secondary">Cancel</Button>

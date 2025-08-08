@@ -242,8 +242,11 @@ exports.getAdminById = async (req, res) => {
  */
 exports.updateAdmin = async (req, res) => {
   const { id } = req.params;
+  // console.log("hiiiiiiiii",id)
   const { email, password, name, role, isActive } = req.body;
   const loggedInAdminId = req.admin.id;
+
+  // console.log("This is a req.body",req.body)
 
   try {
     const adminToUpdate = await Admin.findById(id);

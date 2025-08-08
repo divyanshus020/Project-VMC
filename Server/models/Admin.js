@@ -180,73 +180,75 @@ module.exports = {
   },
 
   // Update admin by ID
-  async updateById(id, updateData) {
+ async updateById(id, updateData) {
+    console.log("id  = ", id)
+    console.log("update data = ", updateData)
     const connection = await getConnection();
     
     try {
-      const fields = [];
-      const values = [];
-      
-      if (updateData.email !== undefined) {
-        fields.push('email = ?');
-        values.push(updateData.email);
-      }
-      
-      if (updateData.password !== undefined) {
-        fields.push('password = ?');
-        const hashedPassword = await bcrypt.hash(updateData.password, 10);
-        values.push(hashedPassword);
-      }
-      
-      if (updateData.name !== undefined) {
-        fields.push('name = ?');
-        values.push(updateData.name);
-      }
-      
-      if (updateData.role !== undefined) {
-        // Validate role against ENUM values
-        if (!['admin', 'superadmin'].includes(updateData.role)) {
-          throw new Error('Invalid role. Must be "admin" or "superadmin"');
+        const fields = [];
+        const values = [];
+        
+        if (updateData.email !== undefined) {
+            fields.push('email = ?');
+            values.push(updateData.email);
         }
-        fields.push('role = ?');
-        values.push(updateData.role);
-      }
-      
-      if (updateData.isActive !== undefined) {
-        fields.push('isActive = ?');
-        values.push(updateData.isActive);
-      }
-      
-      if (fields.length === 0) {
-        throw new Error('No fields to update');
-      }
-      
-      values.push(id);
-      
-      const query = `UPDATE admins SET ${fields.join(', ')}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
-      console.log(`🔄 Updating admin ID ${id} with query:`, query);
-      console.log(`🔄 Values:`, values.slice(0, -1)); // Don't log the ID at the end
-      
-      await connection.execute(query, values);
-      
-      const [rows] = await connection.execute(
-        `SELECT * FROM admins WHERE id = ? LIMIT 1`,
-        [id]
-      );
-      
-      const updatedAdmin = rows[0] || null;
-      if (updatedAdmin) {
-        console.log(`✅ Admin updated successfully. New role: ${updatedAdmin.role}, Active: ${updatedAdmin.isActive}`);
-      }
-      
-      return updatedAdmin;
+        
+        if (updateData.password !== undefined && updateData.password.trim() !== "") {
+            fields.push('password = ?');
+            const hashedPassword = await bcrypt.hash(updateData.password, 10);
+            values.push(hashedPassword);
+        }
+        
+        if (updateData.name !== undefined) {
+            fields.push('name = ?');
+            values.push(updateData.name);
+        }
+        
+        if (updateData.role !== undefined) {
+            if (!['admin', 'superadmin'].includes(updateData.role)) {
+                throw new Error('Invalid role. Must be "admin" or "superadmin"');
+            }
+            fields.push('role = ?');
+            values.push(updateData.role);
+        }
+        
+        if (updateData.isActive !== undefined) {
+            fields.push('isActive = ?');
+            values.push(updateData.isActive);
+        }
+        
+        if (fields.length === 0) {
+            throw new Error('No fields to update');
+        }
+        
+        values.push(id);
+        
+        const query = `UPDATE admins SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+        console.log(`🔄 Updating admin ID ${id} with query:`, query);
+        console.log(`🔄 Values:`, values.slice(0, -1));
+        
+        await connection.execute(query, values);
+        
+        const [rows] = await connection.execute(
+            `SELECT * FROM admins WHERE id = ? LIMIT 1`,
+            [id]
+        );
+        
+        const updatedAdmin = rows[0] || null;
+        if (updatedAdmin) {
+            console.log(`✅ Admin updated successfully. New role: ${updatedAdmin.role}, Active: ${updatedAdmin.isActive}`);
+        }
+        
+        return updatedAdmin;
     } catch (error) {
-      console.error(`❌ Error updating admin ID ${id}:`, error);
-      throw error;
+        console.error(`❌ Error updating admin ID ${id}:`, error);
+        throw error;
     } finally {
-      await connection.end();
+        await connection.end();
     }
-  },
+},
+
 
   // Delete admin by ID
   async deleteById(id) {

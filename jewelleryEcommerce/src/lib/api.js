@@ -1232,8 +1232,11 @@ export const updateAdmin = async (id, data, token) => {
     if (!token) {
       throw new Error("Authentication token is required");
     }
-
+console.log("Data :", data)
     const sanitizedData = sanitizeData(data);
+
+    console.log("sanitizedData",sanitizedData)
+    
     const response = await API.put(`/admin/${id}`, sanitizedData, {
       headers: { Authorization: `Bearer ${token}` },
     });
