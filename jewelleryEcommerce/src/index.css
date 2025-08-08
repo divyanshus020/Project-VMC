@@ -14,10 +14,10 @@
 }
 
 /* Success Toast */
-.Toastify__toast--success {
+/* .Toastify__toast--success {
   background: linear-gradient(135deg, #10b981, #059669);
   color: white;
-}
+} */
 
 /* Error Toast */
 .Toastify__toast--error {

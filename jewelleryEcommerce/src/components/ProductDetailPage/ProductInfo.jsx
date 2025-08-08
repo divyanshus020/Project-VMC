@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { addToCart, createEnquiry } from '../../lib/api';
 import { jwtDecode } from 'jwt-decode';
-import { toast } from 'react-toastify';
+import {  toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import SizeSelector from './SizeSelector';
@@ -172,6 +172,7 @@ const ProductInfo = ({ product }) => {
 
     setIsEnquiring(true);
     const toastId = toast.loading("Submitting your enquiry...");
+    
 
     try {
       // **FIXED**: Wrap the single enquiry object in the format the backend expects.
@@ -180,7 +181,10 @@ const ProductInfo = ({ product }) => {
       const response = await createEnquiry(payload, token);
 
       if (response.success) {
-        toast.update(toastId, { render: "Enquiry submitted successfully!", type: "success", isLoading: false, autoClose: 3000 });
+        // toast.update(toastId, { render: "Enquiry submitted successfully!", type: "success", isLoading: false, autoClose: 3000 });
+        toast.success(toastId, "Enquiry submitted successfully!", {
+          CloseOnClick: true
+        })
       } else {
         throw new Error(response.error || 'Failed to submit enquiry');
       }
@@ -230,6 +234,12 @@ const ProductInfo = ({ product }) => {
         tunchValue={tunchValue}
         customTunch={customTunch}
       />
+       <TunchSelector
+        tunchValue={tunchValue}
+        setTunchValue={setTunchValue}
+        customTunch={customTunch}
+        setCustomTunch={setCustomTunch}
+      />
       <QuantitySelector
       quantity={quantity}
       setQuantity={setQuantity}
@@ -241,12 +251,7 @@ const ProductInfo = ({ product }) => {
         isCustomWeight={isCustomWeight}
         setIsCustomWeight={setIsCustomWeight}
       />
-      <TunchSelector
-        tunchValue={tunchValue}
-        setTunchValue={setTunchValue}
-        customTunch={customTunch}
-        setCustomTunch={setCustomTunch}
-      />
+     
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 pt-6">

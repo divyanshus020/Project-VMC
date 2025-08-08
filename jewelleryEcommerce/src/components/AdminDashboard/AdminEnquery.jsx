@@ -253,12 +253,11 @@ const AdminEnquery = () => {
             title: 'Size & Specs',
             render: (_, item) => (
                 <div style={{fontSize: 12}}>
-                    <Text type="secondary"><strong>Die:</strong> {item.DieNo || item.size?.dieNo || 'N/A'}, <strong>Qty:</strong> {item.quantity}</Text><br/>
+                    <Text type="secondary"><strong>Die:</strong> {item.DieNo || item.size?.dieNo || 'N/A'}, {item.size_weight || item.size?.weight || 'N/A'}g</Text><br/>
                     <Text type="secondary">
-                        <strong>Weight:</strong> 
-                        {item.isCustomWeight ? (
-                            <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
-                                {item.weight || 'N/A'}g (Custom)
+                        <strong>Weight:</strong> {item.isCustomWeight ? (
+                            <span >
+                                {item.size_weight  || 'N/A'}g
                             </span>
                         ) : (
                             `${item.weight || item.size_weight || 'N/A'}g`
@@ -267,6 +266,33 @@ const AdminEnquery = () => {
                     <Text type="secondary"><strong>Ball:</strong> {item.size?.ballGauge || 'N/A'}</Text><br/>
                     <Text type="secondary"><strong>Wire:</strong> {item.size?.wireGauge || 'N/A'}</Text><br/>
                     <Text type="secondary"><strong>Tunch:</strong> {item.tunch || 'N/A'}%</Text>
+                </div>
+            )
+        },
+        {
+            title: 'Quantity',
+            render: (_, item) => (
+                <div style={{fontSize: 12}}>
+                    <Text type="secondary" style={{ fontWeight: 'bold' }}>
+                        {item.quantity || 1}
+                    </Text>
+                </div>
+            )
+        },
+
+        {
+            title: 'Quantity Weight',
+            render: (_, item) => (
+                <div style={{fontSize: 12}}>
+                    <Text type="secondary" style={{ fontWeight: 'bold' }}>
+                        {item.isCustomWeight ? (
+                            <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                                {((item.weight || 0) * (item.quantity || 1))}g (Custom)
+                            </span>
+                        ) : (
+                            `${((item.weight || item.size_weight || 0) * (item.quantity || 1))}g`
+                        )}
+                    </Text>
                 </div>
             )
         },
@@ -323,20 +349,67 @@ const AdminEnquery = () => {
                         <Text strong>{record.product?.name}</Text>
                         <br />
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                            Die: {record.DieNo || record.size?.dieNo}, Qty: {record.quantity}, Tunch: {record.tunch}%
-                        </Text>
-                        <br/>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                            Weight: 
-                            {record.isCustomWeight ? (
-                                <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
-                                    {record.weight || 'N/A'}g (Custom)
+                            Die: {record.DieNo || record.size?.dieNo}, {record.size_weight || record.size?.weight || 'N/A'}g, Weight: {record.isCustomWeight ? (
+                                <span >
+                                    {record.size_weight || 'N/A'}g 
                                 </span>
                             ) : (
                                 `${record.weight || record.size_weight || 'N/A'}g`
-                            )}, Ball: {record.size?.ballGauge}, Wire: {record.size?.wireGauge}
+                            )}, Tunch: {record.tunch}%
+                        </Text>
+                        <br/>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            Ball: {record.size?.ballGauge}, Wire: {record.size?.wireGauge}
                         </Text>
                     </div>
+                );
+            }
+        },
+        {
+            title: 'Quantity',
+            render: (_, record) => {
+                if (record.isGroup) {
+                    const totalQuantity = record.items.reduce((sum, item) => sum + (item.quantity || 1), 0);
+                    return <Text style={{ fontSize: 12, fontWeight: 'bold' }}>{totalQuantity}</Text>;
+                }
+                return (
+                    <Text style={{ fontSize: 12, fontWeight: 'bold' }}>
+                        {record.quantity || 1}
+                    </Text>
+                );
+            }
+        },
+
+        {
+            title: 'Quantity Weight',
+            render: (_, record) => {
+                if (record.isGroup) {
+                    const totalWeight = record.items.reduce((sum, item) => 
+                        sum + ((item.weight || item.size_weight || 0) * (item.quantity || 1)), 0
+                    );
+                    const hasCustom = record.items.some(item => item.isCustomWeight);
+                    return (
+                        <Text style={{ fontSize: 12, fontWeight: 'bold' }}>
+                            {hasCustom ? (
+                                <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                                    {totalWeight}g (Custom)
+                                </span>
+                            ) : (
+                                `${totalWeight}g`
+                            )}
+                        </Text>
+                    );
+                }
+                return (
+                    <Text style={{ fontSize: 12, fontWeight: 'bold' }}>
+                        {record.isCustomWeight ? (
+                            <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                                {((record.weight || 0) * (record.quantity || 1))}g (Custom)
+                            </span>
+                        ) : (
+                            `${((record.weight || record.size_weight || 0) * (record.quantity || 1))}g`
+                        )}
+                    </Text>
                 );
             }
         },
