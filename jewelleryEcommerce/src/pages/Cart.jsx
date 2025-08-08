@@ -75,6 +75,8 @@ const Cart = () => {
         ballGauge: item.ballGauge || null,
         wireGauge: item.wireGauge || null,
         productImage: item.productImage || null,
+        isCustomWeight: Boolean(item.isCustomWeight),
+        totalWeight: item.totalWeight ? parseFloat(item.totalWeight) : null,
         createdAt: item.createdAt || new Date().toISOString()
       })).filter(Boolean);
 
@@ -214,13 +216,21 @@ const Cart = () => {
     const toastId = toast.loading("Submitting your enquiry...");
 
     try {
+      console.log('Cart items before enquiry submission:', cartItems);
+      
       const enquiries = cartItems.map(item => ({
         productID: item.productId,
         userID: cartData.userId,
         quantity: item.quantity,
         sizeID: item.sizeId,
-        tunch: item.tunch
+        tunch: item.tunch,
+        weight: item.weight,
+        totalWeight: item.totalWeight,
+        isCustomWeight: item.isCustomWeight,
+        DieNo: item.DieNo
       }));
+      
+      console.log('Enquiries being sent:', enquiries);
 
       const result = await createEnquiry({ enquiries }, token);
       

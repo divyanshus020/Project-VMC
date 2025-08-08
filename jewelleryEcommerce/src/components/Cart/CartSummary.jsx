@@ -9,9 +9,17 @@ const CartSummary = ({
   onContinueShopping 
 }) => {
   const totalWeight = cartItems.reduce(
-    (total, item) => total + (item.weight ? item.weight * item.quantity : 0), 
+    (total, item) => {
+      if (item.isCustomWeight && item.totalWeight) {
+        // For custom weights, use the totalWeight directly
+        return total + item.totalWeight;
+      } else {
+        // For regular weights, calculate: unit weight × quantity
+        return total + (item.weight ? item.weight * item.quantity : 0);
+      }
+    }, 
     0
-  ).toFixed(2);
+  ).toFixed(3);
 
   return (
     <>

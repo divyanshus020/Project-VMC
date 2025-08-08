@@ -1335,6 +1335,8 @@ export const addToCart = async (data, token) => {
       DieNo: data.DieNo,
       weight: data.weight?.toString(),
       tunch: data.tunch ? parseFloat(data.tunch) : null,
+      totalWeight: data.totalWeight,
+      isCustomWeight: data.isCustomWeight,
     });
 
     const response = await API.post("/cart/add", sanitizedData, {
@@ -1510,6 +1512,10 @@ export const createEnquiry = async (data, token) => {
       quantity: parseInt(enquiry.quantity),
       sizeID: parseInt(enquiry.sizeID),
       tunch: enquiry.tunch ? enquiry.tunch.toString() : null,
+      weight: enquiry.weight,
+      totalWeight: enquiry.totalWeight,
+      isCustomWeight: enquiry.isCustomWeight,
+      DieNo: enquiry.DieNo,
     }));
 
     console.log("Sending enquiries:", sanitizedEnquiries);

@@ -5,8 +5,12 @@ const getUserId = (req) => req.user?.userId || req.user?.id;
 
 // Add item to cart
 exports.addToCart = async (req, res) => {
-  const { productId, quantity, sizeId, DieNo, weight, tunch } = req.body;
+  const { productId, quantity, sizeId, DieNo, weight, tunch, totalWeight, isCustomWeight } = req.body;
   const userId = getUserId(req);
+  
+  console.log('Backend received req.body:', req.body);
+  console.log('Backend received weight:', weight, 'type:', typeof weight);
+  console.log('Backend received isCustomWeight:', isCustomWeight, 'type:', typeof isCustomWeight);
 
   if (!userId) {
     return res.status(401).json({
@@ -29,7 +33,9 @@ exports.addToCart = async (req, res) => {
       sizeId: sizeId || null,
       DieNo: DieNo || null,
       weight: weight || null,
-      tunch: tunch || null
+      tunch: tunch || null,
+      totalWeight: totalWeight || null,
+      isCustomWeight: isCustomWeight || false
     });
 
     const cart = await Cart.getDetailedCart(userId);

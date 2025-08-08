@@ -55,6 +55,7 @@ async function sendEnquiryNotification(enquiryList) {
                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Design</th>
                     <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Die No.</th>
                     <th style="padding: 12px; border: 1px solid #ddd; text-align: center;">Quantity</th>
+                    <th style="padding: 12px; border: 1px solid #ddd; text-align: center;">Weight</th>
                     <th style="padding: 12px; border: 1px solid #ddd; text-align: center;">Tunch</th>
                 </tr>
             </thead>
@@ -62,8 +63,14 @@ async function sendEnquiryNotification(enquiryList) {
                 ${enquiryList.map(item => `
                     <tr>
                         <td style="padding: 12px; border: 1px solid #ddd;">${item.productName}</td>
-                        <td style="padding: 12px; border: 1px solid #ddd;">${item.dieNo}</td>
+                        <td style="padding: 12px; border: 1px solid #ddd;">${item.DieNo || item.dieNo || 'N/A'}</td>
                         <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
+                        <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">
+                            ${item.isCustomWeight 
+                                ? `<span style="color: #2563eb; font-weight: bold;">${item.weight}g</span><br><small style="color: #1d4ed8;">(Custom Weight)</small>` 
+                                : `${item.weight || item.size_weight || 'N/A'}g`
+                            }
+                        </td>
                         <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${item.tunch}%</td>
                     </tr>
                 `).join('')}
@@ -103,6 +110,7 @@ async function sendEnquiryNotification(enquiryList) {
 // Create a new enquiry and trigger the email notification
 exports.createEnquiry = async (req, res) => {
   try {
+    console.log('Raw req.body received:', req.body);
     const { enquiries, userID, items, productID } = req.body;
     let enquiriesToProcess = [];
     let cartId = null; // Initialize cartId
@@ -116,7 +124,11 @@ exports.createEnquiry = async (req, res) => {
       if (enquiries.length > 1) {
         cartId = uuidv4();
       }
-      enquiriesToProcess = enquiries.map(e => ({...e, cartId}));
+      console.log('Processing enquiries array:', enquiries);
+      enquiriesToProcess = enquiries.map(e => {
+        console.log('Individual enquiry before mapping:', e);
+        return {...e, cartId};
+      });
     } else if (productID && userID) {
       // This handles a single item enquiry from the product page
       enquiriesToProcess = [req.body];
@@ -126,14 +138,29 @@ exports.createEnquiry = async (req, res) => {
 
     const createdEnquiryIds = [];
     for (const enquiry of enquiriesToProcess) {
-      const { productID, userID: currentUserID, quantity, sizeID, tunch, cartId: currentCartId } = enquiry;
+      const { productID, userID: currentUserID, quantity, sizeID, tunch, cartId: currentCartId, weight, totalWeight, isCustomWeight, DieNo } = enquiry;
+
+      console.log('Processing enquiry with weight data:', {
+        productID, currentUserID, quantity, sizeID, tunch, weight, totalWeight, isCustomWeight, DieNo
+      });
 
       if (!productID || !currentUserID || !quantity || !sizeID) {
         console.warn("Skipping enquiry with missing fields:", enquiry);
         continue;
       }
 
-      const newEnquiry = await enquiryModel.create({ productID, userID: currentUserID, quantity, sizeID, tunch, cartId: currentCartId });
+      const newEnquiry = await enquiryModel.create({ 
+        productID, 
+        userID: currentUserID, 
+        quantity, 
+        sizeID, 
+        tunch, 
+        cartId: currentCartId,
+        weight,
+        totalWeight,
+        isCustomWeight,
+        DieNo
+      });
       createdEnquiryIds.push(newEnquiry.enquiryID);
     }
 

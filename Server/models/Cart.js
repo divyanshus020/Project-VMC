@@ -26,12 +26,39 @@ async function createCartTables() {
       weight VARCHAR(50) DEFAULT NULL,
       tunch DECIMAL(5,2) DEFAULT NULL,
       quantity INT NOT NULL DEFAULT 1,
+      totalWeight DECIMAL(10,3) DEFAULT NULL,
+      isCustomWeight BOOLEAN DEFAULT FALSE,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (cartId) REFERENCES carts(id) ON DELETE CASCADE,
       FOREIGN KEY (sizeId) REFERENCES sizes(id) ON DELETE SET NULL
     )
   `);
+
+  // Add missing columns to existing cart_items table if they don't exist
+  try {
+    await connection.execute(`
+      ALTER TABLE cart_items 
+      ADD COLUMN totalWeight DECIMAL(10,3) DEFAULT NULL
+    `);
+  } catch (err) {
+    // Column might already exist, ignore error
+    if (!err.message.includes('Duplicate column name')) {
+      console.log('Error adding totalWeight column:', err.message);
+    }
+  }
+
+  try {
+    await connection.execute(`
+      ALTER TABLE cart_items 
+      ADD COLUMN isCustomWeight BOOLEAN DEFAULT FALSE
+    `);
+  } catch (err) {
+    // Column might already exist, ignore error
+    if (!err.message.includes('Duplicate column name')) {
+      console.log('Error adding isCustomWeight column:', err.message);
+    }
+  }
 
   await connection.end();
 }
@@ -61,7 +88,7 @@ module.exports = {
   },
 
   async addItem(userId, item) {
-    const { productId, quantity, sizeId = null, DieNo = null, weight = null, tunch = null } = item;
+    const { productId, quantity, sizeId = null, DieNo = null, weight = null, tunch = null, totalWeight = null, isCustomWeight = false } = item;
     if (!productId || quantity <= 0) throw new Error('Invalid item data');
 
     const cart = await this.findOrCreateCart(userId);
@@ -77,15 +104,24 @@ module.exports = {
 
       if (rows.length > 0) {
         await connection.execute(
-          `UPDATE cart_items SET quantity = quantity + ? WHERE id = ?`,
-          [quantity, rows[0].id]
+          `UPDATE cart_items SET quantity = quantity + ?, totalWeight = ?, isCustomWeight = ? WHERE id = ?`,
+          [quantity, totalWeight, isCustomWeight, rows[0].id]
         );
       } else {
+        console.log('Inserting cart item with weight:', weight);
         await connection.execute(
-          `INSERT INTO cart_items (cartId, productId, sizeId, DieNo, weight, tunch, quantity) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [cart.id, productId, sizeId, DieNo, weight, tunch, quantity]
+          `INSERT INTO cart_items (cartId, productId, sizeId, DieNo, weight, tunch, quantity, totalWeight, isCustomWeight) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [cart.id, productId, sizeId, DieNo, weight, tunch, quantity, totalWeight, isCustomWeight]
         );
+        console.log('Inserted cart item successfully');
+        
+        // Check what was actually inserted
+        const [checkRows] = await connection.execute(
+          `SELECT * FROM cart_items WHERE cartId = ? ORDER BY id DESC LIMIT 1`,
+          [cart.id]
+        );
+        console.log('Just inserted cart item:', checkRows[0]);
       }
 
       return true;
@@ -125,6 +161,8 @@ module.exports = {
           ci.weight, 
           ci.tunch,
           ci.quantity,
+          ci.totalWeight,
+          ci.isCustomWeight,
           ci.createdAt,
           p.name AS productName, 
           p.imageUrl AS productImage,

@@ -196,11 +196,27 @@ const CartItem = ({
           <div className="flex items-center gap-2">
             <Weight className="w-4 h-4 text-emerald-600" />
             <span className="text-sm font-semibold text-gray-700">Unit Weight</span>
+            {item.isCustomWeight && (
+              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full border border-blue-200">
+                Custom
+              </span>
+            )}
           </div>
-          <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-200">
-            <span className="font-bold text-emerald-800">
+          <div className={`rounded-xl p-3 border ${
+            item.isCustomWeight 
+              ? 'bg-blue-50 border-blue-200' 
+              : 'bg-emerald-50 border-emerald-200'
+          }`}>
+            <span className={`font-bold ${
+              item.isCustomWeight ? 'text-blue-800' : 'text-emerald-800'
+            }`}>
               {item.weight ? `${item.weight} g` : 'N/A'}
             </span>
+            {item.isCustomWeight && (
+              <div className="text-xs text-blue-600 mt-1 font-medium">
+                User Selected Weight
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -213,9 +229,21 @@ const CartItem = ({
               <Weight className="w-5 h-5 text-blue-200" />
               <span className="font-semibold">Total Weight</span>
             </div>
-            <span className="text-2xl font-bold">
-              {item.weight ? `${(item.weight * item.quantity).toFixed(3)}g` : 'N/A'}
-            </span>
+            <div className="text-right">
+              <span className="text-2xl font-bold">
+                {item.isCustomWeight && item.totalWeight 
+                  ? `${parseFloat(item.totalWeight).toFixed(3)}g` 
+                  : item.weight 
+                    ? `${(item.weight * item.quantity).toFixed(3)}g` 
+                    : 'N/A'
+                }
+              </span>
+              {item.isCustomWeight && (
+                <div className="text-xs text-blue-200 mt-1">
+                  (user choice)
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

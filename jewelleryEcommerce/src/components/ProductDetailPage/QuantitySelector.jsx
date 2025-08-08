@@ -7,7 +7,9 @@ const QuantitySelector = ({
   setQuantityMode,
   customWeight,
   setCustomWeight,
-  selectedSize
+  selectedSize,
+  isCustomWeight,
+  setIsCustomWeight
 }) => {
   // Calculates the number of pieces from a target weight and the weight of a single piece.
   const calculateQuantityFromWeight = (targetWeight, pieceWeight) => {
@@ -29,6 +31,8 @@ const QuantitySelector = ({
     if (selectedSize?.weight) {
       const newWeight = calculateWeightFromQuantity(clampedQuantity, selectedSize.weight);
       setCustomWeight(newWeight);
+      // Clear custom weight flag since this is calculated from pieces
+      setIsCustomWeight(false);
     }
   };
 
@@ -36,27 +40,29 @@ const QuantitySelector = ({
   const handleWeightInputChange = (e) => {
     // Allow user to type freely, update the state to reflect input
     setCustomWeight(e.target.value);
+    // Mark as custom weight when user manually enters a value
+    setIsCustomWeight(true);
   };
 
   // Handles the "blur" event (when the user clicks away from the weight input).
-  // This is where the "snapping" logic happens.
+  // Weight input validation without affecting pieces count.
   const handleWeightInputBlur = () => {
     const targetWeight = parseFloat(customWeight);
-    if (isNaN(targetWeight) || targetWeight <= 0 || !selectedSize?.weight) {
-      // If input is invalid, reset to the weight of 1 piece
-      handleQuantityChange(1);
+    if (isNaN(targetWeight) || targetWeight <= 0) {
+      // If input is invalid, reset to current weight based on existing quantity
+      if (selectedSize?.weight) {
+        const currentWeight = calculateWeightFromQuantity(quantity, selectedSize.weight);
+        setCustomWeight(currentWeight);
+      } else {
+        setCustomWeight('0.000');
+      }
       return;
     }
 
-    // Calculate the quantity based on the nearest whole piece
-    const newQuantity = calculateQuantityFromWeight(targetWeight, selectedSize.weight);
-    
-    // Update the quantity state
-    setQuantity(newQuantity);
-    
-    // Update the weight to the "snapped" value that corresponds to the whole piece count
-    const snappedWeight = calculateWeightFromQuantity(newQuantity, selectedSize.weight);
-    setCustomWeight(snappedWeight);
+    // Keep the weight as entered by user - no automatic modification of pieces
+    // Format the weight to 3 decimal places for consistency
+    setCustomWeight(targetWeight.toFixed(3));
+    // Do NOT recalculate or update pieces when weight changes
   };
 
 
@@ -150,7 +156,7 @@ const QuantitySelector = ({
           </div>
           {selectedSize?.weight > 0 && (
             <p className="text-sm text-gray-600 mt-3 text-center">
-              Calculated pieces: <strong>{quantity}</strong>
+              Current pieces: <strong>{quantity}</strong>
             </p>
           )}
         </div>
@@ -166,8 +172,8 @@ const QuantitySelector = ({
             <p className="text-sm font-medium text-blue-900 mb-1">How it works:</p>
             <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
               <li>Select your preferred ordering method: by piece count or by total weight.</li>
-              <li>The other value will be calculated automatically based on the piece weight of <strong>{selectedSize?.weight || '0.000'}g</strong>.</li>
-              <li>Weight is rounded to the nearest whole piece. Minimum order is 1 piece.</li>
+              <li>When ordering by pieces, weight is calculated based on the piece weight of <strong>{selectedSize?.weight || '0.000'}g</strong>.</li>
+              <li>When ordering by weight, enter your desired weight directly. The pieces value will remain unchanged.</li>
             </ul>
           </div>
         </div>

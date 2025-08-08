@@ -12,17 +12,59 @@ async function getConnection() {
 async function createEnquiryTable() {
   const connection = await getConnection();
   try {
-    // First, check if the cartId column exists
-    const [columns] = await connection.execute(
+    // Check and add cartId column
+    const [cartIdColumns] = await connection.execute(
       `SHOW COLUMNS FROM enquiries LIKE 'cartId'`
     );
-
-    // If the column does not exist, add it
-    if (columns.length === 0) {
+    if (cartIdColumns.length === 0) {
         await connection.execute(
             `ALTER TABLE enquiries ADD COLUMN cartId VARCHAR(255) NULL DEFAULT NULL AFTER status`
         );
         console.log("✅ 'cartId' column added to 'enquiries' table.");
+    }
+
+    // Check and add weight column
+    const [weightColumns] = await connection.execute(
+      `SHOW COLUMNS FROM enquiries LIKE 'weight'`
+    );
+    if (weightColumns.length === 0) {
+        await connection.execute(
+            `ALTER TABLE enquiries ADD COLUMN weight VARCHAR(50) NULL DEFAULT NULL AFTER tunch`
+        );
+        console.log("✅ 'weight' column added to 'enquiries' table.");
+    }
+
+    // Check and add totalWeight column
+    const [totalWeightColumns] = await connection.execute(
+      `SHOW COLUMNS FROM enquiries LIKE 'totalWeight'`
+    );
+    if (totalWeightColumns.length === 0) {
+        await connection.execute(
+            `ALTER TABLE enquiries ADD COLUMN totalWeight DECIMAL(10,3) NULL DEFAULT NULL AFTER weight`
+        );
+        console.log("✅ 'totalWeight' column added to 'enquiries' table.");
+    }
+
+    // Check and add isCustomWeight column
+    const [isCustomWeightColumns] = await connection.execute(
+      `SHOW COLUMNS FROM enquiries LIKE 'isCustomWeight'`
+    );
+    if (isCustomWeightColumns.length === 0) {
+        await connection.execute(
+            `ALTER TABLE enquiries ADD COLUMN isCustomWeight BOOLEAN DEFAULT FALSE AFTER totalWeight`
+        );
+        console.log("✅ 'isCustomWeight' column added to 'enquiries' table.");
+    }
+
+    // Check and add DieNo column
+    const [dieNoColumns] = await connection.execute(
+      `SHOW COLUMNS FROM enquiries LIKE 'DieNo'`
+    );
+    if (dieNoColumns.length === 0) {
+        await connection.execute(
+            `ALTER TABLE enquiries ADD COLUMN DieNo VARCHAR(50) NULL DEFAULT NULL AFTER isCustomWeight`
+        );
+        console.log("✅ 'DieNo' column added to 'enquiries' table.");
     }
 
     // The rest of the table creation logic remains for initial setup
@@ -56,15 +98,15 @@ async function createEnquiryTable() {
 createEnquiryTable();
 
 module.exports = {
-  // Create a new enquiry, now including cartId
-  async create({ productID, userID, quantity, sizeID, tunch, cartId = null }) {
+  // Create a new enquiry with all fields including weight info
+  async create({ productID, userID, quantity, sizeID, tunch, cartId = null, weight = null, totalWeight = null, isCustomWeight = false, DieNo = null }) {
     const connection = await getConnection();
     try {
       const [result] = await connection.execute(
-        `INSERT INTO enquiries (productID, userID, quantity, sizeID, tunch, cartId) VALUES (?, ?, ?, ?, ?, ?)`,
-        [productID, userID, quantity, sizeID, tunch, cartId]
+        `INSERT INTO enquiries (productID, userID, quantity, sizeID, tunch, cartId, weight, totalWeight, isCustomWeight, DieNo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [productID, userID, quantity, sizeID, tunch, cartId, weight, totalWeight, isCustomWeight, DieNo]
       );
-      return { enquiryID: result.insertId, productID, userID, quantity, sizeID, tunch, cartId };
+      return { enquiryID: result.insertId, productID, userID, quantity, sizeID, tunch, cartId, weight, totalWeight, isCustomWeight, DieNo };
     } finally {
       if (connection && connection.end) {
         await connection.end();
@@ -80,7 +122,7 @@ module.exports = {
         SELECT 
           e.*, 
           p.name as productName, p.category, 
-          s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight,
+          s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight as size_weight,
           u.fullName, u.email, u.phoneNumber
         FROM enquiries e
         LEFT JOIN products p ON e.productID = p.id
@@ -104,7 +146,7 @@ module.exports = {
             SELECT 
               e.*, 
               p.name as productName, p.category, 
-              s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight,
+              s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight as size_weight,
               u.fullName, u.email, u.phoneNumber
             FROM enquiries e
             LEFT JOIN products p ON e.productID = p.id
@@ -130,8 +172,9 @@ module.exports = {
       const query = `
         SELECT
           e.enquiryID, e.productID, e.userID, e.quantity, e.sizeID, e.tunch, e.status, e.createdAt, e.updatedAt, e.cartId,
+          e.weight, e.totalWeight, e.isCustomWeight, e.DieNo,
           p.name as productName, p.category,
-          s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight,
+          s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight as size_weight,
           u.fullName, u.email, u.phoneNumber
         FROM enquiries e
         LEFT JOIN products p ON e.productID = p.id
@@ -194,7 +237,7 @@ module.exports = {
         `SELECT 
            e.*, 
            p.name as productName, p.category, 
-           s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight
+           s.dieNo, s.diameter, s.ballGauge, s.wireGauge, s.weight as size_weight
          FROM enquiries e
          LEFT JOIN products p ON e.productID = p.id
          LEFT JOIN sizes s ON e.sizeID = s.id
