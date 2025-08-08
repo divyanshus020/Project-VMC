@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, TextField, Button, Typography, CircularProgress, Link
 } from '@mui/material';
@@ -16,6 +16,7 @@ const LoginForm = () => {
 
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const recaptchaRef = useRef(null);
 
   // Shared state
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -30,7 +31,7 @@ const LoginForm = () => {
   const [password, setPassword] = useState('');
   const [passwordCaptchaVerified, setPasswordCaptchaVerified] = useState(false);
 
-  // Restore OTP session state
+  // Restore OTP session state on initial component load
   useEffect(() => {
     const storedPhone = sessionStorage.getItem('loginPhoneNumber');
     const otpWasSent = sessionStorage.getItem('loginOtpSent') === 'true';
@@ -53,7 +54,37 @@ const LoginForm = () => {
     return () => clearInterval(interval);
   }, [timer]);
 
-  // Handle CAPTCHA
+  // Clears OTP session data from storage
+  const clearSessionState = () => {
+    sessionStorage.removeItem('loginPhoneNumber');
+    sessionStorage.removeItem('loginOtpSent');
+    sessionStorage.removeItem('loginTimerEndsAt');
+  };
+
+  /**
+   * Resets the entire OTP flow, clearing state and forcing re-verification.
+   */
+  const resetOtpFlow = () => {
+    setOtpSent(false);
+    setOtp('');
+    setCaptchaToken(null);
+    setTimer(0);
+    clearSessionState();
+    recaptchaRef.current?.reset(); // Visually reset the CAPTCHA
+  };
+
+  /**
+   * Handles changes to the phone number input.
+   * If the user edits the number after an OTP has been sent, it resets the OTP flow.
+   */
+  const handlePhoneNumberChange = (newNumber) => {
+    setPhoneNumber(newNumber);
+    if (otpSent) {
+      resetOtpFlow();
+    }
+  };
+
+  // Handle CAPTCHA token changes
   const handleCaptchaChange = (token, type = 'otp') => {
     if (type === 'otp') {
       setCaptchaToken(token);
@@ -96,12 +127,6 @@ const LoginForm = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const clearSessionState = () => {
-    sessionStorage.removeItem('loginPhoneNumber');
-    sessionStorage.removeItem('loginOtpSent');
-    sessionStorage.removeItem('loginTimerEndsAt');
   };
 
   // Verify OTP
@@ -164,17 +189,20 @@ const LoginForm = () => {
         fullWidth
         label="Phone Number"
         value={phoneNumber}
-        onChange={(e) => setPhoneNumber(e.target.value)}
+        onChange={(e) => handlePhoneNumberChange(e.target.value)}
         variant="outlined"
         margin="normal"
-        disabled={otpSent}
       />
 
       {!otpSent ? (
         <>
           {phoneNumber.trim() && (
             <Box mt={2}>
-              <ReCAPTCHA sitekey={RECAPTCHA_SITE_KEY} onChange={(token) => handleCaptchaChange(token, 'otp')} />
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={RECAPTCHA_SITE_KEY}
+                onChange={(token) => handleCaptchaChange(token, 'otp')}
+              />
             </Box>
           )}
           <Button
@@ -212,7 +240,7 @@ const LoginForm = () => {
               ⏳ Resend OTP in {timer}s
             </Typography>
           ) : (
-            <Button onClick={handleSendOtp} fullWidth variant="outlined" sx={{ mt: 2 }} disabled={loading}>
+            <Button onClick={resetOtpFlow} fullWidth variant="outlined" sx={{ mt: 2 }} disabled={loading}>
               Resend OTP
             </Button>
           )}
@@ -233,7 +261,6 @@ const LoginForm = () => {
         Login with Password
       </Typography>
 
-      {/* Phone Number */}
       <TextField
         fullWidth
         label="Phone Number"
@@ -247,14 +274,12 @@ const LoginForm = () => {
         margin="normal"
       />
 
-      {/* CAPTCHA before showing password */}
       {phoneNumber.trim() && !passwordCaptchaVerified && (
         <Box mt={2}>
           <ReCAPTCHA sitekey={RECAPTCHA_SITE_KEY} onChange={(token) => handleCaptchaChange(token, 'password')} />
         </Box>
       )}
 
-      {/* Show password input after CAPTCHA */}
       {passwordCaptchaVerified && (
         <>
           <TextField

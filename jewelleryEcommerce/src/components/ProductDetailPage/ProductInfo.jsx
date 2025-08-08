@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { addToCart, createEnquiry } from '../../lib/api';
 import { jwtDecode } from 'jwt-decode';
-import {  toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import SizeSelector from './SizeSelector';
@@ -25,6 +25,32 @@ const ProductInfo = ({ product }) => {
   // State to manage loading indicators for buttons
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isEnquiring, setIsEnquiring] = useState(false);
+
+  /**
+   * EFFECT: Preserves Custom Weight on Size Change.
+   * This effect runs when the user selects a new size. It ensures that if the user
+   * had previously entered a custom weight, that weight is respected and the
+   * estimated piece count is recalculated accordingly.
+   */
+  useEffect(() => {
+    const userHasEnteredCustomWeight = quantityMode === 'weight' && parseFloat(customWeight) > 0;
+    
+    // Only proceed if a size is selected and the user is in 'weight' mode with a valid weight.
+    if (selectedSize && userHasEnteredCustomWeight) {
+      // Get the weight of a single piece for the NEWLY selected size.
+      const singlePieceWeight = selectedSize.weight || selectedSize.Weight || selectedSize.weight_g;
+
+      if (singlePieceWeight > 0) {
+        // Recalculate the estimated number of pieces based on the PRESERVED custom weight.
+        const newEstimatedPieces = Math.round(parseFloat(customWeight) / singlePieceWeight);
+        
+        // Update the displayed piece count to reflect the new estimate, ensuring it's at least 1.
+        setQuantity(Math.max(1, newEstimatedPieces));
+      }
+    }
+    // If not in 'weight' mode, we do nothing. The component's default behavior of showing
+    // weight based on piece count and size is maintained.
+  }, [selectedSize]); // Dependency array ensures this runs ONLY when `selectedSize` changes.
 
   /**
    * Robustly retrieves the user ID from the JWT token stored in localStorage.
@@ -95,6 +121,7 @@ const ProductInfo = ({ product }) => {
       return;
     }
 
+    // This logic is now correct because the underlying state is preserved by the useEffect hook.
     const cartData = {
       productId: product.id,
       sizeId: selectedSize.id || selectedSize.sizeId,
@@ -107,10 +134,6 @@ const ProductInfo = ({ product }) => {
     };
 
     console.log('Cart Data being sent:', cartData);
-    console.log('quantityMode:', quantityMode);
-    console.log('customWeight:', customWeight);
-    console.log('weight from selectedSize:', weight);
-    console.log('isCustomWeight should be:', quantityMode === 'weight');
 
     setIsAddingToCart(true);
     const toastId = toast.loading("Adding item to cart...");
@@ -165,26 +188,23 @@ const ProductInfo = ({ product }) => {
     const enquiryData = {
       productID: product.id,
       userID: userId,
-      quantity: quantityMode === 'weight' ? quantity : Number(quantity),
+      // In weight mode, the quantity is the estimated piece count.
+      quantity: quantity, 
       sizeID: selectedSize.id || selectedSize.sizeId,
       tunch: finalTunch,
+      // It might be useful to also send the custom weight in the enquiry
+      ...(quantityMode === 'weight' && { customWeight: parseFloat(customWeight) }),
     };
 
     setIsEnquiring(true);
     const toastId = toast.loading("Submitting your enquiry...");
-    
 
     try {
-      // **FIXED**: Wrap the single enquiry object in the format the backend expects.
-      // The backend is flexible, but this ensures consistency.
       const payload = { enquiries: [enquiryData] };
       const response = await createEnquiry(payload, token);
 
       if (response.success) {
-        // toast.update(toastId, { render: "Enquiry submitted successfully!", type: "success", isLoading: false, autoClose: 3000 });
-        toast.success(toastId, "Enquiry submitted successfully!", {
-          CloseOnClick: true
-        })
+        toast.update(toastId, { render: "Enquiry submitted successfully!", type: "success", isLoading: false, autoClose: 3000 });
       } else {
         throw new Error(response.error || 'Failed to submit enquiry');
       }
@@ -234,25 +254,24 @@ const ProductInfo = ({ product }) => {
         tunchValue={tunchValue}
         customTunch={customTunch}
       />
-       <TunchSelector
+      <TunchSelector
         tunchValue={tunchValue}
         setTunchValue={setTunchValue}
         customTunch={customTunch}
         setCustomTunch={setCustomTunch}
       />
       <QuantitySelector
-      quantity={quantity}
-      setQuantity={setQuantity}
-      quantityMode={quantityMode}
-      setQuantityMode={setQuantityMode}
-      customWeight={customWeight}
-      setCustomWeight={setCustomWeight}
-      selectedSize={selectedSize}
+        quantity={quantity}
+        setQuantity={setQuantity}
+        quantityMode={quantityMode}
+        setQuantityMode={setQuantityMode}
+        customWeight={customWeight}
+        setCustomWeight={setCustomWeight}
+        selectedSize={selectedSize}
         isCustomWeight={isCustomWeight}
         setIsCustomWeight={setIsCustomWeight}
       />
-     
-
+      
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 pt-6">
         <button
